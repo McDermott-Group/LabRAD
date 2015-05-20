@@ -1,5 +1,5 @@
 # McDermott-Group
-This repository will hold much of the software used and/or created by the McDermott Lab at UW Madison (Physics).
+This repository will hold much of the software used and/or created by the McDermott Lab at UW Madison (Physics).  Proper credit should go to those in the Martinis group at UCSB for their development of LabRAD, which forms the base of much of our code here.  Indeed, many of these files were taken directly from their code, and sometimes edited slightly to fit our needs.
 
 INSTALLATION:
 
