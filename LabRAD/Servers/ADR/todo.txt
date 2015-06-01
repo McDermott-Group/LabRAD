@@ -1,0 +1,14 @@
+TODO LIST
++ figure out how to open everything using the node stuff
+- figure out fridge settings
+- create the rest of the instruments so we can run this on other fridges
+- make repository
+- GGG temp monitoring
+- do we want to have a recording checkbox with a time interval?
+- select between ADRs/contexts
+- try running some of this from dif computers
++ errors not handled nice if instruments are not connected (NoDevicesAvailableError)
+
+QUESTIONS
++ how can I access the LABRADNODE env variable any time? THISLABRAD should be deleted
+- why does the refreshing on a gpib added message not work?
