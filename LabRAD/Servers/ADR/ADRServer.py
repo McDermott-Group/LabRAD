@@ -256,7 +256,7 @@ class ADRServer(DeviceServer):
                 newTemps = [self.state[t] for t in ['T_60K','T_3K','T_GGG','T_FAA']]
                 f.write( struct.pack('d', mpl.dates.date2num(self.state['datetime'])) )
                 [f.write(struct.pack('d', temp)) for temp in newTemps]
-                #f.write(str(self.state['datetime']) + '\t' + '\t'.join(map(str,newTemps))+'\n')
+                #f.write(str(self.state['datetime']) + '\t' + '\t'.join(map(str,newTemps)))
             cycleLength = deltaT(datetime.datetime.now() - cycleStartTime)
             self.client.manager.send_named_message('State Changed', 'state changed')
             #self.stateChanged('state changed')
@@ -264,7 +264,7 @@ class ADRServer(DeviceServer):
     def _cancelMagUp(self):
         """Cancels the mag up loop."""
         self.state['maggingUp'] = False
-        self.logMessage( 'Magging up stopped at a current of '+str(self.state['PSCurrent'])+' Amps.\n' )
+        self.logMessage( 'Magging up stopped at a current of '+str(self.state['PSCurrent'])+' Amps.' )
         #self.magUpStopped('cancel') #signal
         self.client.manager.send_named_message('MagUp Stopped', 'cancel')
     @inlineCallbacks
@@ -283,11 +283,11 @@ class ADRServer(DeviceServer):
         deviceNames = ['Power Supply','Magnet Voltage Monitor']
         deviceStatus = [self.state[instr] for instr in ('PSConnected','MagnetVMonitorConnected')]
         if False in deviceStatus:
-            message = 'Cannot mag up: At least one of the essential devices is not connected.  Connections: %s\n'%str([deviceNames[i]+':'+str(deviceStatus[i]) for i in range(len(deviceNames))])
+            message = 'Cannot mag up: At least one of the essential devices is not connected.  Connections: %s'%str([deviceNames[i]+':'+str(deviceStatus[i]) for i in range(len(deviceNames))])
             self.logMessage(message, alert=True)
             return
         self.client.manager.send_named_message('MagUp Started', 'start')
-        self.logMessage('Beginning to mag up to '+str(self.ADRSettings['current_limit'])+' Amps.\n')
+        self.logMessage('Beginning to mag up to '+str(self.ADRSettings['current_limit'])+' Amps.')
         self.state['maggingUp'] = True
         while self.state['maggingUp']:
             startTime = datetime.datetime.now()
@@ -305,13 +305,13 @@ class ADRServer(DeviceServer):
                 cycleLength = deltaT(datetime.datetime.now() - startTime)
                 yield util.wakeupCall( max(0,self.ADRSettings['step_length']-cycleLength) )
             else:
-                self.logMessage( 'Finished magging up. '+str(self.state['PSCurrent'])+' Amps reached.\n' )
+                self.logMessage( 'Finished magging up. '+str(self.state['PSCurrent'])+' Amps reached.' )
                 self.state['maggingUp'] = False
                 self.client.manager.send_named_message('MagUp Stopped', 'done')
     def _cancelRegulate(self):
         """Cancels the PID regulation loop."""
         self.state['regulating'] = False
-        self.logMessage( 'PID Control stopped at a current of '+str(self.state['PSCurrent'])+' Amps.\n' )
+        self.logMessage( 'PID Control stopped at a current of '+str(self.state['PSCurrent'])+' Amps.' )
         #self.regulationStopped('cancel')
         self.client.manager.send_named_message('Regulation Stopped', 'cancel')
     @inlineCallbacks
@@ -329,11 +329,11 @@ class ADRServer(DeviceServer):
         deviceNames = ['Power Supply','Diode Temp Monitor','Ruox Temp Monitor','Magnet Voltage Monitor']
         deviceStatus = [self.state[instr] for instr in ('PSConnected','DiodeTempMonitorConnected','RuoxTempMonitorConnected','MagnetVMonitorConnected')]
         if False in deviceStatus:
-            message = 'Cannot regulate: At least one of the essential devices is not connected.  Connections: %s\n'%str([deviceNames[i]+':'+str(deviceStatus[i]) for i in range(len(deviceNames))])
+            message = 'Cannot regulate: At least one of the essential devices is not connected.  Connections: %s'%str([deviceNames[i]+':'+str(deviceStatus[i]) for i in range(len(deviceNames))])
             self.logMessage(message, alert=True)
             return
         self.client.manager.send_named_message('Regulation Started', 'start')
-        self.logMessage( 'Starting regulation to '+str(self.state['regulationTemp'])+'K from '+str(self.state['PSCurrent'])+' Amps.\n' )
+        self.logMessage( 'Starting regulation to '+str(self.state['regulationTemp'])+'K from '+str(self.state['PSCurrent'])+' Amps.' )
         self.state['regulating'] = True
         print 'beginning regulation'
         print 'V\tbackEMF\tdV/dT\tdV'
@@ -341,7 +341,7 @@ class ADRServer(DeviceServer):
             startTime = datetime.datetime.now()
             dI = self.state['PSCurrent'] - self.lastState['PSCurrent']
             if self.state['T_FAA'] is numpy.nan: 
-                self.logMessage( 'FAA temp is not valid.  Regulation cannot continue.\n' )
+                self.logMessage( 'FAA temp is not valid.  Regulation cannot continue.' )
                 self._cancelRegulate()
             print str(self.state['PSVoltage'])+'\t'+str(self.state['magnetV'])+'\t',
             #propose new voltage
@@ -384,7 +384,7 @@ class ADRServer(DeviceServer):
             cycleTime = deltaT(datetime.datetime.now() - startTime)
             if runCycleAgain: yield util.wakeupCall( max(0,self.ADRSettings['step_length']-cycleTime) )
             else:
-                self.logMessage( 'Regulation has completed. Mag up and try again.\n' )
+                self.logMessage( 'Regulation has completed. Mag up and try again.' )
                 self.state['regulating'] = False
                 #self.regulationStopped('done') #signal
                 self.client.manager.send_named_message('Regulation Stopped', 'done')

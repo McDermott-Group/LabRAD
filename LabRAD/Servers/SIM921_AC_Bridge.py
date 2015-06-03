@@ -44,9 +44,9 @@ class SIM921Server(GPIBManagedServer):
     def getTimeConstant(self, c):
         """Get the time constant (in ms) currently set for the AC Res Bridge."""
         dev = self.selectedDevice(c)
-        timeConstCodes = {'-1':'filter off', '0':0.3, '1':1, '2':3, '3':10, '4':30, '5':100, '6':300}
+        timeConstCodes = {-1:'filter off', 0:0.3, 1:1, 2:3, 3:10, 4:30, 5:100, 6:300}
         returnCode = yield dev.query("TCON?")
-        t = timeConstCodes[returnCode.strip('\x00')]
+        t = timeConstCodes[int(returnCode)]
         returnValue(t)
 
     @setting(102, 'Get Ruox Temperature', returns=['v[K]'])

@@ -40,7 +40,7 @@
 #
 # changed all self.devices to self.mydevices to avoid inheritence problems
 # between this and labrad.gpib.  Altered the visa parts to work for py26 or
-# py27.
+# py27 (and different visa versions).
 
 from labrad.server import LabradServer, setting
 from twisted.internet.defer import inlineCallbacks, returnValue
@@ -51,7 +51,11 @@ import sys
 if sys.version_info >= (2,7): py27,py26 = True,False #python2.7
 else: py27,py26 = False,True #python2.6
 import visa
-if py26: from visa import vpp43
+try:
+    if float(visa.__version__) < 1.6: v15,v17= True,False
+    else: v15,v17 = False,True
+    if v15: from visa import vpp43
+except Exception as e: v15,v17= True,False
 
 """
 ### BEGIN NODE INFO
@@ -109,9 +113,9 @@ class GPIBBusServer(LabradServer):
         Currently supported are GPIB devices and GPIB over USB.
         """
         try:
-            if py27: #python2.7
+            if v17: #python2.7
                 self.rm = visa.ResourceManager()
-                addresses = self.rm.list_resources()
+                addresses = [str(a) for a in self.rm.list_resources()] # str() because labrad.types can't deal with unicode strings
             else: addresses = visa.get_instruments_list() #python2.6
             #try:
             #    sockets = self.getSocketsList()
@@ -130,7 +134,7 @@ class GPIBBusServer(LabradServer):
                         instName = addr + '::INSTR'
                     else:
                         continue
-                    if py27: instr = self.rm.open_instrument(instName, open_timeout=1.0, term_chars='')#python2.7
+                    if v17: instr = self.rm.open_resource(instName, open_timeout=1.0)#python2.7
                     else: instr = visa.instrument(instName, timeout=1.0, term_chars='') #python2.6
                     instr.clear()
                     if addr.endswith('SOCKET'):
@@ -154,7 +158,7 @@ class GPIBBusServer(LabradServer):
         """
         # Phase I: Get all standard resource names (no aliases here)
         resource_names = []
-        if py27: resource_names.extend( self.rm.list_resources() )
+        if v17: resource_names.extend( self.rm.list_resources() )
         else: 
             find_list, return_counter, instrument_description = vpp43.find_resources(visa.resource_manager.session, "?*::SOCKET")
             resource_names.append(instrument_description)
@@ -191,7 +195,7 @@ class GPIBBusServer(LabradServer):
     def timeout(self, c, time=None):
         """Get or set the GPIB timeout."""
         if time is not None:
-            c['timeout'] = time
+            c['timeout'] = time['ms']
         return c['timeout'] 
 
     @setting(23, data='s', returns='')
@@ -210,9 +214,9 @@ class GPIBBusServer(LabradServer):
         if bytes is None:
             ans = instr.read()
         else:
-            if py27: ans = visa.read(instr.vi, bytes)
+            if v17: ans = visa.read(instr.vi, bytes)
             else: ans = vpp43.read(instr.vi, bytes)
-        return ans
+        return str(ans)
 
     @setting(25, data='s', returns='s')
     def query(self, c, data):

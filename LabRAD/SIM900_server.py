@@ -42,6 +42,11 @@ import sys, types
 
 if sys.version_info >= (2,7): py27,py26 = True,False #python2.7
 else: py27,py26 = False,True #python2.6
+try:
+    if float(visa.__version__) < 1.6: v15,v17= True,False
+    else: v15,v17 = False,True
+    if v15: from visa import vpp43
+except Exception as e: v15,v17= True,False
 
 # These are the new functions that will be used for the visa instruments to connect to the appropriate slots
 def setSlot(self,i):
@@ -121,7 +126,7 @@ class SIM900Server(GPIBBusServer,GPIBManagedServer):#,object):
                     instName = addr.split(' - ')[-1].rsplit('::',2)[0]
                     if py27: 
                         rm = visa.ResourceManager()
-                        instr = rm.open_instrument(instName, open_timeout=1.0, term_chars='')#python2.7
+                        instr = rm.open_resource(instName, open_timeout=1.0)#python2.7
                     else: instr = visa.instrument(instName, timeout=1.0, term_chars='')
                     #change the read, write, ask settings to automatically go to right module in SIM rack
                     instr.oldRead, instr.oldWrite, instr.oldAsk = instr.read, instr.write, instr.ask
