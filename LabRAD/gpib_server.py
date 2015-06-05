@@ -43,9 +43,11 @@
 # py27 (and different visa versions).
 
 from labrad.server import LabradServer, setting
-from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.defer import inlineCallbacks
 from twisted.internet.reactor import callLater
-from twisted.internet.task import LoopingCall
+from labrad.errors import DeviceNotSelectedError
+#from twisted.internet.task import LoopingCall
+import labrad.units as units
 
 import sys
 if sys.version_info >= (2,7): py27,py26 = True,False #python2.7
@@ -80,7 +82,7 @@ class GPIBBusServer(LabradServer):
     name = '%LABRADNODE% GPIB Bus'
 
     refreshInterval = 10
-    defaultTimeout = 1.0
+    defaultTimeout = 1.0*units.s
 
     def initServer(self):
         self.mydevices = {}
@@ -99,14 +101,14 @@ class GPIBBusServer(LabradServer):
         #self.refresher = LoopingCall(self.refreshDevices)
         #self.refresherDone = self.refresher.start(self.refreshInterval, now=True)
         self.refreshDevices()
-        
+
     @inlineCallbacks
     def stopServer(self):
         """Kill the device refresh loop and wait for it to terminate."""
         if hasattr(self, 'refresher'):
             self.refresher.stop()
             yield self.refresherDone
-        
+
     def refreshDevices(self):
         """Refresh the list of known devices on this bus.
 
@@ -134,11 +136,14 @@ class GPIBBusServer(LabradServer):
                         instName = addr + '::INSTR'
                     else:
                         continue
-                    if v17: instr = self.rm.open_resource(instName, open_timeout=1.0)#python2.7
+                    if v17: 
+                        instr = self.rm.open_resource(instName, open_timeout=1.0)#python2.7
+                        instr.write_termination = ''
                     else: instr = visa.instrument(instName, timeout=1.0, term_chars='') #python2.6
                     instr.clear()
                     if addr.endswith('SOCKET'):
-                        instr.term_chars = '\n'
+                        if v17: instr.write_termination = ''
+                        else: instr.term_chars = '\n'
                     self.mydevices[addr] = instr
                     self.sendDeviceMessage('GPIB Device Connect', addr)
                 except Exception, e:
@@ -148,7 +153,7 @@ class GPIBBusServer(LabradServer):
                 self.sendDeviceMessage('GPIB Device Disconnect', addr)
         except Exception, e:
             print 'Problem while refreshing devices:', str(e)
-		
+
     def getSocketsList(self):
         """Get a list of all connected devices.
 
@@ -165,21 +170,23 @@ class GPIBBusServer(LabradServer):
             for i in xrange(return_counter - 1):
                 resource_names.append(vpp43.find_next(find_list))
         return resource_names
-            
+
     def sendDeviceMessage(self, msg, addr):
         print msg + ': ' + addr
         self.client.manager.send_named_message(msg, (self.name, addr))
-            
+
     def initContext(self, c):
         c['timeout'] = self.defaultTimeout
 
     def getDevice(self, c):
+        if 'addr' not in c:
+            raise DeviceNotSelectedError("No GPIB address selected")
         if c['addr'] not in self.mydevices:
             raise Exception('Could not find device ' + c['addr'])
         instr = self.mydevices[c['addr']]
-        instr.timeout = c['timeout']
+        instr.timeout = c['timeout']['ms']
         return instr
-        
+
     @setting(20, addr='s', returns='s')
     def address(self, c, addr=None):
         """Get or set the GPIB address for this context.
@@ -195,7 +202,7 @@ class GPIBBusServer(LabradServer):
     def timeout(self, c, time=None):
         """Get or set the GPIB timeout."""
         if time is not None:
-            c['timeout'] = time['ms']
+            c['timeout'] = time
         return c['timeout'] 
 
     @setting(23, data='s', returns='')
@@ -228,7 +235,7 @@ class GPIBBusServer(LabradServer):
         instr = self.getDevice(c)
         instr.write(data)
         ans = instr.read()
-        return ans
+        return str(ans)
 
     @setting(19, returns='*s')
     def list_my_devices(self, c):

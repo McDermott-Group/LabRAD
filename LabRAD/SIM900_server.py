@@ -84,17 +84,15 @@ class SIM900Server(GPIBBusServer,GPIBManagedServer):#,object):
         """Provides direct access to GPIB-enabled devices in a SIM900 mainframe."""
         GPIBManagedServer.initServer(self)
         GPIBBusServer.initServer(self)
-        #subscribe to messages
-        # connect_func = lambda c, (s, payload): self.refreshDevices()
-        # disconnect_func = lambda c, (s, payload): self.refreshDevices()
-        # mgr = self.client.manager
-        # self._cxn.addListener(connect_func, source=mgr.ID, ID=10)
-        # self._cxn.addListener(disconnect_func, source=mgr.ID, ID=11)
-        # yield mgr.subscribe_to_named_message('GPIB Device Connect', 10, True)
-        # yield mgr.subscribe_to_named_message('GPIB Device Disconnect', 11, True)
         p = yield self.client.gpib_device_manager.packet()
         p.register_ident_function( 'custom_ident_function' ) #['custom_ident_function',210] )
         result = yield p.send()
+    
+    @inlineCallbacks
+    def handleDeviceMessage(self,*args):
+        oldDevices = self.devices.copy()
+        yield GPIBManagedServer.handleDeviceMessage(self,*args)
+        if self.devices != oldDevices: self.refreshDevices()
         
     @inlineCallbacks
     def refreshDevices(self):

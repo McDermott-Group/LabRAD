@@ -47,7 +47,8 @@ class AgilentPSServer(GPIBManagedServer):
             resp = yield dev.query('OUTP?')
             os = bool(int(resp))
         else:
-            yield dev.write('OUTP %d' % int(os))
+            print 'OUTP %i' % int(os)
+            yield dev.write('OUTP %i' % int(os))
         returnValue(os)
 
     @setting(10001, 'Current', cur=['v[A]'], returns=['v[A]'])
@@ -111,7 +112,7 @@ class AgilentPSServer(GPIBManagedServer):
                 self.reset(c)
                 self.current(c,currentLimit)
                 self.voltage(c,0*units.V)
-                self.output_state(c,1)
+                self.output_state(c,True)
             elif state == 'CV Mode':
                 message = 'Starting in CV Mode. Setting Current to '+str(currentLimit)+' Amps.\n'
                 #self.log.log(message)
