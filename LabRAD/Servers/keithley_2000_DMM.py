@@ -16,7 +16,7 @@
 """
 ### BEGIN NODE INFO
 [info]
-name = Keithley 2100 DMM
+name = Keithley 2000 DMM
 version = 1.0
 description = 
   
@@ -48,17 +48,20 @@ class KeithleyWrapper(GPIBDeviceWrapper):
         returnValue(self.dcVolts*units.V)
   
 class KeithleyServer(GPIBManagedServer):
-    name = 'Keithley 2100 DMM' # Server name
-    deviceName = 'KEITHLEY INSTRUMENTS INC. MODEL 2100' # Model string returned from *IDN?
+    name = 'Keithley 2000 DMM' # Server name
+    deviceName = 'KEITHLEY INSTRUMENTS INC. MODEL 2000'
+    # deviceName = 'KEITHLEY INSTRUMENTS INC. MODEL 2100'# Model string returned from *IDN?
     deviceWrapper = KeithleyWrapper
   
     @setting(10, 'DC Voltage')
     def dcVolts(self, c):
+        """Returns voltage last recorded, but does not aquire again."""
         dev = self.selectedDevice(c)
         return dev.dcVolts
   
     @setting(11, 'Get DC Volts', returns = 'v')
     def getdcVolts(self, c):
+        """Aquires new value for DC Voltage and returns it."""
         dev = self.selectedDevice(c)
         voltage = yield dev.getdcVolts()
         returnValue(voltage)

@@ -42,13 +42,14 @@ from labrad import units
 class Lakeshore218Wrapper(GPIBDeviceWrapper):
   
     @inlineCallbacks
-    def getTemp(self, channel=0, units='K'):
-		units = units.upper()
-		if units not in ['K','C','S','L']:
-			raise Exception('Not a valid unit!')
-        resp = yield self.query(units+'RDG?'+channel)
-		if units=='K': temp = float(temp)*units.K
-		elif units=='C': temp = float(temp)*units.C
+    def getTemp(self, channel=0, unit='K'):
+        unit = unit.upper()
+        if unit not in ['K','C','S','L']:
+            raise Exception('Not a valid unit!')
+        resp = yield self.query(unit+'RDG?%i'%channel)
+        if unit=='K': temp = [float(t)*units.K for t in resp.split(',')]
+        elif unit=='C': temp = [float(t)*units.C for t in resp.split(',')]
+        else: temp = resp
         returnValue(temp)
   
 class Lakeshore218Server(GPIBManagedServer):
@@ -56,19 +57,19 @@ class Lakeshore218Server(GPIBManagedServer):
     deviceName = 'LSCI MODEL218S' # Model string returned from *IDN?
     deviceWrapper = Lakeshore218Wrapper
   
-    @setting(11, 'Get Temperature', channel='v',units='v',returns = '?')
-    def getTemp(self, c, channel=0,units='K'):
-		"""Returns the temperatures for a given channel (or a list of all channels if channel=0) in the specified units (K,C,Linear,System)."""
+    @setting(11, 'Get Temperature', channel='v',unit='v',returns = '?')
+    def getTemp(self, c, channel=0,unit='K'):
+        """Returns the temperatures for a given channel (or a list of all channels if channel=0) in the specified units (K,C,Linear,System)."""
         dev = self.selectedDevice(c)
-        temp = yield dev.getTemp(channel,units)
+        temp = yield dev.getTemp(channel,unit)
         returnValue(temp)
-	
-	@setting(12, 'Get Diode Temperatures', returns=['*v[K]'])
+    
+    @setting(12, 'Get Diode Temperatures', returns=['*v[K]'])
     def getDiodeTemperatures(self, c):
-		"""Get the temperatures of the Si Diode Thermometers."""
-		# need to deal properly with which channels to read out for each fridge.
-		reg = self.client.registry
-		
+        """Get the temperatures of the Si Diode Thermometers."""
+        # need to deal properly with which channels to read out for each fridge.
+        reg = self.client.registry
+        
   
 __server__ = Lakeshore218Server()
   
