@@ -34,6 +34,7 @@ from labrad.server import setting
 from labrad.gpib import GPIBManagedServer, GPIBDeviceWrapper
 from twisted.internet.defer import inlineCallbacks, returnValue
 from labrad import units
+import math
   
 class KeithleyWrapper(GPIBDeviceWrapper):
     @inlineCallbacks
@@ -44,7 +45,8 @@ class KeithleyWrapper(GPIBDeviceWrapper):
   
     @inlineCallbacks
     def getdcVolts(self):
-        self.dcVolts = yield self.query('MEAS:VOLT:DC?').addCallback(float)
+        resp = yield self.query('MEAS:VOLT:DC?')
+        self.dcVolts = float(resp.split(',')[0].strip('ABCDEFGHIJKLMNOPQRSTUVWXYZ'))
         returnValue(self.dcVolts*units.V)
   
 class KeithleyServer(GPIBManagedServer):
@@ -65,6 +67,23 @@ class KeithleyServer(GPIBManagedServer):
         dev = self.selectedDevice(c)
         voltage = yield dev.getdcVolts()
         returnValue(voltage)
+        
+    @setting(12, 'Get Ruox Temperature', returns=['v[K]'])
+    def getRuoxTemperature(self, c):
+        """Get the temperatures of the Ruox Thermometer for the ADR fridge.  All RuOx readers of every kind must have this method to work with the ADR control program."""
+        reg = self.client.registry
+        reg.cd(c['adr settings path'])
+        RCal = yield reg.get('RCal')
+        dev = self.selectedDevice(c)
+        V = yield dev.getdcVolts()
+        R = RCal*1000*V['V']
+        try: T = pow((2.85/math.log((R-652)/100)),4)*units.K
+        except ValueError: T = numpy.nan*units.K
+        returnValue(T)
+    
+    @setting(15,'Set ADR Settings Path',path=['*s'])
+    def set_adr_settings_path(self,c,path):
+        c['adr settings path'] = path
   
 __server__ = KeithleyServer()
   

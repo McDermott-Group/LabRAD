@@ -34,21 +34,21 @@ from labrad.server import setting
 from labrad.gpib import GPIBManagedServer, GPIBDeviceWrapper
 from twisted.internet.defer import inlineCallbacks, returnValue
 from labrad import units
- 
-# command: type#
-# type = K:'KRDG?', C: 'CRDG?', sensor units: 'SRDG?', linear data:'LRDG?'
-# # = channel from which to read, 0 for all
 
 class Lakeshore218Wrapper(GPIBDeviceWrapper):
   
     @inlineCallbacks
     def getTemp(self, channel=0, unit='K'):
+        # command: type#
+        # type = K:'KRDG?', C: 'CRDG?', sensor units: 'SRDG?', linear data:'LRDG?'
+        # # = channel from which to read, 0 for all
         unit = unit.upper()
         if unit not in ['K','C','S','L']:
             raise Exception('Not a valid unit!')
         resp = yield self.query(unit+'RDG?%i'%channel)
         if unit=='K': temp = [float(t)*units.K for t in resp.split(',')]
         elif unit=='C': temp = [float(t)*units.C for t in resp.split(',')]
+        elif unit=='S': temp = [float(t)*units.V for t in resp.split(',')]
         else: temp = resp
         returnValue(temp)
   
@@ -59,7 +59,7 @@ class Lakeshore218Server(GPIBManagedServer):
   
     @setting(11, 'Get Temperature', channel='v',unit='v',returns = '?')
     def getTemp(self, c, channel=0,unit='K'):
-        """Returns the temperatures for a given channel (or a list of all channels if channel=0) in the specified units (K,C,Linear,System)."""
+        """Returns the temperatures for a given channel (or a list of all channels if channel=0) in the specified units (K,C,Linear(L),System(S))."""
         dev = self.selectedDevice(c)
         temp = yield dev.getTemp(channel,unit)
         returnValue(temp)
@@ -67,9 +67,29 @@ class Lakeshore218Server(GPIBManagedServer):
     @setting(12, 'Get Diode Temperatures', returns=['*v[K]'])
     def getDiodeTemperatures(self, c):
         """Get the temperatures of the Si Diode Thermometers."""
-        # need to deal properly with which channels to read out for each fridge.
         reg = self.client.registry
+        reg.cd(c['adr settings path'])
+        channels = yield reg.get('Lakeshore Diode Channels')
+        dev = self.selectedDevice(c)
+        tempArray = yield dev.getTemp()
+        returnValue( [tempArray[c-1] for c in channels] )
+    
+    @setting(13, 'Get Magnet Voltage', returns=['v[V]'])
+    def getMagnetVoltage(self, c):
+        """Get the voltage across the ADR magnet."""
+        reg = self.client.registry
+        reg.cd(c['adr settings path'])
+        channels = yield reg.get('Lakeshore Magnet Voltage Channels')
+        dev = self.selectedDevice(c)
+        magVArray = yield dev.getTemp(unit='S')
+        voltages = [magVArray[c-1] for c in channels]
+        maxV = max(voltages)
+        if voltages[0] < voltages[1]: maxV = -maxV
+        returnValue( maxV )
         
+    @setting(15,'Set ADR Settings Path',path=['*s'])
+    def set_adr_settings_path(self,c,path):
+        c['adr settings path'] = path
   
 __server__ = Lakeshore218Server()
   

@@ -29,7 +29,9 @@ message = 987654321
 timeout = 20
 ### END NODE INFO
 """
-ADR_SETTINGS_PATH = ['','ADR Settings','ADR Shasta']  # path in registry
+# ADR_SETTINGS_PATH = ['','ADR Settings','ADR Shasta']  # path in registry
+# ADR_SETTINGS_PATH = ['','ADR Settings','ADR Square']
+ADR_SETTINGS_PATH = ['','ADR Settings','ADR Round']
 
 import matplotlib as mpl
 import numpy, pylab
@@ -64,10 +66,6 @@ class ADRServer(DeviceServer):
                         'RuOxChanSetTime':datetime.datetime.now(),
                         'PSCurrent':numpy.NaN,
                         'PSVoltage':numpy.NaN,
-                        'PSConnected':False,
-                        'DiodeTempMonitorConnected':False,
-                        'RuoxTempMonitorConnected':False,
-                        'MagnetVMonitorConnected':False,
                         'maggingUp':False,
                         'regulating':False,
                         'regulationTemp':0.1,
@@ -88,10 +86,10 @@ class ADRServer(DeviceServer):
                             'Ruox Temperature Monitor':['SIM921 Server','addr'],
                             'Diode Temperature Monitor':['SIM922 Server','addr'],
                             'Magnet Voltage Monitor':['SIM922 Server','addr']}
-        self.instruments = {'Power Supply':'',
-                            'Ruox Temperature Monitor':'',
-                            'Diode Temperature Monitor':'',
-                            'Magnet Voltage Monitor':''}
+        self.instruments = {'Power Supply':None,
+                            'Ruox Temperature Monitor':None,
+                            'Diode Temperature Monitor':None,
+                            'Magnet Voltage Monitor':None}
         dt = datetime.datetime.now()
         self.dateAppend = dt.strftime("_%y%m%d_%H%M")
         self.logMessages = []
@@ -140,13 +138,11 @@ class ADRServer(DeviceServer):
                     yield self.client.servers['node '+nodeName].start(server)
                     self.logMessage( server+' started.')
                 except Exception as e:
-                    self.logMessage( 'ERROR starting '+server+str(e) ,alert=True)
+                    self.logMessage( 'ERROR starting '+server+': '+str(e) ,alert=True)
             else: self.logMessage(server+' is already running.')
     @inlineCallbacks
-    def initializeInstruments_new(self):
+    def initializeInstruments(self):
         """This method simply creates the instances of the power supply, sim922, and ruox temperature monitor."""
-        # self.ps, self.ruoxTempMonitor, self.diodeTempMonitor, self.magnetVoltageMonitor
-        # PSConnected, RuoxTempMonitorConnected, DiodeTempMonitorConnected, MagnetVMonitorConnected
         for instrName in self.instruments:
             settings = self.ADRSettings[instrName]
             try:
@@ -165,8 +161,9 @@ class ADRServer(DeviceServer):
                     instr.connected = False
         try: 
             self.instruments['Power Supply'].initialize_ps()
-            self.logMessage('Power Supply Initialized.'
-        except Exception as e: self.logMessage( 'Power Supply could not be initialized.'+str(e), alert=True)
+            self.logMessage('Power Supply Initialized.')
+        except Exception as e:
+            self.logMessage( 'Power Supply could not be initialized.'+str(e), alert=True)
         
     @inlineCallbacks
     def _refreshInstruments(self):
@@ -175,7 +172,6 @@ class ADRServer(DeviceServer):
         for serv in [tuple[1].replace(' ','_').lower() for tuple in serverList]:
             if 'gpib_bus' in serv:# or 'sim900_srs_mainframe' in serv:
                 self.client[serv].refresh_devices()
-    @inlineCallbacks
     def gpib_device_connect(self, server, channel):
         self.initializeInstruments()
     def gpib_device_disconnect(self, server, channel):
@@ -202,14 +198,17 @@ class ADRServer(DeviceServer):
             cycleStartTime = datetime.datetime.now()
             # update system state
             self.lastState = self.state.copy()
-            try: self.state['T_60K'],self.state['T_3K'] = yield self.diodeTempMonitor.get_diode_temperatures()
+            try: self.state['T_60K'],self.state['T_3K'] = yield self.instruments['Diode Temperature Monitor'].get_diode_temperatures()
             except Exception as e: 
                 self.state['T_60K'],self.state['T_3K'] = nan, nan
-                self.state['DiodeTempMonitorConnected'] = False
+                self.instruments['Diode Temperature Monitor'].connected = False
             try:
-                timeConst = yield self.ruoxTempMonitor.get_time_constant()
+                ruoxDevSettings = yield self.client.manager.lr_settings(self.ADRSettings['Ruox Temperature Monitor'][0])
+                if 'Get Time COnstant' in [n for s,n in ruoxDevSettings]:
+                    timeConst = yield self.instruments['Ruox Temperature Monitor'].get_time_constant()
+                else: timeConst = 0
                 if deltaT( datetime.datetime.now() - self.state['RuOxChanSetTime'] ) >= 10*timeConst: #only if we have waited 10 x the time constant for the reader to settle
-                    self.state[ 'T_'+self.state['RuOxChan'] ] = yield self.ruoxTempMonitor.get_ruox_temperature()
+                    self.state[ 'T_'+self.state['RuOxChan'] ] = yield self.instruments['Ruox Temperature Monitor'].get_ruox_temperature()
                     if self.state['RuOxChan'] == 'GGG': self.state['T_FAA'] = nan
                     if self.state['RuOxChan'] == 'FAA': self.state['T_GGG'] = nan
                     if self.state['T_GGG'] == 20.0: self.state['T_GGG'] = nan
@@ -217,20 +216,20 @@ class ADRServer(DeviceServer):
                     # &&& enable ability to switch between FAA and GGG, retain last record for other temp instead of making it NaN (see old code)
             except Exception as e: 
                 self.state['T_GGG'],self.state['T_FAA'] = nan, nan
-                self.state['RuoxTempMonitorConnected'] = False
+                self.instruments['Ruox Temperature Monitor'].connected = False
             self.state['datetime'] = datetime.datetime.now()
             self.state['cycle'] += 1
-            try: self.state['magnetV'] = yield self.magnetVoltageMonitor.get_magnet_voltage()
+            try: self.state['magnetV'] = yield self.instruments['Magnet Voltage Monitor'].get_magnet_voltage()
             except Exception as e: 
                 self.state['magnetV'] = nan
-                self.state['MagnetVMonitorConnected'] = False
+                self.instruments['Magnet Voltage Monitor'].connected = False
             try:
                 self.state['PSCurrent'] = yield self.instruments['Power Supply'].current()
                 self.state['PSVoltage'] = yield self.instruments['Power Supply'].voltage()
             except Exception as e:
                 self.state['PSCurrent'] = nan
                 self.state['PSVoltage'] = nan
-                self.state['PSConnected'] = False
+                self.instruments['Power Supply'].connected = False
             # update relevant files
             yield self.client.registry.cd(ADR_SETTINGS_PATH)
             file_path = yield self.client.registry.get('Log Path')
@@ -263,7 +262,7 @@ class ADRServer(DeviceServer):
             self.logMessage('Currently in PID control loop regulation. Please wait until finished.')
             return
         deviceNames = ['Power Supply','Magnet Voltage Monitor']
-        deviceStatus = [self.state[instr] for instr in ('PSConnected','MagnetVMonitorConnected')]
+        deviceStatus = [self.instruments[name].connected for name in deviceNames]
         if False in deviceStatus:
             message = 'Cannot mag up: At least one of the essential devices is not connected.  Connections: %s'%str([deviceNames[i]+':'+str(deviceStatus[i]) for i in range(len(deviceNames))])
             self.logMessage(message, alert=True)
@@ -309,7 +308,7 @@ class ADRServer(DeviceServer):
             self.logMessage('Setting regulation temperature to %dK.'%temp)
             return
         deviceNames = ['Power Supply','Diode Temp Monitor','Ruox Temp Monitor','Magnet Voltage Monitor']
-        deviceStatus = [self.state[instr] for instr in ('PSConnected','DiodeTempMonitorConnected','RuoxTempMonitorConnected','MagnetVMonitorConnected')]
+        deviceStatus = [self.instruments[name].connected for name in deviceNames]
         if False in deviceStatus:
             message = 'Cannot regulate: At least one of the essential devices is not connected.  Connections: %s'%str([deviceNames[i]+':'+str(deviceStatus[i]) for i in range(len(deviceNames))])
             self.logMessage(message, alert=True)

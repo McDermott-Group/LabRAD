@@ -12,9 +12,13 @@ TODO LIST
 QUESTIONS
 + how can I access the LABRADNODE env variable any time? THISLABRAD should be deleted
 - why does the refreshing on a gpib added message not work?
+- is it possible to overwrite an existing @setting? ==> yes, but method name and id need to be same
 
 INSTRUCTIONS TO OPEN ADR PROGRAM
 open labrad, click run
 open node server in 'start' folder
 open adr server
 open adr client
+
+TUTORIAL STUFF
+contexts are passed, and then each context becomes a dictionary to store stuff in
