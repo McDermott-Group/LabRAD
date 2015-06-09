@@ -99,6 +99,7 @@ class ADRServer(DeviceServer):
         DeviceServer.initServer(self)
         yield self.loadDefaults()
         yield self.startServers()
+        yield util.wakeupCall( 2 ) # on the round ADR, the HP DMM takes forever to initialize.  This prevents it from going on before it is ready.
         yield self.initializeInstruments()
         #subscribe to messages
         connect_func = lambda c, (s, payload): self.gpib_device_connect(*payload)
@@ -154,9 +155,11 @@ class ADRServer(DeviceServer):
                 if hasattr(instr,'connected'):
                     if instr.connected == False:
                         self.logMessage(instrName+' Connected.')
-                instr.connected = True
+                else:
+                    instr.connected = True
+                    self.logMessage(instrName+' Connected.')
             except Exception as e:
-                    message = 'Could not connect to '+instrName+'. Check that it is turned on and the server is running.'# + str(e)
+                    message = 'Could not connect to '+instrName+'. Check that it is turned on and the server is running.' + str(e)
                     self.logMessage(message, alert=True)
                     instr.connected = False
         try: 
@@ -168,10 +171,11 @@ class ADRServer(DeviceServer):
     @inlineCallbacks
     def _refreshInstruments(self):
         """We can manually have all gpib buses refresh the list of devices connected to them."""
+        self.logMessage('Refreshing Devices...')
         serverList = yield self.client.manager.servers()
-        for serv in [tuple[1].replace(' ','_').lower() for tuple in serverList]:
-            if 'gpib_bus' in serv:# or 'sim900_srs_mainframe' in serv:
-                self.client[serv].refresh_devices()
+        for serv in [n for s,n in serverList]:#[tuple[1].replace(' ','_').lower() for tuple in serverList]:
+            if 'gpib_bus' in serv or 'GPIB Bus' in serv:# or 'sim900_srs_mainframe' in serv:
+                yield self.client[serv].refresh_devices()
     def gpib_device_connect(self, server, channel):
         self.initializeInstruments()
     def gpib_device_disconnect(self, server, channel):
