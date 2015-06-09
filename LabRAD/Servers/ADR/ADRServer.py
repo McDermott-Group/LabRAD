@@ -88,6 +88,10 @@ class ADRServer(DeviceServer):
                             'Ruox Temperature Monitor':['SIM921 Server','addr'],
                             'Diode Temperature Monitor':['SIM922 Server','addr'],
                             'Magnet Voltage Monitor':['SIM922 Server','addr']}
+        self.instruments = {'Power Supply':'',
+                            'Ruox Temperature Monitor':'',
+                            'Diode Temperature Monitor':'',
+                            'Magnet Voltage Monitor':''}
         dt = datetime.datetime.now()
         self.dateAppend = dt.strftime("_%y%m%d_%H%M")
         self.logMessages = []
@@ -139,53 +143,31 @@ class ADRServer(DeviceServer):
                     self.logMessage( 'ERROR starting '+server+str(e) ,alert=True)
             else: self.logMessage(server+' is already running.')
     @inlineCallbacks
-    def initializeInstruments(self):
+    def initializeInstruments_new(self):
         """This method simply creates the instances of the power supply, sim922, and ruox temperature monitor."""
-        psSetting = self.ADRSettings['Power Supply']
-        ruoxSetting = self.ADRSettings['Ruox Temperature Monitor']
-        diodeSetting = self.ADRSettings['Diode Temperature Monitor']
-        magVSetting = self.ADRSettings['Magnet Voltage Monitor']
-        try:
-            self.ps = self.client[ psSetting[0] ]
-            yield self.ps.select_device( psSetting[1] )
-            yield self.ps.initialize_ps()
-            if self.state['PSConnected'] == False:
-                self.logMessage('Power Supply Connected and initialized.')
-            self.state['PSConnected'] = True
-        except Exception as e:
-                message = 'Could not connect to Power Supply. Check that it is turned on and the server is running.'# + str(e)
-                self.logMessage(message, alert=True)
-                self.state['PSConnected'] = False
-        try:
-            self.ruoxTempMonitor = self.client[ ruoxSetting[0] ]
-            yield self.ruoxTempMonitor.select_device( ruoxSetting[1] )
-            if self.state['RuoxTempMonitorConnected'] == False:
-                self.logMessage('Ruox Temperature Monitor Connected.')
-            self.state['RuoxTempMonitorConnected'] = True
-        except Exception as e:
-                message = 'Could not connect to Ruox Temperature Monitor. Check that it is turned on and the server is running.'# + str(e)
-                self.logMessage(message, alert=True)
-                self.state['RuoxTempMonitorConnected'] = False
-        try:
-            self.diodeTempMonitor = self.client[ diodeSetting[0] ]
-            yield self.diodeTempMonitor.select_device( diodeSetting[1] )
-            if self.state['DiodeTempMonitorConnected'] == False:
-                self.logMessage('Diode Temperature Monitor Connected.')
-            self.state['DiodeTempMonitorConnected'] = True
-        except Exception as e:
-                message = 'Could not connect to Diode Temperature Monitor. Check that it is turned on and the server is running.'# + str(e)
-                self.logMessage(message, alert=True)
-                self.state['DiodeTempMonitorConnected'] = False
-        try:
-            self.magnetVoltageMonitor = self.client[ magVSetting[0] ]
-            yield self.magnetVoltageMonitor.select_device( magVSetting[1] )
-            if self.state['MagnetVMonitorConnected'] == False:
-                self.logMessage('Magnet Voltage Monitor Connected.')
-            self.state['MagnetVMonitorConnected'] = True
-        except Exception as e:
-                message = 'Could not connect to Diode Temperature Monitor. Check that it is turned on and the server is running.'# + str(e)
-                self.logMessage(message, alert=True)
-                self.state['MagnetVMonitorConnected'] = False
+        # self.ps, self.ruoxTempMonitor, self.diodeTempMonitor, self.magnetVoltageMonitor
+        # PSConnected, RuoxTempMonitorConnected, DiodeTempMonitorConnected, MagnetVMonitorConnected
+        for instrName in self.instruments:
+            settings = self.ADRSettings[instrName]
+            try:
+                instr = self.client[ settings[0] ]
+                self.instruments[instrName] = instr
+                try: yield instr.set_adr_settings_path(ADR_SETTINGS_PATH)
+                except: pass
+                yield instr.select_device( settings[1] )
+                if hasattr(instr,'connected'):
+                    if instr.connected == False:
+                        self.logMessage(instrName+' Connected.')
+                instr.connected = True
+            except Exception as e:
+                    message = 'Could not connect to '+instrName+'. Check that it is turned on and the server is running.'# + str(e)
+                    self.logMessage(message, alert=True)
+                    instr.connected = False
+        try: 
+            self.instruments['Power Supply'].initialize_ps()
+            self.logMessage('Power Supply Initialized.'
+        except Exception as e: self.logMessage( 'Power Supply could not be initialized.'+str(e), alert=True)
+        
     @inlineCallbacks
     def _refreshInstruments(self):
         """We can manually have all gpib buses refresh the list of devices connected to them."""
@@ -243,8 +225,8 @@ class ADRServer(DeviceServer):
                 self.state['magnetV'] = nan
                 self.state['MagnetVMonitorConnected'] = False
             try:
-                self.state['PSCurrent'] = yield self.ps.current()
-                self.state['PSVoltage'] = yield self.ps.voltage()
+                self.state['PSCurrent'] = yield self.instruments['Power Supply'].current()
+                self.state['PSVoltage'] = yield self.instruments['Power Supply'].voltage()
             except Exception as e:
                 self.state['PSCurrent'] = nan
                 self.state['PSVoltage'] = nan
@@ -298,10 +280,10 @@ class ADRServer(DeviceServer):
                 if self.state['magnetV'] < self.ADRSettings['magnet_voltage_limit'] and abs(dI/dt) < self.ADRSettings['dIdt_magup_limit']:
                     newVoltage = self.state['PSVoltage'] + self.ADRSettings['magup_dV']
                     if newVoltage < self.ADRSettings['voltage_limit']:
-                        self.ps.voltage(newVoltage) #set new voltage
-                    else: self.ps.voltage(self.ADRSettings['voltage_limit'])
-                    #newCurrent = self.ps.current() + 0.005
-                    #self.ps.current(newCurrent)
+                        self.instruments['Power Supply'].voltage(newVoltage) #set new voltage
+                    else: self.instruments['Power Supply'].voltage(self.ADRSettings['voltage_limit'])
+                    #newCurrent = self.instruments['Power Supply'].current() + 0.005
+                    #self.instruments['Power Supply'].current(newCurrent)
                 cycleLength = deltaT(datetime.datetime.now() - startTime)
                 yield util.wakeupCall( max(0,self.ADRSettings['step_length']-cycleLength) )
             else:
@@ -376,11 +358,11 @@ class ADRServer(DeviceServer):
             # will voltage go negative?
             runCycleAgain = True
             if self.state['PSVoltage']+dV <= 0*units.V:
-                self.ps.voltage(0*units.V)
+                self.instruments['Power Supply'].voltage(0*units.V)
                 dV = 0*units.V
                 runCycleAgain = False
             print str(dV)
-            self.ps.voltage(self.state['PSVoltage'] + dV)
+            self.instruments['Power Supply'].voltage(self.state['PSVoltage'] + dV)
             cycleTime = deltaT(datetime.datetime.now() - startTime)
             if runCycleAgain: yield util.wakeupCall( max(0,self.ADRSettings['step_length']-cycleTime) )
             else:
