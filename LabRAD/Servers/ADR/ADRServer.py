@@ -311,7 +311,7 @@ class ADRServer(DeviceServer):
             self.state['regulationTemp'] = temp
             self.logMessage('Setting regulation temperature to %dK.'%temp)
             return
-        deviceNames = ['Power Supply','Diode Temp Monitor','Ruox Temp Monitor','Magnet Voltage Monitor']
+        deviceNames = ['Power Supply','Diode Temperature Monitor','Ruox Temperature Monitor','Magnet Voltage Monitor']
         deviceStatus = [self.instruments[name].connected for name in deviceNames]
         if False in deviceStatus:
             message = 'Cannot regulate: At least one of the essential devices is not connected.  Connections: %s'%str([deviceNames[i]+':'+str(deviceStatus[i]) for i in range(len(deviceNames))])
