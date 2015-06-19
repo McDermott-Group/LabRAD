@@ -243,6 +243,7 @@ class ADRController(object):#Tkinter.Tk):
         currentVField = EntryWithAlert(monitorFrame, textvariable=self.currentV, state=Tkinter.DISABLED, upper_limit=PSVLimit)
         currentVField.pack(side=Tkinter.LEFT)
         Tkinter.Label(monitorFrame, text="(V)").pack(side=Tkinter.LEFT)
+        self.fig.tight_layout()
         root.protocol("WM_DELETE_WINDOW", self._quit) #X BUTTON
     def refreshInstruments(self):
         self.cxn.adr_server.refresh_instruments()

@@ -58,6 +58,11 @@ def newRead(self,*args,**kwargs):
     response = self.oldRead(*args,**kwargs)
     self.oldWrite("xyz")
     return response
+def newReadRaw(self,*args,**kwargs):
+    self.oldWrite("CONN %d,'xyz'" %self.slot)
+    response = self.oldReadRaw(*args,**kwargs)
+    self.oldWrite("xyz")
+    return response
 def newWrite(self,*args,**kwargs):
     self.oldWrite("CONN %d,'xyz'" %self.slot)
     response = self.oldWrite(*args,**kwargs)
@@ -103,11 +108,14 @@ class SIM900Server(GPIBBusServer,GPIBManagedServer):#,object):
             for _,SIM900addr in zip(IDs, names):
                 try:
                     p = yield self.client[self.name].packet()
+                    print 'here1'
                     p.select_device(SIM900addr)
                     p.gpib_query('CTCR?')
+                    print 'here2'
                     res = yield p.send()
+                    print 'here3',res
                     statusStr = res['gpib_query']
-                except Exception, e: print 'this is the error',e
+                except Exception as e: print 'this is the error',str(e)
                 # ask the SIM900 which slots have an active module, and only deal with those.
                 statusCodes = [bool(int(x)) for x in "{0:016b}".format(int(statusStr))]
                 statusCodes.reverse()
@@ -122,15 +130,19 @@ class SIM900Server(GPIBBusServer,GPIBManagedServer):#,object):
             for addr in additions:
                 try:
                     instName = addr.split(' - ')[-1].rsplit('::',2)[0]
-                    if py27: 
+                    if v17: 
                         rm = visa.ResourceManager()
                         instr = rm.open_resource(instName, open_timeout=1.0)#python2.7
-                    else: instr = visa.instrument(instName, timeout=1.0, term_chars='')
+                        instr.write_termination = ''
+                    else: 
+                        instr = visa.instrument(instName, timeout=1.0) #python2.6
+                        instr.term_chars = ''
                     #change the read, write, ask settings to automatically go to right module in SIM rack
-                    instr.oldRead, instr.oldWrite, instr.oldAsk = instr.read, instr.write, instr.ask
+                    instr.oldRead, instr.oldReadRaw, instr.oldWrite, instr.oldAsk = instr.read, instr.read_raw, instr.write, instr.ask
                     instr.setSlot = setSlot
                     instr.getSlot = getSlot
                     instr.read = types.MethodType(newRead,instr)
+                    instr.read_raw = types.MethodType(newReadRaw,instr)
                     instr.write = types.MethodType(newWrite,instr)
                     instr.ask = types.MethodType(newAsk,instr)
                     instr.setSlot(instr,int(addr[-1]))

@@ -109,20 +109,20 @@ class AgilentPSServer(GPIBManagedServer):
             if state == 'OutputOff':
                 message = 'Output Off. Setting Current to '+str(currentLimit)+' Amps and voltage to 0 Volts.\n'
                 #self.log.log(message)
-                self.reset(c)
-                self.current(c,currentLimit)
-                self.voltage(c,0*units.V)
-                self.output_state(c,True)
+                yield self.reset(c)
+                yield self.current(c,currentLimit)
+                yield self.voltage(c,0*units.V)
+                yield self.output_state(c,True)
             elif state == 'CV Mode':
                 message = 'Starting in CV Mode. Setting Current to '+str(currentLimit)+' Amps.\n'
                 #self.log.log(message)
-                self.current(c, currentLimit )
+                yield self.current(c, currentLimit )
             elif state == 'CC Mode':
-                V_now = self.voltage(c)
+                V_now = yield self.voltage(c)
                 message = 'Starting in CC Mode. Setting Current to '+str(currentLimit)+' Amps and voltage to '+str(V_now)+' Volts.\n'
                 #self.log.log(message)
-                self.voltage(c, V_now )
-                self.current(c, currentLimit )
+                yield self.voltage(c, V_now )
+                yield self.current(c, currentLimit )
 
 __server__ = AgilentPSServer()
 

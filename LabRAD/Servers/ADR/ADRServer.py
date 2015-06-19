@@ -29,9 +29,9 @@ message = 987654321
 timeout = 20
 ### END NODE INFO
 """
-# ADR_SETTINGS_PATH = ['','ADR Settings','ADR Shasta']  # path in registry
+ADR_SETTINGS_PATH = ['','ADR Settings','ADR Shasta 7']  # path in registry
 # ADR_SETTINGS_PATH = ['','ADR Settings','ADR Square']
-ADR_SETTINGS_PATH = ['','ADR Settings','ADR Round']
+# ADR_SETTINGS_PATH = ['','ADR Settings','ADR Round']
 
 import matplotlib as mpl
 import numpy, pylab
@@ -40,6 +40,7 @@ from labrad.server import (LabradServer, setting,
                            inlineCallbacks, returnValue)
 from labrad.devices import DeviceServer
 from labrad import util, units
+from labrad.types import Error as LRError
 
 def deltaT(dT):
     """.total_seconds() is only supported by >py27 :(, so we use this to subtract two datetime objects."""
@@ -127,7 +128,7 @@ class ADRServer(DeviceServer):
             if name.find('node ') >= 0: nodeName = name.strip('node ')
             else:
                 import os
-                nodeName = os.environ['COMPUTERNAME']
+                nodeName = os.environ['COMPUTERNAME'].lower()
         #which do we need to start?
         reg = self.client.registry
         yield reg.cd(ADR_SETTINGS_PATH)
@@ -158,15 +159,24 @@ class ADRServer(DeviceServer):
                 else:
                     instr.connected = True
                     self.logMessage(instrName+' Connected.')
-            except Exception as e:
-                    message = 'Could not connect to '+instrName+'. Check that it is turned on and the server is running.' + str(e)
+            except LRError as e:
+                if 'NoDevicesAvailableError' in e.msg:
+                    message = 'No devices connected for '+instrName+'.'
                     self.logMessage(message, alert=True)
                     instr.connected = False
+                if 'NoSuchDeviceError' in e.msg:
+                    message = 'No devices found for '+instrName+' at address '+settings[1]+'.'
+                    self.logMessage(message, alert=True)
+                    instr.connected = False
+            except Exception as e:
+                message = 'Could not connect to '+instrName+'. Check that it is turned on and the server is running.' + str(e)
+                self.logMessage(message, alert=True)
+                instr.connected = False
         try: 
-            self.instruments['Power Supply'].initialize_ps()
+            yield self.instruments['Power Supply'].initialize_ps()
             self.logMessage('Power Supply Initialized.')
         except Exception as e:
-            self.logMessage( 'Power Supply could not be initialized.'+str(e), alert=True)
+            self.logMessage( 'Power Supply could not be initialized.', alert=True)
         
     @inlineCallbacks
     def _refreshInstruments(self):

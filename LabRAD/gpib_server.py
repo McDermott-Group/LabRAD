@@ -139,7 +139,9 @@ class GPIBBusServer(LabradServer):
                     if v17: 
                         instr = self.rm.open_resource(instName, open_timeout=1.0)#python2.7
                         instr.write_termination = ''
-                    else: instr = visa.instrument(instName, timeout=1.0, term_chars='') #python2.6
+                    else: 
+                        instr = visa.instrument(instName, timeout=1.0) #python2.6
+                        instr.term_chars = ''
                     instr.clear()
                     if addr.endswith('SOCKET'):
                         if v17: instr.write_termination = ''
@@ -219,11 +221,11 @@ class GPIBBusServer(LabradServer):
         """
         instr = self.getDevice(c)
         if bytes is None:
-            ans = instr.read()
+            ans = instr.read_raw()
         else:
-            if v17: ans = visa.read(instr.vi, bytes)
+            if v17: ans = visa.read_raw(instr.vi, bytes)
             else: ans = vpp43.read(instr.vi, bytes)
-        return str(ans)
+        return str(ans).strip()
 
     @setting(25, data='s', returns='s')
     def query(self, c, data):
@@ -234,8 +236,8 @@ class GPIBBusServer(LabradServer):
         """
         instr = self.getDevice(c)
         instr.write(data)
-        ans = instr.read()
-        return str(ans)
+        ans = instr.read_raw()
+        return str(ans).strip()
 
     @setting(19, returns='*s')
     def list_my_devices(self, c):
