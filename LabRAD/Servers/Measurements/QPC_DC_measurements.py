@@ -27,7 +27,7 @@ from twisted.internet import tksupport, reactor
 # from labrad.units import Unit,Value
 from labrad import util
 
-class ADRController(object):#Tkinter.Tk):
+class QPCDC(object):#Tkinter.Tk):
     """Provides a GUI to measure the DC steps on a QPC"""
     name = 'QPC DC Measurments'
     ID = 6117
@@ -65,8 +65,8 @@ class ADRController(object):#Tkinter.Tk):
         self.fig = pylab.figure()
         self.ax = self.fig.add_subplot(111)
         #self.ax2 = self.ax.twinx()
-        self.ax.set_title('Realtime QPC Measurement\n\n\n')
-        self.ax.set_xlabel('V_{gate} [V]')
+        self.ax.set_title('Realtime QPC Measurement')
+        self.ax.set_xlabel('$V_{gate}$ [V]')
         self.ax.set_ylabel('Output Voltage [V]')
         self.graph, = self.ax.plot([],[])
         self.canvas = FigureCanvasTkAgg(self.fig, master=root)
@@ -93,12 +93,16 @@ class ADRController(object):#Tkinter.Tk):
         Tkinter.Label(settingsFrame, text="points").pack(side=Tkinter.LEFT)
         self.startDataTaking = Tkinter.Button(settingsFrame, text='Go!', command=self.takeData)
         self.startDataTaking.pack(side=Tkinter.LEFT)
+        self.saveButton = Tkinter.Button(settingsFrame, text='Save', command=self.save)
+        self.saveButton.pack(side=Tkinter.LEFT)
+        
+        self.fig.tight_layout()
         
         root.protocol("WM_DELETE_WINDOW", self._quit) #X BUTTON
         
     def stopTakingData(self):
         self.takingData = False
-        print self.graph.get_xdata(), self.graph.get_ydata()
+        self.startDataTaking.configure(text='Go!', command=self.takeData)
     @inlineCallbacks
     def takeData(self):
         self.startDataTaking.configure(text='Stop', command=self.stopTakingData)
@@ -106,7 +110,7 @@ class ADRController(object):#Tkinter.Tk):
         start = -1*self.startV.get()
         stop = -1*self.stopV.get()
         print 'taking data', start, stop
-        for v in numpy.arange(start,stop,-(self.stopV.get()-self.startV.get())/self.nPoints.get()):
+        for v in numpy.arange(start,stop,-(self.stopV.get()-self.startV.get())/max(self.nPoints.get(),1)):
             if self.takingData == False: break
             self.voltageSource.voltage(v)
             Vout = v#&&&
@@ -114,6 +118,7 @@ class ADRController(object):#Tkinter.Tk):
             self.graph.set_ydata(numpy.append(self.graph.get_ydata(),Vout))
             if self.toolbar._active == 'HOME' or self.toolbar._active == None:
                 self.ax.set_xlim(stop,start)
+                self.ax.relim()
             self.ax.autoscale(axis='y')
             #draw
             self.canvas.draw()
@@ -121,6 +126,13 @@ class ADRController(object):#Tkinter.Tk):
         self.startDataTaking.configure(text='Go!', command=self.takeData)
         self.takingData = False
         print 'finished'
+    def save(self):
+    	with open(FILEPATH,'w') as f:
+			saveText = self.log.get(1.0,Tkinter.END)
+			saveText += dt.strftime('\ndata taking started: %m/%d/%y %H:%M:%S\n')
+			f.write(saveText)
+			for i in range(len(self.graph.get_xdata())):
+    			f.write(str(self.graph.get_xdata()[i])+'\t'+str(self.graph.get_ydata()[i]))
     def _quit(self):
         """ called when the window is closed."""
         self.parent.quit()     # stops mainloop
@@ -132,5 +144,5 @@ if __name__ == "__main__":
     peripheralDict = {  'Voltage Source':['SIM928 Server','SIM900 SRS Mainframe - GPIB0::2::SIM900::4'] } #{'device',['name','addr']}
     mstr = Tkinter.Tk()
     tksupport.install(mstr)
-    app = ADRController(mstr,peripheralDict)
+    app = QPCDC(mstr,peripheralDict)
     reactor.run()
