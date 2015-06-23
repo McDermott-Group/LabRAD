@@ -38,7 +38,7 @@ import labrad.units as units
 
 class SIM928Server(GPIBManagedServer):
     """Provides basic control for SRS SIM928 voltage source"""
-    name = '%LABRADNODE% SIM928'
+    name = 'SIM928'
     deviceName = 'STANFORD RESEARCH SYSTEMS SIM928' # *IDN? = "Stanford_Research_Systems,SIM928,s/n105794,ver3.6"
     deviceWrapper = GPIBDeviceWrapper
     

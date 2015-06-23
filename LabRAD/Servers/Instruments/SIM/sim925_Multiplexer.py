@@ -40,7 +40,7 @@ import time
 
 class SIM925Server(GPIBManagedServer):
     """Provides basic control for SRS SIM925 Multiplexer Module"""
-    name = '%LABRADNODE% SIM925'
+    name = 'SIM925'
     deviceName = 'STANFORD RESEARCH SYSTEMS SIM925' # *IDN? = "Stanford_Research_Systems,SIM921,s/n105794,ver3.6"
     deviceWrapper = GPIBDeviceWrapper
     

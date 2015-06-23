@@ -36,7 +36,7 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 
 class SIM921Server(GPIBManagedServer):
     """Provides basic control for SRS SIM921 AC Resistance Bridge Module"""
-    name = '%LABRADNODE% SIM921'
+    name = 'SIM921'
     deviceName = 'STANFORD RESEARCH SYSTEMS SIM921' # *IDN? = "Stanford_Research_Systems,SIM921,s/n105794,ver3.6"
     deviceWrapper = GPIBDeviceWrapper
 
