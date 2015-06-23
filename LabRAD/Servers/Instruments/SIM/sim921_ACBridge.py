@@ -17,8 +17,8 @@
 ### BEGIN NODE INFO
 [info]
 name = SIM921 Server
-version = 2.1
-description = This serves as an interface for the AC Resistance Bridge used to measure the RuOx Thermometers.
+version = 2.2
+description = This SIM921 AC Resistance Bridge is used to measure the RuOx Thermometers.
 
 [startup]
 cmdline = %PYTHON% %FILE%
@@ -35,9 +35,9 @@ from labrad.gpib import GPIBManagedServer, GPIBDeviceWrapper
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 class SIM921Server(GPIBManagedServer):
-    """Provides basic control for SRS 922 AC Resistance Bridge Module"""
-    name = 'SIM921 Server'
-    deviceName = 'Stanford_Research_Systems SIM921' #Stanford_Research_Systems,SIM921,s/n105794,ver3.6\n
+    """Provides basic control for SRS SIM921 AC Resistance Bridge Module"""
+    name = '%LABRADNODE% SIM921'
+    deviceName = 'STANFORD RESEARCH SYSTEMS SIM921' # *IDN? = "Stanford_Research_Systems,SIM921,s/n105794,ver3.6"
     deviceWrapper = GPIBDeviceWrapper
 
     @setting(101, 'Get Time Constant', returns=['v[mS]'])

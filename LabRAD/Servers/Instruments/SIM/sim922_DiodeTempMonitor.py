@@ -17,7 +17,7 @@
 ### BEGIN NODE INFO
 [info]
 name = SIM922 Server
-version = 2.1
+version = 2.2
 description = This Diode Temperature Monitor is used to measure the Si Diode thermometers in the ADR, as well as the voltage across the magnet.
 
 [startup]
@@ -35,9 +35,9 @@ from labrad.gpib import GPIBManagedServer, GPIBDeviceWrapper
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 class SIM922Server(GPIBManagedServer):
-    """Provides basic control for SRS 922 Diode Temperature Monitor Module"""
-    name = 'SIM922 Server'
-    deviceName = 'Stanford_Research_Systems SIM922' #Stanford_Research_Systems,SIM922,s/n105794,ver3.6\n
+    """Provides basic control for SRS SIM922 Diode Temperature Monitor Module"""
+    name = '%LABRADNODE% SIM922'
+    deviceName = 'STANFORD RESEARCH SYSTEMS SIM922' # *IDN? = "Stanford_Research_Systems,SIM922,s/n105794,ver3.6"
     deviceWrapper = GPIBDeviceWrapper
 
     @setting(101, 'Get Diode Temperatures', returns=['*v[K]'])
