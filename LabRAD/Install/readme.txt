@@ -12,6 +12,7 @@ run in the command line: "pip2.7 install pyserial"
 run in the command line: "pip2.7 install pyvisa"
 pylabrad-0.92.5.win32-py2.7.exe
 replace "C:\Python27\Lib\site-packages\labrad\types.py" with types.py from this folder
+replace "C:\Python27\Lib\site-packages\labrad\gpib.py" with gpib.py from this folder
 
 Below are some of the tested configurations (you can get this list by running "pip2.7 freeze" in the command line):
 To update a package run "pip2.7 install --upgrade package_name" in the command line.
