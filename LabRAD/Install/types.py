@@ -500,11 +500,13 @@ class LRStr(LRType, Singleton):
         return s.get(n)
     
     def __flatten__(self, s):
+        if isinstance(s,unicode): s = str(s)
         if not isinstance(s, str):
             raise FlatteningError(s, self)
         return pack('I', len(s)) + s
 
 registerType(str, LRStr())
+registerType(unicode, LRStr())
 
 
 def timeOffset():
