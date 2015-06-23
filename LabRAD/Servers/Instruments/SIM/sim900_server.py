@@ -33,7 +33,7 @@ timeout = 20
 
 import os.path, sys
 SCRIPT_PATH = os.path.dirname(__file__)
-GPIB_PATH = os.path.join(SCRIPT_PATH.split('LabRAD')[0], 'LabRAD\Servers\GPIB')
+GPIB_PATH = os.path.join(SCRIPT_PATH.split('LabRAD')[0], 'LabRAD\LabRAD\Servers\GPIB')
 if GPIB_PATH not in sys.path:
     sys.path.append(GPIB_PATH)
 

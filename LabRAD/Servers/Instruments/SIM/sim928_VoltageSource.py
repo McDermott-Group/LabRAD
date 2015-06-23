@@ -16,7 +16,7 @@
 """
 ### BEGIN NODE INFO
 [info]
-name = SIM928 Server
+name = SIM928
 version = 2.2
 description = This serves as an interface for the SIM928 Voltage Source.
 

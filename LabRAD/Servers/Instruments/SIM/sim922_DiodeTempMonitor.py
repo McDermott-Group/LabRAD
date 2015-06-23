@@ -16,7 +16,7 @@
 """
 ### BEGIN NODE INFO
 [info]
-name = SIM922 Server
+name = SIM922
 version = 2.2
 description = This Diode Temperature Monitor is used to measure the Si Diode thermometers in the ADR, as well as the voltage across the magnet.
 

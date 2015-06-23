@@ -19,7 +19,7 @@
 """
 ### BEGIN NODE INFO
 [info]
-name = SIM925 Server
+name = SIM925
 version = 2.2
 description = This serves as an interface for the SIM921 AC Resistance Bridge used to measure the RuOx Thermometers.
 
