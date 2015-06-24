@@ -9,7 +9,8 @@ TODO LIST
 - try running some of this from dif computers
 + errors not handled nice if instruments are not connected (NoDevicesAvailableError)
 - should not be able to mag up when it is warm
-- FAA pill is giving 45 instead of nan
++ FAA pill is giving 45 instead of nan
+- ADRClient should get settings path from ADRServer
 
 QUESTIONS
 + how can I access the LABRADNODE env variable any time? THISLABRAD should be deleted

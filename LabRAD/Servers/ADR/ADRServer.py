@@ -56,7 +56,6 @@ class ADRServer(DeviceServer):
         DeviceServer.__init__(self)
         self.ADRSettingsPath = ADR_SETTINGS_BASE_PATH
         self.ADRSettingsPath.append(DEFAULT_ADR)
-        print self.ADRSettingsPath
         self.alive = True
         self.state = {  'T_FAA': numpy.NaN,
                         'T_GGG': numpy.NaN,

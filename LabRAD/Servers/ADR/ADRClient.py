@@ -30,7 +30,7 @@ message = 987654321
 timeout = 20
 ### END NODE INFO
 """
-ADR_SETTINGS_PATH = ['','ADR Settings','ADR Shasta']  # path in registry
+ADR_SETTINGS_PATH = ['','ADR Settings','ADR3']  # path in registry
 
 import matplotlib as mpl
 mpl.use('TkAgg')
@@ -199,8 +199,8 @@ class ADRController(object):#Tkinter.Tk):
         # menu to select ADR
         adrSelectOptions = ('ADR 1','ADR 2','ADR 3')
         self.adrSelect = Tkinter.StringVar(root)
-        self.adrSelect.trace('w',self.changeFridge)
         self.adrSelect.set(adrSelectOptions[-1])
+        self.adrSelect.trace('w',self.changeFridge)
         apply(Tkinter.OptionMenu,(root,self.adrSelect)+adrSelectOptions).pack(side=Tkinter.TOP)
         # scale to adjust time shown in temp plot
         wScaleOptions = ('10 minutes','1 hour','6 hours','24 hours','All')
