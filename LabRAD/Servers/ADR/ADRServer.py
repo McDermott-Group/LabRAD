@@ -29,9 +29,8 @@ message = 987654321
 timeout = 20
 ### END NODE INFO
 """
-ADR_SETTINGS_PATH = ['','ADR Settings','ADR Shasta 7']  # path in registry
-# ADR_SETTINGS_PATH = ['','ADR Settings','ADR Square']
-# ADR_SETTINGS_PATH = ['','ADR Settings','ADR Round']
+ADR_SETTINGS_BASE_PATH = ['','ADR Settings'] # path in registry
+DEFAULT_ADR = 'ADR3' # name of ADR in registry
 
 import matplotlib as mpl
 import numpy, pylab
@@ -55,6 +54,9 @@ class ADRServer(DeviceServer):
     
     def __init__(self):
         DeviceServer.__init__(self)
+        self.ADRSettingsPath = ADR_SETTINGS_BASE_PATH
+        self.ADRSettingsPath.append(DEFAULT_ADR)
+        print self.ADRSettingsPath
         self.alive = True
         self.state = {  'T_FAA': numpy.NaN,
                         'T_GGG': numpy.NaN,
@@ -114,7 +116,7 @@ class ADRServer(DeviceServer):
     @inlineCallbacks
     def loadDefaults(self):
         reg = self.client.registry
-        yield reg.cd(ADR_SETTINGS_PATH)
+        yield reg.cd(self.ADRSettingsPath)
         _,settingsList = yield reg.dir()
         for setting in settingsList:
             self.ADRSettings[setting] = yield reg.get(setting)
@@ -131,7 +133,7 @@ class ADRServer(DeviceServer):
                 nodeName = os.environ['COMPUTERNAME'].lower()
         #which do we need to start?
         reg = self.client.registry
-        yield reg.cd(ADR_SETTINGS_PATH)
+        yield reg.cd(self.ADRSettingsPath)
         servList = yield reg.get('Start Server List')
         #go through and start all the servers that are not already running
         for server in servList:
@@ -150,7 +152,7 @@ class ADRServer(DeviceServer):
             try:
                 instr = self.client[ settings[0] ]
                 self.instruments[instrName] = instr
-                try: yield instr.set_adr_settings_path(ADR_SETTINGS_PATH)
+                try: yield instr.set_adr_settings_path(self.ADRSettingsPath)
                 except: pass
                 yield instr.select_device( settings[1] )
                 if hasattr(instr,'connected'):
@@ -196,7 +198,7 @@ class ADRServer(DeviceServer):
         dt = datetime.datetime.now()
         messageWithTimeStamp = dt.strftime("[%m/%d/%y %H:%M:%S] ") + message
         self.logMessages.append( (messageWithTimeStamp,alert) )
-        yield self.client.registry.cd(ADR_SETTINGS_PATH)
+        yield self.client.registry.cd(self.ADRSettingsPath)
         file_path = yield self.client.registry.get('Log Path')
         with open(file_path+'\\log'+self.dateAppend+'.txt', 'a') as f:
             f.write( messageWithTimeStamp + '\n' )
@@ -225,8 +227,8 @@ class ADRServer(DeviceServer):
                     self.state[ 'T_'+self.state['RuOxChan'] ] = yield self.instruments['Ruox Temperature Monitor'].get_ruox_temperature()
                     if self.state['RuOxChan'] == 'GGG': self.state['T_FAA'] = nan
                     if self.state['RuOxChan'] == 'FAA': self.state['T_GGG'] = nan
-                    if self.state['T_GGG'] == 20.0: self.state['T_GGG'] = nan
-                    if self.state['T_FAA'] == 45.0: self.state['T_FAA'] = nan
+                    if self.state['T_GGG']['K'] == 20.0: self.state['T_GGG'] = nan
+                    if self.state['T_FAA']['K'] == 45.0: self.state['T_FAA'] = nan
                     # &&& enable ability to switch between FAA and GGG, retain last record for other temp instead of making it NaN (see old code)
             except Exception as e: 
                 self.state['T_GGG'],self.state['T_FAA'] = nan, nan
@@ -245,7 +247,7 @@ class ADRServer(DeviceServer):
                 self.state['PSVoltage'] = nan
                 self.instruments['Power Supply'].connected = False
             # update relevant files
-            yield self.client.registry.cd(ADR_SETTINGS_PATH)
+            yield self.client.registry.cd(self.ADRSettingsPath)
             file_path = yield self.client.registry.get('Log Path')
             with open(file_path+'\\temperatures'+self.dateAppend+'.temps','ab') as f:
                 newTemps = [self.state[t] for t in ['T_60K','T_3K','T_GGG','T_FAA']]
@@ -384,13 +386,28 @@ class ADRServer(DeviceServer):
                 #self.regulationStopped('done') #signal
                 self.client.manager.send_named_message('Regulation Stopped', 'done')
     
-    @setting(101, 'Get Log', n=['v'], returns=['*(s,b)'])
+    @setting(101, 'Select Fridge', name=['s'])
+    def selectFridge(self,c, name='ADR3'):
+        """Select which ADR you want to operate on."""
+        reg = self.client.registry
+        reg.cd(ADR_SETTINGS_BASE_PATH)
+        _,adrList = yield reg.dir()
+        if name in adrList:
+            print 'Starting to change to %s.'%name
+            # &&& make sure we are not in the middle of a mag or reg cycle
+            # &&& reinitialize, start necessary servers, select devices
+            # self.ADRSettingsPath = ADR_SETTINGS_BASE_PATH
+            # self.ADRSettingsPath.append(name)
+            print 'Finished changing to %s'%name
+        else: raise Exception('Could not find settings for %s'%name)
+        
+    @setting(102, 'Get Log', n=['v'], returns=['*(s,b)'])
     def getLog(self,c, n=0):
         """Get an array of the last n logs."""
         if n==0: n = len(self.logMessages)
         n = min(n, len(self.logMessages))
         return [messageAndAlert for messageAndAlert in self.logMessages[-n:]]
-    @setting(102, 'Get State Var', var=['s'], returns=['?'])
+    @setting(103, 'Get State Var', var=['s'], returns=['?'])
     def getStateVar(self,c, var):
         """You can get any arbitrary value stored in the state variable by passing its name to this function."""
         return self.state[var]

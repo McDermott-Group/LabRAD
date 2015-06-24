@@ -196,11 +196,18 @@ class ADRController(object):#Tkinter.Tk):
         t3checkbox.pack(side=Tkinter.LEFT)
         t4checkbox = Tkinter.Checkbutton(tempSelectFrame, text = '50mK Stage (FAA)', variable=self.tFAA, fg='dark turquoise')
         t4checkbox.pack(side=Tkinter.LEFT)
-        #scale to adjust time shown in temp plot
+        # menu to select ADR
+        adrSelectOptions = ('ADR 1','ADR 2','ADR 3')
+        self.adrSelect = Tkinter.StringVar(root)
+        self.adrSelect.trace('w',self.changeFridge)
+        self.adrSelect.set(adrSelectOptions[-1])
+        apply(Tkinter.OptionMenu,(root,self.adrSelect)+adrSelectOptions).pack(side=Tkinter.TOP)
+        # scale to adjust time shown in temp plot
         wScaleOptions = ('10 minutes','1 hour','6 hours','24 hours','All')
         self.wScale = Tkinter.StringVar(root)
         self.wScale.set(wScaleOptions[1])
         apply(Tkinter.OptionMenu,(root,self.wScale)+wScaleOptions).pack(side=Tkinter.TOP)
+        # refresh instruments button
         refreshInstrButton = Tkinter.Button(root, text='Refresh Instruments', command=self.refreshInstruments)
         refreshInstrButton.pack(side=Tkinter.TOP)
         #frame for mag up and regulate controls
@@ -217,9 +224,9 @@ class ADRController(object):#Tkinter.Tk):
         self.regulateTempField.pack(side=Tkinter.LEFT)
         self.regulateTempField.insert(0, "0.1")
         Tkinter.Label(magControlsFrame, text="K").pack(side=Tkinter.LEFT)
-        mUp = yield self.cxn.adr_server.get_state_var('maggingUp')
-        reg = yield self.cxn.adr_server.get_state_var('regulating')
         try:
+            mUp = yield self.cxn.adr_server.get_state_var('maggingUp')
+            reg = yield self.cxn.adr_server.get_state_var('regulating')
             if mUp:
                 self.magUpButton.configure(text='Stop Magging Up', command=self.cancelMagUp)
                 self.regulateButton.configure(state=Tkinter.DISABLED)
@@ -245,6 +252,11 @@ class ADRController(object):#Tkinter.Tk):
         Tkinter.Label(monitorFrame, text="(V)").pack(side=Tkinter.LEFT)
         self.fig.tight_layout()
         root.protocol("WM_DELETE_WINDOW", self._quit) #X BUTTON
+    def changeFridge(self):
+        selection = self.adrSelect.get()
+        fridgeSettingNames = {'ADR 1':'ADR1','ADR 2':'ADR2','ADR 3':'ADR3'}
+        yield self.cxn.adr_server.select_fridge( fridgeSettingNames[selection] )
+        # &&& clear temps, etc
     def refreshInstruments(self):
         self.cxn.adr_server.refresh_instruments()
     @inlineCallbacks
@@ -301,7 +313,10 @@ class ADRController(object):#Tkinter.Tk):
             if len(self.stage60K.get_xdata())>1: 
                 self.ax.set_xlim(xMin,lastDatetime)
                 self.ax.set_ylim(ymin - (ymax-ymin)/10, ymax + (ymax-ymin)/10)
+                hfmt = mpl.dates.DateFormatter('%H:%M:%S')
+                self.ax.xaxis.set_major_formatter(hfmt)
                 self.fig.autofmt_xdate()
+                self.fig.tight_layout()
         # update legend
         labelOrder = ['T_60K','T_3K','T_GGG','T_FAA']
         lines = [self.stage60K,self.stage03K,self.stageGGG,self.stageFAA]
