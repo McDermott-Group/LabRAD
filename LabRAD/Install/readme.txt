@@ -1,8 +1,7 @@
-Installation order matters. Do it in the order described in the readme.txt" file. 
+Installation order matters. Follow the order described in this file. 
 If you are installing from a directory, sometimes errors are thrown if the path length is too long. :/
 
-Install the things in this order (on a computer with an Internet access):
-
+Install Python and the required modules in this order (on a computer with an Internet access):
 python-2.7.9.msi - make sure to select "add python to path"
 numpy-1.9.2-win32-superpack-python2.7.exe
 scipy-0.15.1-win32-superpack-python2.7.exe
