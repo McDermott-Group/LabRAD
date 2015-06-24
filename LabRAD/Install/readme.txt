@@ -1,6 +1,9 @@
+Installation order matters. Do it in the order described in the readme.txt" file. 
+If you are installing from a directory, sometimes errors are thrown if the path length is too long. :/
+
 Install the things in this order (on a computer with an Internet access):
 
-python-2.7.9.msi
+python-2.7.9.msi - make sure to select "add python to path"
 numpy-1.9.2-win32-superpack-python2.7.exe
 scipy-0.15.1-win32-superpack-python2.7.exe
 run in the command line: "pip2.7 install ipython"
@@ -14,8 +17,11 @@ pylabrad-0.92.5.win32-py2.7.exe
 replace "C:\Python27\Lib\site-packages\labrad\types.py" with types.py from this folder
 replace "C:\Python27\Lib\site-packages\labrad\gpib.py" with gpib.py from this folder
 
-Below are some of the tested configurations (you can get this list by running "pip2.7 freeze" in the command line):
+===================================================================================================
 To update a package run "pip2.7 install --upgrade package_name" in the command line.
+
+===================================================================================================
+Below are some of the tested configurations. You can get this list by running "pip2.7 freeze" in the command line.
 
 [dr2]
 PyVISA==1.7
