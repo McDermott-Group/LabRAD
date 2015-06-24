@@ -32,8 +32,11 @@ timeout = 20
 """
 
 import os.path, sys
-SCRIPT_PATH = os.path.dirname(__file__)
-GPIB_PATH = os.path.join(SCRIPT_PATH.split('LabRAD')[0], 'LabRAD\LabRAD\Servers\GPIB')
+if __file__ in [f for f in os.listdir('.') if os.path.isfile(f)]:
+    SCRIPT_PATH = os.path.dirname(os.getcwd())  # This will be executed when the script is loaded by the labradnode.
+else:
+    SCRIPT_PATH = os.path.dirname(__file__)     # This will be executed if the script is started by clicking or in a command line.
+GPIB_PATH = os.path.join(SCRIPT_PATH.rsplit('LabRAD', 1)[0], 'LabRAD\Servers\GPIB')
 if GPIB_PATH not in sys.path:
     sys.path.append(GPIB_PATH)
 
@@ -59,21 +62,13 @@ def get_slot(self):
 
 def read_decorated(self, *args):
     self.write_undecorated("CONN " + str(self.slot) + ",'XyZ'")
-    try:
-        response = self.read_undecorated(*args)
-    except:
-        response = None
-        print("No response from " + str(self.address))
+    response = self.read_undecorated(*args)
     self.write_undecorated('XyZ')
     return response
 
 def read_raw_decorated(self, *args):
     self.write_undecorated("CONN " + str(self.slot) + ",'xzY'")
-    try:
-        response = self.read_undecoratedRaw(*args)
-    except:
-        response = None
-        print("No response from " + str(self.address))
+    response = self.read_undecoratedRaw(*args)
     self.write_undecorated('xzY')
     return response
 
@@ -85,11 +80,7 @@ def write_decorated(self, *args):
 
 def query_decorated(self, *args):
     self.write_undecorated("CONN " + str(self.slot) + ",'yXz'")
-    try:
-        response = self.query_undecorated(*args)
-    except:
-        response = None
-        print("No response from " + str(self.address) + " to '" + str(args[0]) + "'")
+    response = self.query_undecorated(*args)
     self.write_undecorated('yXz')
     return response    
 
