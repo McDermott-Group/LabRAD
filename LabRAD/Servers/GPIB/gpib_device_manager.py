@@ -135,21 +135,22 @@ class GPIBDeviceManager(LabradServer):
         to the identification query.  If the response cannot be parsed
         or the query fails, the name will be listed as '<unknown>'.
         """
-        resp = None
-        name = UNKNOWN
         for cls_cmd, idn_cmd in [('*CLS', '*IDN?'), ('', 'ID?'), ('IP', 'OI')]:
-            p = self.client.servers[server].packet()
+            p = yield self.client.servers[server].packet()
             p.address(channel).timeout(Value(1,'s')).write(cls_cmd).query(idn_cmd)
             print("Sending '" + idn_cmd + "' to " + str(server) + " " + str(channel))
+            resp = None
             try:
                 resp = (yield p.send()).query
-            except Exception:
+            except Exception, e:
+                name = UNKNOWN
                 print("No response to '" + idn_cmd + "' from " + str(server) + " " + str(channel))
                 continue
             name = parseIDNResponse(resp, idn_cmd)
-            print(str(server) + " " + str(channel) + " '" + idn_cmd + "' response: '" + resp + "'")
-            print(str(server) + " " + str(channel) + " device name: '" + name + "'")
-            break
+            if name != UNKNOWN:
+                print(str(server) + " " + str(channel) + " '" + idn_cmd + "' response: '" + resp + "'")
+                print(str(server) + " " + str(channel) + " device name: '" + name + "'")
+                break
         returnValue((name, resp))
 
     def identifyDevice(self, server, channel, idn):
