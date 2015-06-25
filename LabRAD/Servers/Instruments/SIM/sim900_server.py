@@ -107,7 +107,7 @@ class SIM900Server(GPIBBusServer, GPIBManagedServer):
         oldDevices = self.devices.copy()
         yield GPIBManagedServer.handleDeviceMessage(self,*args)
         if self.devices != oldDevices:
-            callLater(0.1, self.refreshDevices)     # To improve the responsiveness of the SIM900 device to GPIB queries.
+            self.refreshDevices # callLater(0.1, self.refreshDevices) # This may or may not help improve the responsiveness of SIM900 to the GPIB queries.
         
     @inlineCallbacks
     def refreshDevices(self):
@@ -117,7 +117,7 @@ class SIM900Server(GPIBBusServer, GPIBManagedServer):
         statusStr = '0'
         IDs, names = self.deviceLists()
         for SIM900addr in names:
-            p = yield self.client[self.name].packet()
+            p = self.client[self.name].packet()
             res = yield p.select_device(SIM900addr).gpib_write('*CLS').gpib_query('CTCR?').send()
             statusStr = res['gpib_query']
             # ask the SIM900 which slots have an active module, and only deal with those.
@@ -156,12 +156,18 @@ class SIM900Server(GPIBBusServer, GPIBManagedServer):
   
     @setting(210, server='s', addr='s', idn='s', returns='?')
     def custom_ident_function(self, c, server, addr, idn=None):
-        if addr in self.mydevices:
-            yield self.mydevices[addr].write('*CLS')
-            res = yield self.mydevices[addr].query('*IDN?')
-            if res is not None:
-                mfr, model, ver, rev = res.upper().split(',')
-                returnValue(mfr.replace('_', ' ') + ' ' + model)
+        @inlineCallbacks
+        def _custom_ident_function():
+            if addr in self.mydevices:
+                yield self.mydevices[addr].write('*CLS')
+                res = yield self.mydevices[addr].query('*IDN?')
+                if res is not None:
+                    mfr, model, ver, rev = res.upper().split(',')
+                    returnValue(mfr.replace('_', ' ') + ' ' + model)
+                else:
+                    res = yield self.mydevices[addr].query('ID?')
+                    returnValue(res.upper().split(',')[0])
+        return _custom_ident_function()
 
 __server__ = SIM900Server()
 
