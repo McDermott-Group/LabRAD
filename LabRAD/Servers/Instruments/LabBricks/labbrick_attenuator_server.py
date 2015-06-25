@@ -43,34 +43,24 @@ import time
 import ctypes
 
 MAX_NUM_ATTEN = 64      # maximum number of connected attenuators
-MAX_MODELNAME = 32      # maximum size of LABBRICK model name
+MAX_MODELNAME = 32      # maximum length of LabBrick model name
 
-
-#the server itself...
 class LBAttenuatorServer(LabradServer):
-
     name='%LABRADNODE% LBA Server'
-    
     refreshInterval = 3
     defaultTimeout = 0.05
     
     @inlineCallbacks
     def GetRegistryKeys(self):
-        '''get registry keys for this server'''
-        
+        '''Get registry keys for the Lab Brick Attenuator Server.'''
         reg = self.client.registry()
-        
         yield reg.cd(['', 'Servers', 'Lab Brick Attenuators'], True)
-        
-        dirs,keys = yield reg.dir()
-                
-        self.DLL_path = yield reg.get('Lab Brick Attenuator DLL Path')
-                
+        dirs, keys = yield reg.dir()  
+        self.DLL_path = yield reg.get('Lab Brick Attenuator DLL Path')        
         if 'Lab Brick Attenuator Timeout' not in keys:
             self.WaitTime = self.defaultTimeout
         else:
             self.WaitTime = yield reg.get('Lab Brick Attenuator Timeout')
-        
         if 'Lab Brick Attenuator Server Autorefresh' not in keys:
             self.autorefresh = False
         else:
@@ -78,39 +68,35 @@ class LBAttenuatorServer(LabradServer):
     
     @inlineCallbacks    
     def initServer(self):
-
+        '''Initialize the Lab Brick Attenuator Server.'''
         self.DLL_path = ''
         self.WaitTime = self.defaultTimeout
         self.autorefresh = True
         
         yield self.GetRegistryKeys()
-                
         try:
             self.VNXdll = ctypes.CDLL(self.DLL_path)
         except:
             raise Exception('Could not find Lab Brick Attenuator DLL')
-            
-        
-        #disable attenuator DLL test mode
+
+        # Disable attenuator DLL test mode.
         TestMode = ctypes.c_bool(False)
         self.VNXdll.fnLDA_SetTestMode(TestMode) 
         
         self.ndevices = 0
 
-        #create a dictionary that maps serial numbers to Device ID's
+        # Create a dictionary that maps serial numbers to Device ID's.
         self.SerialNumberDict = dict()
-        #create a dictionary that keeps track of last set attenuation
+        # Create a dictionary that keeps track of last set attenuation.
         self.LastAttenuation = dict()   
-        #dictionary to keep track of min/max attenuations
+        # Dictionary to keep track of min/max attenuations.
         self.MinMaxAttenuation = dict()
         
         if self.autorefresh:
             callLater(0.1, self.startRefreshing)
-            
         else:
             self.refreshAttenuators()
-            
-        
+
     def startRefreshing(self):
         """Start periodically refreshing the list of devices.
 
@@ -127,7 +113,6 @@ class LBAttenuatorServer(LabradServer):
         if hasattr(self, 'refresher'):
             self.refresher.stop()
             yield self.refresherDone
-        
         self.killAttenuatorConnections()
             
     def killAttenuatorConnections(self):
@@ -145,155 +130,107 @@ class LBAttenuatorServer(LabradServer):
                         
         if self.ndevices == n:
             return
-            
         elif n == 0:
             print 'Attenuators disconnected.'
             self.ndevices = n
             self.SerialNumberDict.clear()
             self.LastAttenuation.clear()
-        
         else:   
-
             self.ndevices = n        
-            
             DEVIDs = (ctypes.c_uint*MAX_NUM_ATTEN)()
             DEVIDs_ptr = ctypes.cast(DEVIDs, ctypes.POINTER(ctypes.c_uint))
-            
             self.VNXdll.fnLDA_GetDevInfo(DEVIDs_ptr)    
             MODNAME = ctypes.create_string_buffer(MAX_MODELNAME)
-            
-            print 'New Lab Brick attenuators found: '
+
             for idx in range(self.ndevices):
-                
                 SN = self.VNXdll.fnLDA_GetSerialNumber(DEVIDs_ptr[idx])
                 self.SerialNumberDict.update({SN:DEVIDs_ptr[idx]})
-                
                 nameLength = self.VNXdll.fnLDA_GetModelName(DEVIDs_ptr[idx], MODNAME)
-                
-                aDB = yield self.GetAttenuation(0,SN)
-                aMin = yield self.MinAttenuation(0,SN)
-                aMax = yield self.MaxAttenuation(0,SN)
-                
+                aDB = yield self.GetAttenuation(0, SN)
+                aMin = yield self.MinAttenuation(0, SN)
+                aMax = yield self.MaxAttenuation(0, SN)
                 self.LastAttenuation.update({SN:aDB})
                 self.MinMaxAttenuation.update({SN:(aMin,aMax)})
-                
-                print MODNAME.raw[0:nameLength] + ' Serial Number: %i, Current attenuation: %.1f dB'%(SN,aDB)
-            
-                
+                print('Found Lab Brick Attenuator with ' + MODNAME.raw[0:nameLength] + ' Serial Number: %i, current attenuation: %.1f dB'%(SN, aDB))
+
     @setting(1)
     def update_attenuators(self, c):
-        '''manually refresh attenuator list'''
+        '''Manually refresh attenuator list.'''
         self.refreshAttenuators
         
     @setting(2, returns='*i')
     def list_devices(self,c):
-        '''return list of attenuator serial numbers'''
+        '''Return list of attenuator serial numbers'.'''
         return sorted(self.SerialNumberDict.keys())
     
             
     @setting(11, 'Get Attenuation', SN=['i','w'], returns='v[dB]')
     def GetAttenuation(self, c, SN):
-        '''Gets attenuation (in dB) from attenuator with given serial number'''
-        
+        '''Get attenuation (in dB) from attenuator with given serial number.'''
         if SN not in self.SerialNumberDict.keys():
             raise Exception('Attenuator with serial number %d is not connected to this PC!'%SN)
-        
         DID = ctypes.c_uint(self.SerialNumberDict[SN])
-        
-        
         self.VNXdll.fnLDA_InitDevice(DID)
-    
         atten = 0.25*self.VNXdll.fnLDA_GetAttenuation(DID)
-    
         self.VNXdll.fnLDA_CloseDevice(DID)
-            
         time.sleep(self.WaitTime)
-        
         return atten
         
     @setting(12, 'Set Attenuation', SN=['i', 'w'], atten='v[dB]')
     def SetAttenuation(self, c, SN, atten):
-        '''sets the attenuation of a given Serial Number'''
-        
+        '''Set the attenuation of a given Serial Number.'''
         if SN not in self.SerialNumberDict.keys():
             raise Exception('Attenuator with serial number %d is not connected to this PC!'%SN)
-        
         if atten < self.MinMaxAttenuation[SN][0]:
-            atten = 0.
+            atten = float(0)
         elif atten > self.MinMaxAttenuation[SN][1]:
-            atten = 63.
+            atten = float(63)
         
-        #check to make sure it needs to be changed
+        # Check to make sure it needs to be changed.
         if self.LastAttenuation[SN] == atten:
             return
         
         self.LastAttenuation[SN] = atten
-        
         DID = ctypes.c_uint(self.SerialNumberDict[SN])
-        
         self.VNXdll.fnLDA_InitDevice(DID)
-        
         self.VNXdll.fnLDA_SetAttenuation(DID, ctypes.c_int(int(atten*4.)))
-        
         self.VNXdll.fnLDA_CloseDevice(DID)
-        
         time.sleep(self.WaitTime)
         
     @setting(21, 'Max Attenuation', SN=['i','w'], returns='v[dB]')
     def MaxAttenuation(self, c, SN):
-        '''return maximum attenuation available to this attenuator'''
+        '''Return maximum attenuation available to this attenuator.'''
         
         if SN not in self.SerialNumberDict.keys():
             raise Exception('Attenuator with serial number %d is not connected to this PC!'%SN)
-            
         DID = ctypes.c_uint(self.SerialNumberDict[SN])
-        
         self.VNXdll.fnLDA_InitDevice(DID)
-        
         maxA = self.VNXdll.fnLDA_GetMaxAttenuation(DID)
-        
         self.VNXdll.fnLDA_CloseDevice(DID)
-        
         return maxA
-        
-        
-        
+
     @setting(22, 'Min Attenuation', SN=['i','w'], returns='v[dB]')
     def MinAttenuation(self, c, SN):
-        '''return maximum attenuation available to this attenuator'''
-        
+        '''Return minimum attenuation available to this attenuator.'''
         if SN not in self.SerialNumberDict.keys():
             raise Exception('Attenuator with serial number %d is not connected to this PC!'%SN)
-            
         DID = ctypes.c_uint(self.SerialNumberDict[SN])
-        
         self.VNXdll.fnLDA_InitDevice(DID)
-        
         minA = self.VNXdll.fnLDA_GetMinAttenuation(DID)
-        
         self.VNXdll.fnLDA_CloseDevice(DID)
-        
         return minA
         
     @setting(30, 'Model Name', SN=['i','w'], returns='s')
     def ModelName(self,c, SN):
-        ''' return attenuator model name '''
+        '''Return attenuator model name.'''
         if SN not in self.SerialNumberDict.keys():
             raise Exception('Attenuator with serial number %d is not connected to this PC!'%SN)
-            
         MODNAME = ctypes.create_string_buffer(MAX_MODELNAME)
         nameLength = self.VNXdll.fnLDA_GetModelName(self.SerialNumberDict[SN], MODNAME)
         return  ''.join(MODNAME.raw[0:nameLength])
-        
-            
-            
+
 __server__ = LBAttenuatorServer()
 
 if __name__ == '__main__':
     from labrad import util
     util.runServer(__server__)
-            
-    
-        
-    
-        
