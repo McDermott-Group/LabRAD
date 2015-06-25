@@ -166,13 +166,13 @@ class LBAttenuatorServer(LabradServer):
         return sorted(self.SerialNumberDict.keys())
         
     @setting(5, 'Select Attenuator', SN=['i', 'w'], returns='')
-    def GetAttenuation(self, c):
-        '''Get attenuation.'''
+    def SelectAttenuator(self, c):
+        '''Select attenuator.'''
         c['SN'] = SN
         
-    @setting(5, 'Deselect Attenuator', returns='')
-    def GetAttenuation(self, c):
-        '''Get attenuation.'''
+    @setting(6, 'Deselect Attenuator', returns='')
+    def DeselectAttenuator(self, c):
+        '''Deselect attenuator.'''
         if 'SN' in c:
             del c['SN']
      
