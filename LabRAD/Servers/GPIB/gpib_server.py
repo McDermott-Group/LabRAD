@@ -167,7 +167,7 @@ class GPIBBusServer(LabradServer):
         try:
             self.getDevice(c).write(unicode(data))  # Note the explicit conversion from ASCII to Unicode.
         except VisaIOError:
-            print("Could not write '" + str(data) + "' to " + c['addr'])  
+            print("Could not write '" + str(data) + "' to " + c['addr'])
 
     @setting(24, bytes='w', returns='s')
     def read_raw(self, c, bytes=None):
@@ -184,6 +184,7 @@ class GPIBBusServer(LabradServer):
                 return instr.read_raw(bytes)
         except VisaIOError:
             print("No response from " + c['addr'])
+            return ''
 
     @setting(25, returns='s')
     def read(self, c):
@@ -191,7 +192,8 @@ class GPIBBusServer(LabradServer):
         try:
             return self.getDevice(c).read().strip(string.whitespace + '\x00').encode('ascii', 'ignore')  # Note the explicit conversion from Unicode to ASCII
         except VisaIOError:
-            print("No response from " + c['addr']) 
+            print("No response from " + c['addr'])
+            return ''
 
     @setting(26, data='s', returns='s')
     def query(self, c, data):
@@ -203,7 +205,8 @@ class GPIBBusServer(LabradServer):
         try:
             return self.getDevice(c).query(data).strip(string.whitespace+'\x00').encode('ascii', 'ignore')  # explicit conversion from Unicode to ASCII
         except VisaIOError:
-            print("No response from " + c['addr'] + " to '" + str(data) + "'")  
+            print("No response from " + c['addr'] + " to '" + str(data) + "'") 
+            return ''
 
 __server__ = GPIBBusServer()
 
