@@ -193,21 +193,25 @@ class GPIBDeviceManager(LabradServer):
         If the identification succeeds, returns the new name,
         otherwise returns None.
         """
-        try:
-            #yield self.client.refresh()
-            s = self.client[identifier]
-            setting, context = self.identFunctions[identifier]
-            print("Trying to identify device " +  str(server) + " " + str(channel) + " on server " + str(identifier))
-            if idn is None:
-                resp = yield s[setting](server, channel, context=context)
-            else:
-                resp = yield s[setting](server, channel, idn, context=context)
-            if resp is not None and resp != UNKNOWN:
-                print("Server " + str(identifier) + ' identified device ' + str(server) +
-                      ' ' + str(channel) + ' as ' + str(resp))
-                returnValue(resp)
-        except Exception, e:
-            print('Error during device identification: ' + str(e))
+        if identifier in self.identFunctions:
+            try:
+                # yield self.client.refresh()
+                s = self.client[identifier]
+                setting, context = self.identFunctions[identifier]
+                print("Trying to identify device " +  str(server) + " " + str(channel) + " on server " + str(identifier))
+                if idn is None:
+                    resp = yield s[setting](server, channel, context=context)
+                else:
+                    resp = yield s[setting](server, channel, idn, context=context)
+                if resp is not None and resp != UNKNOWN:
+                    print("Server " + str(identifier) + ' identified device ' + str(server) +
+                          ' ' + str(channel) + ' as ' + str(resp))
+                    returnValue(resp)
+                else:
+                    print("Server " + str(identifier) + ' could not identify device ' + str(server) +
+                          ' ' + str(channel))
+            except Exception:
+                print('Error while attempting to identify a device')
     
     @setting(1, 'Register Server',
              devices=['s', '*s'], messageID='w',
