@@ -136,11 +136,11 @@ class GPIBDeviceManager(LabradServer):
         or the query fails, the name will be listed as '<unknown>'.
         """
         for cls_cmd, idn_cmd in [('*CLS', '*IDN?'), ('', 'ID?'), ('IP', 'OI')]:
+            resp = None
+            name = UNKNOWN
             p = self.client.servers[server].packet()
             p.address(channel).timeout(Value(1,'s')).write(cls_cmd).query(idn_cmd)
             print("Sending '" + idn_cmd + "' to " + str(server) + " " + str(channel))
-            resp = None
-            name = UNKNOWN
             try:
                 resp = (yield p.send()).query
             except Exception:

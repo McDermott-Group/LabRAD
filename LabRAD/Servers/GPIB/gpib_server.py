@@ -203,7 +203,7 @@ class GPIBBusServer(LabradServer):
         device will occur while the query is in progress.
         """
         try:
-            return self.getDevice(c).query(data).strip(string.whitespace+'\x00').encode('ascii', 'ignore')  # explicit conversion from Unicode to ASCII
+            return self.getDevice(c).query(data).strip(string.whitespace + '\x00').encode('ascii', 'ignore')  # explicit conversion from Unicode to ASCII
         except VisaIOError:
             print("No response from " + c['addr'] + " to '" + str(data) + "'")
             return ''
