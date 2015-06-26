@@ -197,8 +197,7 @@ class GPIBDeviceManager(LabradServer):
             #yield self.client.refresh()
             s = self.client[identifier]
             setting, context = self.identFunctions[identifier]
-            print("Trying to identify device " +  str(server) + " " + str(channel) +
-                  " on server " + str(identifier) + " with '*IDN?' response: '" + str(idn) + "'")
+            print("Trying to identify device " +  str(server) + " " + str(channel) + " on server " + str(identifier))
             if idn is None:
                 resp = yield s[setting](server, channel, context=context)
             else:
