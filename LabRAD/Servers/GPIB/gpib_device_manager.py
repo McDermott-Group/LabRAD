@@ -18,7 +18,7 @@
 ### BEGIN NODE INFO
 [info]
 name = GPIB Device Manager
-version = 1.4.0
+version = 1.4.1
 description = Manages discovery and lookup of GPIB devices
 
 [startup]
@@ -42,14 +42,17 @@ from labrad.units import Unit,Value
 UNKNOWN = '<unknown>'
 
 def parseIDNResponse(s, idn_cmd='*IDN?'):
-    """Parse the response from *IDN? to get mfr and model info."""
-    if idn_cmd == '*IDN?':
-        mfr, model, ver, rev = s.upper().split(',')
-        return mfr.replace('_', ' ') + ' ' + model
-    elif idn_cmd == 'ID?':
-        return s.upper().split(',')[0]
-    elif idn_cmd == 'OI':
-        return s.strip(string.whitespace).split('REV')[0]
+    """Parse the response from *IDN? or 'ID?' to get mfr and model info in the "MANUFACTURER MODEL" format."""
+    if s is not None and s != '':
+        if idn_cmd == '*IDN?':
+            mfr, model, ver, rev = s.upper().split(',')
+            return mfr.replace('_', ' ') + ' ' + model
+        elif idn_cmd == 'ID?':
+            return s.upper().split(',')[0]
+        elif idn_cmd == 'OI':
+            return s.strip(string.whitespace).split('REV')[0]
+    else:
+        return UNKNOWN
 
 class GPIBDeviceManager(LabradServer):
     """Manages autodetection and identification of GPIB devices.
@@ -147,9 +150,10 @@ class GPIBDeviceManager(LabradServer):
                 print("No response to '" + idn_cmd + "' from " + str(server) + " " + str(channel))
                 continue
             name = parseIDNResponse(resp, idn_cmd)
-            print(str(server) + " " + str(channel) + " '" + idn_cmd + "' response: '" + resp + "'")
-            print(str(server) + " " + str(channel) + " device name: '" + name + "'")
-            break
+            if name != UNKNOWN:
+                print(str(server) + " " + str(channel) + " '" + idn_cmd + "' response: '" + resp + "'")
+                print(str(server) + " " + str(channel) + " device name: '" + name + "'")
+                break
         returnValue((name, resp))
 
     def identifyDevice(self, server, channel, idn):
@@ -199,12 +203,12 @@ class GPIBDeviceManager(LabradServer):
                 resp = yield s[setting](server, channel, context=context)
             else:
                 resp = yield s[setting](server, channel, idn, context=context)
-            if resp is not None:
+            if resp is not None and resp != UNKNOWN:
                 print("Server " + str(identifier) + ' identified device ' + str(server) +
                       ' ' + str(channel) + ' as ' + str(resp))
                 returnValue(resp)
         except Exception, e:
-            print('Error during ident: ' + str(e))
+            print('Error during device identification: ' + str(e))
     
     @setting(1, 'Register Server',
              devices=['s', '*s'], messageID='w',

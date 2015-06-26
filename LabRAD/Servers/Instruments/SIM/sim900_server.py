@@ -17,7 +17,7 @@
 ### BEGIN NODE INFO
 [info]
 name = SIM900 SRS Mainframe
-version = 2.0
+version = 2.0.1
 description = Gives access to SIM900, GPIB devices in it.
 instancename = %LABRADNODE% SIM900
 
@@ -42,6 +42,7 @@ if GPIB_PATH not in sys.path:
 
 from types import MethodType
 import visa
+from pyvisa.errors import VisaIOError
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.reactor import callLater
@@ -51,7 +52,7 @@ from labrad.server import setting, returnValue
 from labrad.gpib import GPIBManagedServer, GPIBDeviceWrapper
 
 from gpib_server import GPIBBusServer
-from gpib_device_manager import UNKNOWN
+from gpib_device_manager import parseIDNResponse, UNKNOWN
 
 # These are the redefined functions that will be used for the visa instruments to connect to the appropriate slots.
 def set_slot(self, i):
@@ -61,28 +62,42 @@ def get_slot(self):
     return self.slot
 
 def read_decorated(self, *args):
-    self.write_undecorated("CONN " + str(self.slot) + ",'XyZ'")
-    response = self.read_undecorated(*args)
-    self.write_undecorated('XyZ')
-    return response
+    try:
+        self.write_undecorated("CONN " + str(self.slot) + ",'XyZ'")
+        response = self.read_undecorated(*args)
+        self.write_undecorated('XyZ')
+        return response
+    except VisaIOError:
+        print("No response from " + str(self.address))
+        return ''
 
 def read_raw_decorated(self, *args):
-    self.write_undecorated("CONN " + str(self.slot) + ",'xzY'")
-    response = self.read_undecoratedRaw(*args)
-    self.write_undecorated('xzY')
-    return response
+    try:
+        self.write_undecorated("CONN " + str(self.slot) + ",'xzY'")
+        response = self.read_raw_undecorated(*args)
+        self.write_undecorated('xzY')
+        return response
+    except VisaIOError:
+        print("No response from " + str(self.address))
+        return ''
 
 def write_decorated(self, *args):
-    self.write_undecorated("CONN " + str(self.slot) + ",'xZy'")
-    response = self.write_undecorated(*args)
-    self.write_undecorated('xZy')
-    return response
+    try:
+        self.write_undecorated("CONN " + str(self.slot) + ",'xZy'")
+        response = self.write_undecorated(*args)
+        self.write_undecorated('xZy')
+    except VisaIOError:
+        print("Could not write '" + str(*args) + "' to " + str(self.address))
 
 def query_decorated(self, *args):
-    self.write_undecorated("CONN " + str(self.slot) + ",'yXz'")
-    response = self.query_undecorated(*args)
-    self.write_undecorated('yXz')
-    return response    
+    try:
+        self.write_undecorated("CONN " + str(self.slot) + ",'yXz'")
+        response = self.query_undecorated(*args)
+        self.write_undecorated('yXz')
+        return response
+    except VisaIOError:
+        print("No response from " + str(self.address))
+        return ''
 
 class SIM900Server(GPIBBusServer, GPIBManagedServer):
     name = '%LABRADNODE% SIM900'
@@ -138,7 +153,7 @@ class SIM900Server(GPIBBusServer, GPIBManagedServer):
             instr = rm.open_resource(instName, open_timeout=1.0)
             instr.write_termination = ''
             # Change (decorate) the read, write, query settings to automatically go to right module in SIM rack.
-            instr.read_undecorated, instr.read_undecorated = instr.read, instr.read_raw 
+            instr.read_undecorated, instr.read_raw_undecorated = instr.read, instr.read_raw 
             instr.write_undecorated, instr.query_undecorated = instr.write, instr.query
             instr.set_slot = set_slot
             instr.get_slot = get_slot
@@ -160,13 +175,11 @@ class SIM900Server(GPIBBusServer, GPIBManagedServer):
         def _custom_ident_function():
             if addr in self.mydevices:
                 yield self.mydevices[addr].write('*CLS')
-                res = yield self.mydevices[addr].query('*IDN?')
-                if res is not None:
-                    mfr, model, ver, rev = res.upper().split(',')
-                    returnValue(mfr.replace('_', ' ') + ' ' + model)
+                name = parseIDNResponse((yield self.mydevices[addr].query('*IDN?')), '*IDN?')
+                if name != UNKNOWN:
+                    returnValue(name)
                 else:
-                    res = yield self.mydevices[addr].query('ID?')
-                    returnValue(res.upper().split(',')[0])
+                    returnValue(parseIDNResponse((yield self.mydevices[addr].query('ID?')), '*ID?'))
         return _custom_ident_function()
 
 __server__ = SIM900Server()
