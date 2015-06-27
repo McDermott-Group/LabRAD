@@ -1,7 +1,9 @@
 Installation order matters. Follow the order described in this file. 
 If you are installing from a directory, sometimes errors are thrown if the path length is too long. :/
+*.msi and *.exe distributives are located on AFS in "Z:\mcdermott-group\LabRAD\Install\2015-06-27" folder.
 
-Install Python and the required modules in this order (on a computer with an Internet access):
+
+Python and the required modules should be installed in this order (on a computer with an Internet access):
 python-2.7.9.msi - make sure to select "add python to path"
 numpy-1.9.2-win32-superpack-python2.7.exe
 scipy-0.15.1-win32-superpack-python2.7.exe
