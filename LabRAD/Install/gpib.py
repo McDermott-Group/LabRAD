@@ -98,6 +98,18 @@ class GPIBDeviceWrapper(DeviceWrapper):
             p.timeout(self._timeout)
         resp = yield p.send()
         returnValue(resp.read)
+        
+    @inlineCallbacks
+    def read_raw(self, bytes=None, timeout=None):
+        """Read raw byte data from device (no code stripping)."""
+        p = self._packet()
+        if timeout is not None:
+            p.timeout(timeout)
+        p.read_raw(bytes)
+        if timeout is not None:
+            p.timeout(self._timeout)
+        resp = yield p.send()
+        returnValue(resp.read)
 
     def initialize(self):
         """Called when we first connect to the device.

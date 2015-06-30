@@ -115,7 +115,7 @@ class Agilent8720ETServer(GPIBManagedServer):
         
         if pn is None:
             resp = yield dev.query('POIN?;')
-            pn = int(resp)
+            pn = int(float(resp))
         
         else:
             yield dev.write('POIN%i;'%pn)
@@ -156,7 +156,7 @@ class Agilent8720ETServer(GPIBManagedServer):
         dev = self.selectedDevice(c)
         yield dev.write('AVERREST;')
         
-    @setting(4310, 'Get NA Trace', returns=['*c'])
+    @setting(4310, 'Get Trace', returns=['*c'])
     def getTrace(self, c):
         '''Get trace from NA'''
         dev = self.selectedDevice(c)
@@ -173,7 +173,7 @@ class Agilent8720ETServer(GPIBManagedServer):
         time.sleep(sweepWait)
         
         yield dev.write('OUTPFORM;')
-        dataBuffer = yield dev.read()
+        dataBuffer = yield dev.read_raw()
         print dataBuffer
         rawData = numpy.fromstring(dataBuffer,dtype=numpy.float32)
         
