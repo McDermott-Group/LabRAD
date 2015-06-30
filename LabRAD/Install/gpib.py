@@ -109,7 +109,7 @@ class GPIBDeviceWrapper(DeviceWrapper):
         if timeout is not None:
             p.timeout(self._timeout)
         resp = yield p.send()
-        returnValue(resp.read)
+        returnValue(resp.read_raw)
 
     def initialize(self):
         """Called when we first connect to the device.

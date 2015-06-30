@@ -17,7 +17,7 @@
 ### BEGIN NODE INFO
 [info]
 name = Agilent 8720ET NA
-version = 0.1
+version = 1.0
 description = Two channel 8720ET transmission/reflection network analyzer 
 
 [startup]
@@ -108,6 +108,54 @@ class Agilent8720ETServer(GPIBManagedServer):
         
         returnValue(mode)
         
+    @setting(4311, 'Display Format', fmt=['s'], returns=['s'])
+    def dispFormat(self, c, fmt=None):
+        '''Set or get the display format. Following options are allowed:
+            "LOGMAG" - log magnitude display
+            "LINMAG" - linear magnitude display
+            "PHASE" - phase display
+            "REIM"  - real and imaginary display
+        '''
+        dev = self.selectedDevice(c)
+        
+        if fmt is None:
+        
+            resp = yield dev.query('LOGM?;')
+            if bool(int(resp)):
+                fmt = 'LOGMAG'
+                returnValue(fmt)
+            
+            resp = yield dev.query('LINM?;')
+            if bool(int(resp)):
+                fmt = 'LINMAG'
+                returnValue(fmt)
+                
+            resp = yield dev.query('PHAS?;')
+            if bool(int(resp)):
+                fmt = 'PHASE'
+                returnValue(fmt)
+                
+            resp = yield dev.query('POLA?;')
+            if bool(int(resp)):
+                fmt = 'REIM'
+                returnValue(fmt)
+                
+            
+        else:
+        
+            if fmt == 'LOGMAG': 
+                yield dev.write('LOGM;')
+            elif fmt == 'LINMAG': 
+                yield dev.write('LINM;')
+            elif fmt == 'PHASE': 
+                yield dev.write('PHAS;')
+            elif fmt == 'REIM': 
+                yield dev.write('POLA;')
+            else:
+                raise ValueError('Unknown display format request.')
+                
+        returnValue(fmt)
+   
     @setting(436, 'Number of Points', pn=['i'], returns=['i'])
     def points(self, c, pn=None):
         '''Set or get number of points in a sweep'''
@@ -156,36 +204,41 @@ class Agilent8720ETServer(GPIBManagedServer):
         dev = self.selectedDevice(c)
         yield dev.write('AVERREST;')
         
-    @setting(4310, 'Get Trace', returns=['*c'])
+    @setting(4310, 'Get Trace', returns=['*c[]'])
     def getTrace(self, c):
-        '''Get trace from NA'''
+        '''Get network analyzer trace, output is complex and depends on the display format:
+            "LOGMAG" - real: dB, imag: N/A
+            "LINMAG" - real: linear units, imag: N/A
+            "PHASE" - real: degrees. imag: N/A
+            "REIM"  - real: real part (linear) imag: imagninary part (linear)
+        '''
         dev = self.selectedDevice(c)
         
         yield dev.write('FORM5;')
         
-        numAvg = yield self.averagePoints(c)
-        print numAvg
+        avgOn = yield self.averageOnOff(c)
         waitTime = yield dev.query('SWET?;')
-        print waitTime
-        sweepWait = numAvg*float(waitTime) + 0.1
         
-        yield self.restartAverage(c)
+        if avgOn:
+            numAvg = yield self.averagePoints(c)
+            sweepWait = numAvg*float(waitTime) + 0.05
+            yield self.restartAverage(c)
+        else:
+            sweepWait = float(waitTime) + 0.05
+            
         time.sleep(sweepWait)
         
         yield dev.write('OUTPFORM;')
         dataBuffer = yield dev.read_raw()
-        print dataBuffer
         rawData = numpy.fromstring(dataBuffer,dtype=numpy.float32)
-        
-        data =  rawData[1:2:-1] + 1j*rawData[2:2:-1] 
+        #print rawData
+        data = numpy.empty((rawData.shape[-1]-1)/2, dtype=numpy.complex)
+                
+        data.real = rawData[1:-1:2]
+        data.imag = numpy.hstack((rawData[2:-1:2],rawData[-1])) #ugly...
         
         returnValue(data)
-        
-        
-        
-            
-        
-    
+
     @setting(99, 'Initialize NA')
     def initialize(self, c):
         """Initialize the NA"""
