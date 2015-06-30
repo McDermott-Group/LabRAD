@@ -213,23 +213,26 @@ class ADRServer(DeviceServer):
             cycleStartTime = datetime.datetime.now()
             # update system state
             self.lastState = self.state.copy()
-            try: self.state['T_60K'],self.state['T_3K'] = yield self.instruments['Diode Temperature Monitor'].get_diode_temperatures()
+            try:
+                self.state['T_60K'],self.state['T_3K'] = yield self.instruments['Diode Temperature Monitor'].get_diode_temperatures()
             except Exception as e: 
                 self.state['T_60K'],self.state['T_3K'] = nan, nan
                 self.instruments['Diode Temperature Monitor'].connected = False
             try:
                 ruoxDevSettings = yield self.client.manager.lr_settings(self.ADRSettings['Ruox Temperature Monitor'][0])
-                if 'Get Time COnstant' in [n for s,n in ruoxDevSettings]:
+                if 'Get Time Constant' in [n for s,n in ruoxDevSettings]:
                     timeConst = yield self.instruments['Ruox Temperature Monitor'].get_time_constant()
                 else: timeConst = 0
                 if deltaT( datetime.datetime.now() - self.state['RuOxChanSetTime'] ) >= 10*timeConst: #only if we have waited 10 x the time constant for the reader to settle
                     self.state[ 'T_'+self.state['RuOxChan'] ] = yield self.instruments['Ruox Temperature Monitor'].get_ruox_temperature()
+                    #print self.state['T_GGG']['K'], self.state['T_FAA']['K'], self.instruments['Ruox Temperature Monitor'], self.state['RuOxChanSetTime']
                     if self.state['RuOxChan'] == 'GGG': self.state['T_FAA'] = nan
                     if self.state['RuOxChan'] == 'FAA': self.state['T_GGG'] = nan
-                    if self.state['T_GGG']['K'] == 20.0: self.state['T_GGG'] = nan
-                    if self.state['T_FAA']['K'] == 45.0: self.state['T_FAA'] = nan
+                    if self.state['T_GGG'] == 20.0: self.state['T_GGG'] = nan
+                    if self.state['T_FAA'] == 45.0: self.state['T_FAA'] = nan
                     # &&& enable ability to switch between FAA and GGG, retain last record for other temp instead of making it NaN (see old code)
             except Exception as e: 
+                print 'err:',str(e)
                 self.state['T_GGG'],self.state['T_FAA'] = nan, nan
                 self.instruments['Ruox Temperature Monitor'].connected = False
             self.state['datetime'] = datetime.datetime.now()
