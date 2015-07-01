@@ -158,8 +158,8 @@ class Agilent5230AServer(GPIBManagedServer):
     			yield dev.write('SENSe1:AVERage OFF')
     	returnValue(avg)
     	
-    @setting(609, 'Restart Average')
-    def restart_average(self, c):
+    @setting(609, 'Restart Averaging')
+    def restart_averaging(self, c):
     	"""Clears and restarts trace averaging on the current sweep."""
     	dev = self.selectedDevice(c)
     	yield dev.write('SENSe1:AVERage:CLEar')
@@ -229,13 +229,13 @@ class Agilent5230AServer(GPIBManagedServer):
     	yield dev.write('CALC:PAR:SEL %s'% meas)   
     	yield dev.write('FORM REAL,32')	
     	
-    	avgOnOff = yield self.average()
+    	avgOnOff = yield self.average_mode()
     	swpTime  = yield self.get_sweep_time()
     	
     	if avgOnOff:
-    		avgCount = yield self.averageCount()
-    		yield self.restartAverage()
-    		sleepTime = avgCount*swpTime + defaultTimeout
+    		avgCount = yield self.average_points()
+    		yield self.restart_averaging()
+    		sleepTime = avgCount * swpTime + defaultTimeout
     		sleep(sleepTime)
     	else:
     		sleep(swpTime + defaultTimeout)
@@ -243,10 +243,10 @@ class Agilent5230AServer(GPIBManagedServer):
     	yield dev.write('CALC1:DATA? FDATA')
     	rawDataBlock = yield dev.read_raw()
     	
-    	rawData = numpy.fromstring(rawDataBlock,dtype=numpy.float32)
+    	rawData = numpy.fromstring(rawDataBlock, dtype=numpy.float32)
     	data = rawData[3:-1]
     	
-    @setting(6099, 'Initialize')
+    @setting(599, 'Initialize')
     def initialize(self, c):
         """Initialize the network analyzer."""
         dev = self.selectedDevice(c)
