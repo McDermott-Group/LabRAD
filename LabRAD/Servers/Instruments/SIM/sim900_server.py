@@ -17,8 +17,8 @@
 ### BEGIN NODE INFO
 [info]
 name = SIM900 SRS Mainframe
-version = 2.0.2
-description = Gives access to devices plugged into SRS SIM900 Mainframe.
+version = 2.0.1
+description = Gives access to SIM900, GPIB devices in it.
 instancename = %LABRADNODE% SIM900
 
 [startup]
@@ -31,13 +31,12 @@ timeout = 20
 ### END NODE INFO
 """
 
-import os.path
+import os.path, sys
 if __file__ in [f for f in os.listdir('.') if os.path.isfile(f)]:
     SCRIPT_PATH = os.path.dirname(os.getcwd())  # This will be executed when the script is loaded by the labradnode.
 else:
     SCRIPT_PATH = os.path.dirname(__file__)     # This will be executed if the script is started by clicking or in a command line.
 GPIB_PATH = os.path.join(SCRIPT_PATH.rsplit('LabRAD', 1)[0], 'LabRAD\Servers\GPIB')
-import sys
 if GPIB_PATH not in sys.path:
     sys.path.append(GPIB_PATH)
 
