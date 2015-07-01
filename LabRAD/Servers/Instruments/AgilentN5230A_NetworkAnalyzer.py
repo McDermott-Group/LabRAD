@@ -164,7 +164,7 @@ class Agilent5230AServer(GPIBManagedServer):
     	dev = self.selectedDevice(c)
     	yield dev.write('SENSe1:AVERage:CLEar')
     
-    @setting(610 'Average Points', count=['w'], returns=['i'])
+    @setting(610 'Average Points', count=['w'], returns=['w'])
     def average_points(self, c, count=None):
     	"""Set or get the number of measurements to combine for an average."""
     	dev = self.selectedDevice(c)
@@ -194,7 +194,7 @@ class Agilent5230AServer(GPIBManagedServer):
     	swpTime = float(resp) * units.s
     	returnValue(swpTime)
     
-    @setting(613, 'Sweep Points', points=['i'], returns=['i'])
+    @setting(613, 'Sweep Points', points=['w'], returns=['w'])
     def sweep_points(self, c, points=None):
     	"""Set or get the number of points in the sweep."""
     	dev = self.selectedDevice(c)
