@@ -119,7 +119,7 @@ class Agilent8720ETServer(GPIBManagedServer):
         else:
             yield dev.write('POIN%i' %pn)
             t = yield dev.query('SWET?')
-            sleep(2 * float(t)) # Be sure to wait for two sweep times as required in 8270ET docs.
+            yield sleep(2 * float(t)) # Be sure to wait for two sweep times as required in 8270ET docs.
         returnValue(pn)   
     
     @setting(437, 'Average Mode', avg=['b'], returns=['b'])
@@ -188,7 +188,7 @@ class Agilent8720ETServer(GPIBManagedServer):
             yield self.restart_averaging(c)
         else:
             sweepWait = float(waitTime) + 0.05 
-        sleep(sweepWait)
+        yield sleep(sweepWait)
         yield dev.write('OUTPFORM')
         dataBuffer = yield dev.read_raw()
         rawData = numpy.fromstring(dataBuffer,dtype=numpy.float32)

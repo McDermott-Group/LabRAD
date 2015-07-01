@@ -60,7 +60,7 @@ class Agilent5230AServer(GPIBManagedServer):
     	"""Performs preset on network analyzer."""
     	dev = self.selectedDevice(c)
     	yield dev.write('SYSTem:PRESet')
-    	sleep(defaultTimeout)
+    	yield sleep(defaultTimeout)
     
     @setting(601, 'Power Output', pow=['b'], returns=['b'])
     def power_output(self, c, pow=None):
@@ -236,9 +236,9 @@ class Agilent5230AServer(GPIBManagedServer):
     		avgCount = yield self.average_points()
     		yield self.restart_averaging()
     		sleepTime = avgCount * swpTime + defaultTimeout
-    		sleep(sleepTime)
+    		yield sleep(sleepTime)
     	else:
-    		sleep(swpTime + defaultTimeout)
+    		yield sleep(swpTime + defaultTimeout)
 
     	yield dev.write('CALC1:DATA? FDATA')
     	rawDataBlock = yield dev.read_raw()
