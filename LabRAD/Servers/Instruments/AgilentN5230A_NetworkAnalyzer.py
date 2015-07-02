@@ -50,7 +50,7 @@ from nonblocking import sleep
 
 class Agilent5230AServer(GPIBManagedServer):
     name = 'Agilent 5230A Network Analyzer'
-    deviceName = 'AGILENT 5230A'
+    deviceName = 'AGILENT TECHNOLOGIES N5230A'
     deviceWrapper = GPIBDeviceWrapper
     
     defaultTimeout = 0.05
@@ -60,7 +60,7 @@ class Agilent5230AServer(GPIBManagedServer):
     	"""Performs preset on network analyzer."""
     	dev = self.selectedDevice(c)
     	yield dev.write('SYSTem:PRESet')
-    	yield sleep(defaultTimeout)
+    	yield sleep(0.1)
     
     @setting(601, 'Power Output', pow=['b'], returns=['b'])
     def power_output(self, c, pow=None):
@@ -113,25 +113,26 @@ class Agilent5230AServer(GPIBManagedServer):
     def stop_frequency(self, c, stop=None):
     	"""Set or get sweep stop frequency."""
     	dev = self.selectedDevice(c)
-    	if start is None:
-    		resp = yield dev.query('SENSe1:FREQuency:STOP')
+    	if stop is None:
+    		resp = yield dev.query('SENSe1:FREQuency:STOP?')
     		stop = float(resp) * units.Hz
     	else:
     		yield dev.write('SENSe1:FREQuency:STOP %i'%stop['Hz'])
-    	returnValue(start)
+    	returnValue(stop)
     	
     @setting(606, 'Sweep Type', stype=['s'], returns=['s'])
     def sweep_type(self, c, stype=None):
     	"""Set or get the frequency sweep type. 'LIN' - for linear, 'CW' - for single frequency."""
     	dev = self.selectedDevice(c)
     	if stype is None:
-    		stype = yield dev.query('SENSe1:SWEep:TYPE?')
-    	else:
+            stype = yield dev.query('SENSe1:SWEep:TYPE?')
+        else:
     		if (stype.upper() != 'CW') and (stype.upper() != 'LIN'):
     			raise ValueError('Unknown sweep type: ' + str(stype) + '. Please use "LIN" or "CW".')
     		else:
     			yield dev.write('SENSe1:SWEep:TYPE ' + stype)
-    	returnValue(type)
+               
+    	returnValue(stype)
     
     @setting(607, 'IF Bandwidth', bw=['v[Hz]'], returns=['v[Hz]'])
     def if_bandwidth(self, c, bw=None):
@@ -217,7 +218,7 @@ class Agilent5230AServer(GPIBManagedServer):
         dev = self.selectedDevice(c)            
     	yield dev.write('CALC:PAR:DEL:ALL')
     	yield dev.write('DISPlay:WINDow1:STATE ON')
-    	yield dev.write('CALCulate:PARameter:DEFine:EXT "Meas" ,%s'% meas)
+    	yield dev.write('CALCulate:PARameter:DEFine:EXT "MyMeas" ,%s'% meas)
     	yield dev.write('DISPlay:WINDow1:TRACe1:FEED "MyMeas"')
     	yield dev.write('CALC:PAR:SEL "MyMeas"')
     
@@ -227,24 +228,25 @@ class Agilent5230AServer(GPIBManagedServer):
     	dev = self.selectedDevice(c)    	
     	meas = yield dev.query('SYST:ACT:MEAS?')
     	yield dev.write('CALC:PAR:SEL %s'% meas)   
-    	yield dev.write('FORM REAL,32')	
+    	yield dev.write('FORM ASCii,0')	
     	
-    	avgOnOff = yield self.average_mode()
-    	swpTime  = yield self.get_sweep_time()
+    	avgOnOff = yield self.average_mode(c)
+    	swpTime  = yield self.get_sweep_time(c)
+        nPoints = yield self.sweep_points(c)
     	
     	if avgOnOff:
-    		avgCount = yield self.average_points()
-    		yield self.restart_averaging()
-    		sleepTime = avgCount * swpTime + defaultTimeout
+    		avgCount = yield self.average_points(c)
+    		yield self.restart_averaging(c)
+    		sleepTime = avgCount * swpTime + 0.05
     		yield sleep(sleepTime)
     	else:
-    		yield sleep(swpTime + defaultTimeout)
+    		yield sleep(swpTime + 0.05)
 
     	yield dev.write('CALC1:DATA? FDATA')
-    	rawDataBlock = yield dev.read_raw()
-    	
-    	rawData = numpy.fromstring(rawDataBlock, dtype=numpy.float32)
-    	data = rawData[3:-1]
+    	ascii_data = yield dev.read()
+        
+    	data = numpy.array([x for x in ascii_data.split(',')], dtype=float)
+    	returnValue(data)
     	
     @setting(599, 'Initialize')
     def initialize(self, c):
