@@ -30,7 +30,7 @@ timeout = 20
 ### END NODE INFO
 """
 ADR_SETTINGS_BASE_PATH = ['','ADR Settings'] # path in registry
-DEFAULT_ADR = 'ADR3' # name of ADR in registry
+DEFAULT_ADR = 'ADR1' # name of ADR in registry
 
 import matplotlib as mpl
 import numpy, pylab
@@ -40,7 +40,18 @@ from labrad.server import (LabradServer, setting,
 from labrad.devices import DeviceServer
 from labrad import util, units
 from labrad.types import Error as LRError
+import sys
 
+""""
+if len(sys.argv) == 2:
+    selectedADR = sys.argv[1]
+    if selectedADR in ['ADR1','ADR2','ADR3']:
+        DEFAULT_ADR = selectedADR
+        print '%s selected.' %str(selectedADR)
+    else:
+        print '%s is not a valid ADR selection.' %str(selectedADR)
+"""
+        
 def deltaT(dT):
     """.total_seconds() is only supported by >py27 :(, so we use this to subtract two datetime objects."""
     return dT.days*86400 + dT.seconds + dT.microseconds*pow(10,-6)
@@ -52,10 +63,16 @@ class ADRServer(DeviceServer):
     # We no longer use signals.  That way if this server is turned on and off, named_messages still get to clients.  This is an example of a signal, however:
     # stateChanged = Signal(1001, 'signal:state_changed', 's')
     
-    def __init__(self):
+    def __init__(self, args):
         DeviceServer.__init__(self)
         self.ADRSettingsPath = ADR_SETTINGS_BASE_PATH
-        self.ADRSettingsPath.append(DEFAULT_ADR)
+        if len(args) == 1:
+            if args[0] in ['ADR1','ADR2','ADR3']:
+                self.ADRSettingsPath.append(args[0])
+                print '%s selected.' %str(selectedADR)
+        else: 
+            self.ADRSettingsPath.append(DEFAULT_ADR)
+            print '%s is not a valid ADR selection.  Starting with %s' %(str(selectedADR),DEFAULT_ADR)
         self.alive = True
         self.state = {  'T_FAA': numpy.NaN,
                         'T_GGG': numpy.NaN,
@@ -216,43 +233,43 @@ class ADRServer(DeviceServer):
             try:
                 self.state['T_60K'],self.state['T_3K'] = yield self.instruments['Diode Temperature Monitor'].get_diode_temperatures()
             except Exception as e: 
-                self.state['T_60K'],self.state['T_3K'] = nan, nan
+                self.state['T_60K'],self.state['T_3K'] = nan*units.K, nan*units.K
                 self.instruments['Diode Temperature Monitor'].connected = False
             try:
                 ruoxDevSettings = yield self.client.manager.lr_settings(self.ADRSettings['Ruox Temperature Monitor'][0])
                 if 'Get Time Constant' in [n for s,n in ruoxDevSettings]:
                     timeConst = yield self.instruments['Ruox Temperature Monitor'].get_time_constant()
-                else: timeConst = 0
-                if deltaT( datetime.datetime.now() - self.state['RuOxChanSetTime'] ) >= 10*timeConst: #only if we have waited 10 x the time constant for the reader to settle
+                else: timeConst = 0*units.s
+                if deltaT( datetime.datetime.now() - self.state['RuOxChanSetTime'] ) >= 10*timeConst['s']: #only if we have waited 10 x the time constant for the reader to settle
                     self.state[ 'T_'+self.state['RuOxChan'] ] = yield self.instruments['Ruox Temperature Monitor'].get_ruox_temperature()
                     #print self.state['T_GGG']['K'], self.state['T_FAA']['K'], self.instruments['Ruox Temperature Monitor'], self.state['RuOxChanSetTime']
-                    if self.state['RuOxChan'] == 'GGG': self.state['T_FAA'] = nan
-                    if self.state['RuOxChan'] == 'FAA': self.state['T_GGG'] = nan
-                    if self.state['T_GGG'] == 20.0: self.state['T_GGG'] = nan
-                    if self.state['T_FAA'] == 45.0: self.state['T_FAA'] = nan
+                    if self.state['RuOxChan'] == 'GGG': self.state['T_FAA'] = nan*units.K
+                    if self.state['RuOxChan'] == 'FAA': self.state['T_GGG'] = nan*units.K
+                    if self.state['T_GGG']['K'] == 20.0: self.state['T_GGG'] = nan*units.K
+                    if self.state['T_FAA']['K'] == 45.0: self.state['T_FAA'] = nan*units.K
                     # &&& enable ability to switch between FAA and GGG, retain last record for other temp instead of making it NaN (see old code)
             except Exception as e: 
                 print 'err:',str(e)
-                self.state['T_GGG'],self.state['T_FAA'] = nan, nan
+                self.state['T_GGG'],self.state['T_FAA'] = nan*units.K, nan*units.K
                 self.instruments['Ruox Temperature Monitor'].connected = False
             self.state['datetime'] = datetime.datetime.now()
             self.state['cycle'] += 1
             try: self.state['magnetV'] = yield self.instruments['Magnet Voltage Monitor'].get_magnet_voltage()
             except Exception as e: 
-                self.state['magnetV'] = nan
+                self.state['magnetV'] = nan*units.V
                 self.instruments['Magnet Voltage Monitor'].connected = False
             try:
                 self.state['PSCurrent'] = yield self.instruments['Power Supply'].current()
                 self.state['PSVoltage'] = yield self.instruments['Power Supply'].voltage()
             except Exception as e:
-                self.state['PSCurrent'] = nan
-                self.state['PSVoltage'] = nan
+                self.state['PSCurrent'] = nan*units.A
+                self.state['PSVoltage'] = nan*units.V
                 self.instruments['Power Supply'].connected = False
             # update relevant files
             yield self.client.registry.cd(self.ADRSettingsPath)
             file_path = yield self.client.registry.get('Log Path')
             with open(file_path+'\\temperatures'+self.dateAppend+'.temps','ab') as f:
-                newTemps = [self.state[t] for t in ['T_60K','T_3K','T_GGG','T_FAA']]
+                newTemps = [self.state[t]['K'] for t in ['T_60K','T_3K','T_GGG','T_FAA']]
                 f.write( struct.pack('d', mpl.dates.date2num(self.state['datetime'])) )
                 [f.write(struct.pack('d', temp)) for temp in newTemps]
                 #f.write(str(self.state['datetime']) + '\t' + '\t'.join(map(str,newTemps)))
@@ -481,10 +498,10 @@ class ADRServer(DeviceServer):
         self.ADRSettings['PID_KD'] = k
         self.logMessage('PID_KD has been set to '+str(k))
 
-__server__ = ADRServer()
 
 if __name__ == "__main__":
     """Define your instruments here.  This allows for easy exchange between different
     devices to monitor temperature, etc.  For example, the new and old ADR's use two
     different instruments to measure temperature: The SRS module and the Lakeview 218."""
+    __server__ = ADRServer(sys.argv[1:])
     util.runServer(__server__)

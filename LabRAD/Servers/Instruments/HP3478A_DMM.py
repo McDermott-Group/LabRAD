@@ -74,7 +74,7 @@ class HP3478AServer(GPIBManagedServer):
         if 'addr' not in c:
             raise DeviceNotSelectedError("No GPIB address selected")
         for serv in servers:
-            devices = yield self.client[serv].list_my_devices()
+            devices = yield self.client[serv].list_addresses()
             if c['addr'] in devices:
                 yield self.client[serv].address(c['addr'])
                 yield self.client[serv].write(data)
@@ -87,7 +87,7 @@ class HP3478AServer(GPIBManagedServer):
         if 'addr' not in c:
             raise DeviceNotSelectedError("No GPIB address selected")
         for serv in servers:
-            devices = yield self.client[serv].list_my_devices()
+            devices = yield self.client[serv].list_addresses()
             if c['addr'] in devices:
                 yield self.client[serv].address(c['addr'])
                 resp = yield self.client[serv].query(data)

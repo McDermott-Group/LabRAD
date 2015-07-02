@@ -33,6 +33,7 @@ timeout = 5
 from labrad.server import setting
 from labrad.gpib import GPIBManagedServer, GPIBDeviceWrapper
 from twisted.internet.defer import inlineCallbacks, returnValue
+from labrad import units
 
 class SIM921Server(GPIBManagedServer):
     """Provides basic control for SRS SIM921 AC Resistance Bridge Module"""
@@ -46,7 +47,7 @@ class SIM921Server(GPIBManagedServer):
         dev = self.selectedDevice(c)
         timeConstCodes = {-1:'filter off', 0:0.3, 1:1, 2:3, 3:10, 4:30, 5:100, 6:300}
         returnCode = yield dev.query("TCON?")
-        t = timeConstCodes[int(returnCode)]
+        t = timeConstCodes[int(returnCode)]*units.s
         returnValue(t)
 
     @setting(102, 'Get Ruox Temperature', returns=['v[K]'])
@@ -54,7 +55,7 @@ class SIM921Server(GPIBManagedServer):
         """Get temperature being read by the AC Res Bridge right now."""
         dev = self.selectedDevice(c)
         gpibstring = yield dev.query("TVAL?")
-        T = float(gpibstring.strip('\x00'))
+        T = float(gpibstring.strip('\x00'))*units.K
         returnValue( T )
     
     @setting(103, 'Set Curve', curve=['v'])
