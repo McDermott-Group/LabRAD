@@ -120,14 +120,14 @@ class Agilent5230AServer(GPIBManagedServer):
     		yield dev.write('SENSe1:FREQuency:STOP %i'%stop['Hz'])
     	returnValue(start)
     	
-    @setting(606, 'Sweep Type', stype=['s'], returns['s'])
+    @setting(606, 'Sweep Type', stype=['s'], returns=['s'])
     def sweep_type(self, c, stype=None):
     	"""Set or get the frequency sweep type. 'LIN' - for linear, 'CW' - for single frequency."""
     	dev = self.selectedDevice(c)
     	if stype is None:
     		stype = yield dev.query('SENSe1:SWEep:TYPE?')
     	else:
-    		if (stype.upper() ~= 'CW') and (stype.upper() ~= 'LIN'):
+    		if (stype.upper() != 'CW') and (stype.upper() != 'LIN'):
     			raise ValueError('Unknown sweep type: ' + str(stype) + '. Please use "LIN" or "CW".')
     		else:
     			yield dev.write('SENSe1:SWEep:TYPE ' + stype)
@@ -164,7 +164,7 @@ class Agilent5230AServer(GPIBManagedServer):
     	dev = self.selectedDevice(c)
     	yield dev.write('SENSe1:AVERage:CLEar')
     
-    @setting(610 'Average Points', count=['w'], returns=['w'])
+    @setting(610, 'Average Points', count=['w'], returns=['w'])
     def average_points(self, c, count=None):
     	"""Set or get the number of measurements to combine for an average."""
     	dev = self.selectedDevice(c)
