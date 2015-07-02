@@ -221,6 +221,8 @@ class Agilent5230AServer(GPIBManagedServer):
     	yield dev.write('CALCulate:PARameter:DEFine:EXT "MyMeas" ,%s'% meas)
     	yield dev.write('DISPlay:WINDow1:TRACe1:FEED "MyMeas"')
     	yield dev.write('CALC:PAR:SEL "MyMeas"')
+        yield dev.write('SENSe1:SWEep:TIME:AUTO ON')
+        yield dev.write('TRIG:SOUR IMM')
     
     @setting(615, 'Get Trace', returns=['*v[]'])
     def get_trace(self,c):
@@ -229,19 +231,8 @@ class Agilent5230AServer(GPIBManagedServer):
     	meas = yield dev.query('SYST:ACT:MEAS?')
     	yield dev.write('CALC:PAR:SEL %s'% meas)   
     	yield dev.write('FORM ASCii,0')	
-    	
-    	avgOnOff = yield self.average_mode(c)
-    	swpTime  = yield self.get_sweep_time(c)
-        nPoints = yield self.sweep_points(c)
-    	
-    	if avgOnOff:
-    		avgCount = yield self.average_points(c)
-    		yield self.restart_averaging(c)
-    		sleepTime = avgCount * swpTime + 0.05
-    		yield sleep(sleepTime)
-    	else:
-    		yield sleep(swpTime + 0.05)
-
+    	yield dev.write('ABORT;:INITIATE:IMMEDIATE')
+        yield dev.query('*OPC?')        #wait for measurement to finish
     	yield dev.write('CALC1:DATA? FDATA')
     	ascii_data = yield dev.read()
         
