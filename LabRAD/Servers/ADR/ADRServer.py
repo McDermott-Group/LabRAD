@@ -31,6 +31,7 @@ timeout = 20
 """
 ADR_SETTINGS_BASE_PATH = ['','ADR Settings'] # path in registry
 DEFAULT_ADR = 'ADR1' # name of ADR in registry
+AVAILABLE_ADRS = ['ADR1','ADR2','ADR3']
 
 import matplotlib as mpl
 import numpy, pylab
@@ -41,17 +42,7 @@ from labrad.devices import DeviceServer
 from labrad import util, units
 from labrad.types import Error as LRError
 import sys
-
-""""
-if len(sys.argv) == 2:
-    selectedADR = sys.argv[1]
-    if selectedADR in ['ADR1','ADR2','ADR3']:
-        DEFAULT_ADR = selectedADR
-        print '%s selected.' %str(selectedADR)
-    else:
-        print '%s is not a valid ADR selection.' %str(selectedADR)
-"""
-        
+ 
 def deltaT(dT):
     """.total_seconds() is only supported by >py27 :(, so we use this to subtract two datetime objects."""
     return dT.days*86400 + dT.seconds + dT.microseconds*pow(10,-6)
@@ -66,25 +57,29 @@ class ADRServer(DeviceServer):
     def __init__(self, args):
         DeviceServer.__init__(self)
         self.ADRSettingsPath = ADR_SETTINGS_BASE_PATH
-        if len(args) == 1:
-            if args[0] in ['ADR1','ADR2','ADR3']:
-                self.ADRSettingsPath.append(args[0])
+        if '-a' in args:    # Use -a to specify ADR
+            index = args.index('-a')
+            args.pop(index)
+            selectedADR = str( args.pop(index) )   # if we do not pop these off, twisted will complain because this is not an allowed argument
+            if selectedADR in AVAILABLE_ADRS:
                 print '%s selected.' %str(selectedADR)
-        else: 
-            self.ADRSettingsPath.append(DEFAULT_ADR)
-            print '%s is not a valid ADR selection.  Starting with %s' %(str(selectedADR),DEFAULT_ADR)
+            else: 
+                print '%s is not a valid ADR selection.  Starting with %s' %(selectedADR,DEFAULT_ADR)
+                selectedADR = DEFAULT_ADR
+            self.ADRSettingsPath.append(selectedADR)
+        else: self.ADRSettingsPath.append(DEFAULT_ADR)
         self.alive = True
-        self.state = {  'T_FAA': numpy.NaN,
-                        'T_GGG': numpy.NaN,
-                        'T_3K' : numpy.NaN,
-                        'T_60K': numpy.NaN,
+        self.state = {  'T_FAA': numpy.NaN*units.K,
+                        'T_GGG': numpy.NaN*units.K,
+                        'T_3K' : numpy.NaN*units.K,
+                        'T_60K': numpy.NaN*units.K,
                         'datetime' : datetime.datetime.now(),
                         'cycle': 0,
-                        'magnetV': numpy.NaN,
+                        'magnetV': numpy.NaN*units.V,
                         'RuOxChan':'FAA',
                         'RuOxChanSetTime':datetime.datetime.now(),
-                        'PSCurrent':numpy.NaN,
-                        'PSVoltage':numpy.NaN,
+                        'PSCurrent':numpy.NaN*units.A,
+                        'PSVoltage':numpy.NaN*units.V,
                         'maggingUp':False,
                         'regulating':False,
                         'regulationTemp':0.1,
@@ -503,5 +498,5 @@ if __name__ == "__main__":
     """Define your instruments here.  This allows for easy exchange between different
     devices to monitor temperature, etc.  For example, the new and old ADR's use two
     different instruments to measure temperature: The SRS module and the Lakeview 218."""
-    __server__ = ADRServer(sys.argv[1:])
+    __server__ = ADRServer(sys.argv)
     util.runServer(__server__)

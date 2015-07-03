@@ -2,11 +2,11 @@ TODO LIST
 - figure out fridge settings
 - GGG temp monitoring
 - do we want to have a recording checkbox with a time interval?
-- select between ADRs/contexts
 - try running some of this from dif computers
 - should not be able to mag up when it is warm
 - ADRClient should get settings path from ADRServer
-- units for ruox temp monitor in updatestate dont work
+- need to be able to open multiple ADR servers at the same time to control two ADRs simultaneously
+
 
 QUESTIONS
 + how can I access the LABRADNODE env variable any time? THISLABRAD should be deleted
@@ -18,6 +18,3 @@ open labrad, click run
 open node server in 'start' folder
 open adr server
 open adr client
-
-TUTORIAL STUFF
-contexts are passed, and then each context becomes a dictionary to store stuff in
