@@ -31,6 +31,7 @@ timeout = 20
 ### END NODE INFO
 """
 ADR_SETTINGS_PATH = ['','ADR Settings','ADR3']  # path in registry
+selectedADR = 'adr3'
 
 import matplotlib as mpl
 mpl.use('TkAgg')
@@ -93,7 +94,7 @@ class ADRController(object):#Tkinter.Tk):
         else:self.cxn = cxn
         yield self.initializeWindow()
         try: #adr_server may not be open yet
-            logMessages = yield self.cxn.adr_server.get_log(20) #only load last 20 messages
+            logMessages = yield self.cxn[selectedADR].get_log(20) #only load last 20 messages
             for (m,a) in logMessages:
                 self.updateLog(m,a)
         except Exception as e: pass
@@ -103,7 +104,7 @@ class ADRController(object):#Tkinter.Tk):
         """The ADR Server sends out named messages every time the state is changed, the log is updated, or magging or regulation cycles complete.  This function starts the listeners for them.  Note: We used named messages instead of Signals because Signals are registered directly with the server instead of the manager (like named messages), so if the adr server disconnects and reconnects, the signals will no longer be sent here."""
         mgr = self.cxn.manager
         # example of Signal processing:
-        # server = self.cxn.adr_server
+        # server = self.cxn[selectedADR]
         # update_state = lambda c, payload: self.updateInterface()
         # yield server.signal_state_changed(self.ID)
         # yield server.addListener(listener = update_state, source=None,ID=self.ID)
@@ -177,9 +178,21 @@ class ADRController(object):#Tkinter.Tk):
         self.toolbar.update()
         #self.toolbar.pack(side=Tkinter.BOTTOM, fill=Tkinter.X)
         self.canvas._tkcanvas.pack(side=Tkinter.TOP, fill=Tkinter.BOTH, expand=1)
+        #row of controls beneath temp plot
+        tempAndADRControlFrame = Tkinter.Frame(root)
+        tempAndADRControlFrame.pack(side=Tkinter.TOP, fill=Tkinter.X)
+        # menu to select ADR
+        adrSelectOptions = ('ADR 1','ADR 2','ADR 3')
+        self.adrSelect = Tkinter.StringVar(root)
+        self.adrSelect.set(adrSelectOptions[-1])
+        self.adrSelect.trace('w',self.changeFridge)
+        apply(Tkinter.OptionMenu,(tempAndADRControlFrame,self.adrSelect)+adrSelectOptions).grid(row=0, column=1, sticky=Tkinter.W) # pack(side=Tkinter.LEFT)
         #which temp plots should I show? (checkboxes)
-        tempSelectFrame = Tkinter.Frame(root)
-        tempSelectFrame.pack(side=Tkinter.TOP)
+        tempSelectFrameHolder = Tkinter.Frame(tempAndADRControlFrame)
+        tempSelectFrameHolder.grid(row=0, column=2, sticky=Tkinter.W+Tkinter.E) # pack(side=Tkinter.LEFT)
+        tempSelectFrame = Tkinter.Frame(tempSelectFrameHolder)
+        tempSelectFrame.pack()
+        tempAndADRControlFrame.columnconfigure(2, weight=1)
         self.t60K = Tkinter.IntVar()
         self.t3K = Tkinter.IntVar()
         self.tGGG = Tkinter.IntVar()
@@ -196,17 +209,11 @@ class ADRController(object):#Tkinter.Tk):
         t3checkbox.pack(side=Tkinter.LEFT)
         t4checkbox = Tkinter.Checkbutton(tempSelectFrame, text = '50mK Stage (FAA)', variable=self.tFAA, fg='dark turquoise')
         t4checkbox.pack(side=Tkinter.LEFT)
-        # menu to select ADR
-        adrSelectOptions = ('ADR 1','ADR 2','ADR 3')
-        self.adrSelect = Tkinter.StringVar(root)
-        self.adrSelect.set(adrSelectOptions[-1])
-        self.adrSelect.trace('w',self.changeFridge)
-        apply(Tkinter.OptionMenu,(root,self.adrSelect)+adrSelectOptions).pack(side=Tkinter.TOP)
         # scale to adjust time shown in temp plot
         wScaleOptions = ('10 minutes','1 hour','6 hours','24 hours','All')
         self.wScale = Tkinter.StringVar(root)
         self.wScale.set(wScaleOptions[1])
-        apply(Tkinter.OptionMenu,(root,self.wScale)+wScaleOptions).pack(side=Tkinter.TOP)
+        apply(Tkinter.OptionMenu,(tempAndADRControlFrame,self.wScale)+wScaleOptions).grid(row=0, column=3, sticky=Tkinter.E) # pack(side=Tkinter.RIGHT)
         # refresh instruments button
         refreshInstrButton = Tkinter.Button(root, text='Refresh Instruments', command=self.refreshInstruments)
         refreshInstrButton.pack(side=Tkinter.TOP)
@@ -225,8 +232,8 @@ class ADRController(object):#Tkinter.Tk):
         self.regulateTempField.insert(0, "0.1")
         Tkinter.Label(magControlsFrame, text="K").pack(side=Tkinter.LEFT)
         try:
-            mUp = yield self.cxn.adr_server.get_state_var('maggingUp')
-            reg = yield self.cxn.adr_server.get_state_var('regulating')
+            mUp = yield self.cxn[selectedADR].get_state_var('maggingUp')
+            reg = yield self.cxn[selectedADR].get_state_var('regulating')
             if mUp:
                 self.magUpButton.configure(text='Stop Magging Up', command=self.cancelMagUp)
                 self.regulateButton.configure(state=Tkinter.DISABLED)
@@ -252,17 +259,39 @@ class ADRController(object):#Tkinter.Tk):
         Tkinter.Label(monitorFrame, text="(V)").pack(side=Tkinter.LEFT)
         self.fig.tight_layout()
         root.protocol("WM_DELETE_WINDOW", self._quit) #X BUTTON
+    @inlineCallbacks
+    def changeADRSelectMenu(self):
+        """This should be called by listeners for servers (dis)connecting.
+        It updates the menu of ADRs from which one can select."""
+        runningServers = yield self.cxn.manager.servers()
+        runningADRs = [name for name in runningServers if 'ADR' in name and len(name)==4]
+        # &&& still need to add listeners, change menu, select ADR if it is the first added
     def changeFridge(self):
+        """Select which ADR you want to operate on.  Called when select ADR menu is changed."""
         selection = self.adrSelect.get()
         fridgeSettingNames = {'ADR 1':'ADR1','ADR 2':'ADR2','ADR 3':'ADR3'}
-        yield self.cxn.adr_server.select_fridge( fridgeSettingNames[selection] )
-        # &&& clear temps, etc
+        self.selectedADR = fridgeSettingNames[selection]
+        # clear temps plot
+        self.stage60K.set_xdata([])
+        self.stage60K.set_ydata([])
+        self.stage03K.set_xdata([])
+        self.stage03K.set_ydata([])
+        self.stageGGG.set_xdata([])
+        self.stageGGG.set_ydata([])
+        self.stageFAA.set_xdata([])
+        self.stageFAA.set_ydata([])
+        self.canvas.draw()
+        # &&& clear and reload log
+        # &&& refresh limits
+        # refresh interface
+        self.updateInterface()
+        # &&& change listeners to be for specific adr
     def refreshInstruments(self):
-        self.cxn.adr_server.refresh_instruments()
+        self.cxn[selectedADR].refresh_instruments()
     @inlineCallbacks
     def updateInterface(self):
         """ update interface to reflect system state """
-        p = self.cxn.adr_server.packet()
+        p = self.cxn[selectedADR].packet()
         p.magnetv().pscurrent().psvoltage()
         p.time()
         p.temperatures()
@@ -333,30 +362,31 @@ class ADRController(object):#Tkinter.Tk):
     def addToLog(self):
         text = str( self.addToLogField.get(1.0, Tkinter.END) )
         try:
-            self.cxn.adr_server.add_to_log(text)
+            self.cxn[selectedADR].add_to_log(text)
             self.addToLogField.delete(1.0, Tkinter.END)
         except Exception as e: pass
     def magUp(self):
-        self.cxn.adr_server.mag_up()
+        self.cxn[selectedADR].mag_up()
     def magUpStarted(self):
         self.magUpButton.configure(text='Stop Magging Up', command=self.cancelMagUp)
         self.regulateButton.configure(state=Tkinter.DISABLED)
     def cancelMagUp(self):
-        self.cxn.adr_server.cancel_mag_up()
+        self.cxn[selectedADR].cancel_mag_up()
     def magUpStopped(self):
         self.magUpButton.configure(text='Mag Up', command=self.magUp)
         self.regulateButton.configure(state=Tkinter.NORMAL)
     def regulate(self): 
         T_target = float(self.regulateTempField.get())
-        self.cxn.adr_server.regulate(T_target)
+        self.cxn[selectedADR].regulate(T_target)
     def regulationStarted(self):
         self.regulateButton.configure(text='Stop Regulating', command=self.cancelRegulate)
         self.magUpButton.configure(state=Tkinter.DISABLED)
     def cancelRegulate(self):
-        self.cxn.adr_server.cancel_regulation()
+        self.cxn[selectedADR].cancel_regulation()
     def regulationStopped(self):
         self.regulateButton.configure(text='Regulate', command=self.regulate)
         self.magUpButton.configure(state=Tkinter.NORMAL)
+        
     def _quit(self):
         """ called when the window is closed."""
         self.parent.quit()     # stops mainloop

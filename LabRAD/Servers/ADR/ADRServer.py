@@ -30,7 +30,7 @@ timeout = 20
 ### END NODE INFO
 """
 ADR_SETTINGS_BASE_PATH = ['','ADR Settings'] # path in registry
-DEFAULT_ADR = 'ADR1' # name of ADR in registry
+DEFAULT_ADR = 'ADR3' # name of ADR in registry
 AVAILABLE_ADRS = ['ADR1','ADR2','ADR3']
 
 import matplotlib as mpl
@@ -57,17 +57,19 @@ class ADRServer(DeviceServer):
     def __init__(self, args):
         DeviceServer.__init__(self)
         self.ADRSettingsPath = ADR_SETTINGS_BASE_PATH
+        selectedADR = DEFAULT_ADR
         if '-a' in args:    # Use -a to specify ADR
             index = args.index('-a')
             args.pop(index)
-            selectedADR = str( args.pop(index) )   # if we do not pop these off, twisted will complain because this is not an allowed argument
-            if selectedADR in AVAILABLE_ADRS:
-                print '%s selected.' %str(selectedADR)
+            selection = str( args.pop(index) )   # if we do not pop these off, twisted will complain because this is not an allowed argument
+            if selection in AVAILABLE_ADRS:
+                selectedADR = selection
             else: 
-                print '%s is not a valid ADR selection.  Starting with %s' %(selectedADR,DEFAULT_ADR)
-                selectedADR = DEFAULT_ADR
-            self.ADRSettingsPath.append(selectedADR)
-        else: self.ADRSettingsPath.append(DEFAULT_ADR)
+                print '%s is not a valid ADR selection.' %selection
+        self.ADRSettingsPath.append(selectedADR)
+        self.name = selectedADR
+        self.deviceName = selectedADR
+        print '%s selected.' %selectedADR
         self.alive = True
         self.state = {  'T_FAA': numpy.NaN*units.K,
                         'T_GGG': numpy.NaN*units.K,
@@ -351,7 +353,7 @@ class ADRServer(DeviceServer):
         while self.state['regulating']:
             startTime = datetime.datetime.now()
             dI = self.state['PSCurrent'] - self.lastState['PSCurrent']
-            if self.state['T_FAA'] is numpy.nan: 
+            if str(self.state['T_FAA']['K']) is str(numpy.nan): 
                 self.logMessage( 'FAA temp is not valid.  Regulation cannot continue.' )
                 self._cancelRegulate()
             print str(self.state['PSVoltage'])+'\t'+str(self.state['magnetV'])+'\t',
@@ -366,7 +368,7 @@ class ADRServer(DeviceServer):
                + self.ADRSettings['PID_KD']*(self.lastState['T_FAA']-self.state['T_FAA'])/dT )['K']*units.V
             #hard current limit
             if self.state['PSCurrent'] > self.ADRSettings['current_limit']*units.A:
-                if dV>0: dV=0
+                if dV>0*units.V: dV=0*units.V
             #hard voltage limit
             if self.state['PSVoltage'] + dV > self.ADRSettings['voltage_limit']*units.V:
                 dV = self.ADRSettings['voltage_limit']*units.V - self.state['PSVoltage']
@@ -378,8 +380,8 @@ class ADRServer(DeviceServer):
                 dV = min(dV, self.ADRSettings['magnet_voltage_limit']*units.V-self.state['magnetV'])
                 if dV < 0*units.V: dV = 0*units.V
             # limit by hard voltage increase limit
+            print str(dV/dT)+'\t',
             if abs(dV/dT) > self.ADRSettings['dVdT_limit']*units.V:
-                print str(dV/dT)+'\t',
                 dV = self.ADRSettings['dVdT_limit']*dT*(dV/abs(dV))*units.V
             # limit by hard current increase limit
             if abs(dI/dT) > self.ADRSettings['dIdt_regulate_limit']*units.A:
@@ -400,21 +402,6 @@ class ADRServer(DeviceServer):
                 #self.regulationStopped('done') #signal
                 self.client.manager.send_named_message('Regulation Stopped', 'done')
     
-    @setting(101, 'Select Fridge', name=['s'])
-    def selectFridge(self,c, name='ADR3'):
-        """Select which ADR you want to operate on."""
-        reg = self.client.registry
-        reg.cd(ADR_SETTINGS_BASE_PATH)
-        _,adrList = yield reg.dir()
-        if name in adrList:
-            print 'Starting to change to %s.'%name
-            # &&& make sure we are not in the middle of a mag or reg cycle
-            # &&& reinitialize, start necessary servers, select devices
-            # self.ADRSettingsPath = ADR_SETTINGS_BASE_PATH
-            # self.ADRSettingsPath.append(name)
-            print 'Finished changing to %s'%name
-        else: raise Exception('Could not find settings for %s'%name)
-        
     @setting(102, 'Get Log', n=['v'], returns=['*(s,b)'])
     def getLog(self,c, n=0):
         """Get an array of the last n logs."""
