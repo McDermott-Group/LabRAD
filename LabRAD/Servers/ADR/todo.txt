@@ -7,6 +7,7 @@ TODO LIST
 - ADRClient should get settings path and limits from ADRServer
 - need to be able to open multiple ADR servers at the same time to control two ADRs simultaneously
 - for some reason, if the FAA is returning nan, the if statement in regulate to check if it is nan does not work
+- when the time selection menu changes, refresh right then, don't wait for next signal
 
 QUESTIONS
 + how can I access the LABRADNODE env variable any time? THISLABRAD should be deleted

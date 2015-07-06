@@ -98,6 +98,7 @@ class ADRServer(DeviceServer):
                             'dIdt_magup_limit': 9./(30*60),   #limit on the rate at which we allow current to increase in amps/s (we want 9A over 30 min)
                             'dIdt_regulate_limit': 9./(40*60),#limit on the rate at which we allow current to change in amps/s (we want 9A over 40 min)
                             'step_length': 1.0,              #How long is each regulation/mag up cycle in seconds.  **Never set this less than 1.0sec.**  The SRS SIM922 only measures once a second and this would cause runaway voltages/currents.
+                            'magnet_max_temp': 5,
                             'Power Supply':['Agilent 6641A PS','addr'],
                             'Ruox Temperature Monitor':['SIM921 Server','addr'],
                             'Diode Temperature Monitor':['SIM922 Server','addr'],
@@ -211,13 +212,14 @@ class ADRServer(DeviceServer):
         dt = datetime.datetime.now()
         messageWithTimeStamp = dt.strftime("[%m/%d/%y %H:%M:%S] ") + message
         self.logMessages.append( (messageWithTimeStamp,alert) )
-        yield self.client.registry.cd(self.ADRSettingsPath)
-        file_path = yield self.client.registry.get('Log Path')
+        try:
+            yield self.client.registry.cd(self.ADRSettingsPath)
+            file_path = yield self.client.registry.get('Log Path')
+        except Exception as e:
+            message = '{Saving log failed.  Check that AFS is working.} ' + message
         with open(file_path+'\\log'+self.dateAppend+'.txt', 'a') as f:
             f.write( messageWithTimeStamp + '\n' )
         print '[log] '+ message
-        # alertEnd = {True:1,False:0}
-        # self.logChanged(messageWithTimeStamp+str(alertEnd[alert]))
         self.client.manager.send_named_message('Log Changed', (messageWithTimeStamp,alert))
     @inlineCallbacks
     def updateState(self):
@@ -263,8 +265,10 @@ class ADRServer(DeviceServer):
                 self.state['PSVoltage'] = nan*units.V
                 self.instruments['Power Supply'].connected = False
             # update relevant files
-            yield self.client.registry.cd(self.ADRSettingsPath)
-            file_path = yield self.client.registry.get('Log Path')
+            try:
+                yield self.client.registry.cd(self.ADRSettingsPath)
+                file_path = yield self.client.registry.get('Log Path')
+            except Exception as e: self.logMessage('Logging temperatures failed.',True)
             with open(file_path+'\\temperatures'+self.dateAppend+'.temps','ab') as f:
                 newTemps = [self.state[t]['K'] for t in ['T_60K','T_3K','T_GGG','T_FAA']]
                 f.write( struct.pack('d', mpl.dates.date2num(self.state['datetime'])) )
@@ -293,6 +297,9 @@ class ADRServer(DeviceServer):
         if self.state['regulating'] == True:
             self.logMessage('Currently in PID control loop regulation. Please wait until finished.')
             return
+        if self.state['T_3K'] > self.ADRSettings['magnet_max_temp']:
+            self.logMessage('Temperature too high to mag up.')
+            return
         deviceNames = ['Power Supply','Magnet Voltage Monitor']
         deviceStatus = [self.instruments[name].connected for name in deviceNames]
         if False in deviceStatus:
@@ -308,7 +315,7 @@ class ADRServer(DeviceServer):
             dt = deltaT( self.state['datetime'] - self.lastState['datetime'] )
             if dt == 0: dt = 0.0000000001 #to prevent divide by zero error
             if self.state['PSCurrent'] < self.ADRSettings['current_limit']:
-                if self.state['magnetV'] < self.ADRSettings['magnet_voltage_limit'] and abs(dI/dt) < self.ADRSettings['dIdt_magup_limit']:
+                if self.state['magnetV'] < self.ADRSettings['magnet_voltage_limit'] and abs(dI/dt) < self.ADRSettings['dIdt_magup_limit'] and self.state['T_FAA'] < self.ADRSettings['magnet_max_temp']:
                     newVoltage = self.state['PSVoltage'] + self.ADRSettings['magup_dV']
                     if newVoltage < self.ADRSettings['voltage_limit']:
                         self.instruments['Power Supply'].voltage(newVoltage) #set new voltage
@@ -353,7 +360,7 @@ class ADRServer(DeviceServer):
         while self.state['regulating']:
             startTime = datetime.datetime.now()
             dI = self.state['PSCurrent'] - self.lastState['PSCurrent']
-            if str(self.state['T_FAA']['K']) is str(numpy.nan): 
+            if numpy.isnan(self.state['T_FAA']['K']): 
                 self.logMessage( 'FAA temp is not valid.  Regulation cannot continue.' )
                 self._cancelRegulate()
             print str(self.state['PSVoltage'])+'\t'+str(self.state['magnetV'])+'\t',

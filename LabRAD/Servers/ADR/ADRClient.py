@@ -318,6 +318,9 @@ class ADRController(object):#Tkinter.Tk):
         self.stageGGG.set_ydata(numpy.append(self.stageGGG.get_ydata(),temps['T_GGG']))
         self.stageFAA.set_xdata(numpy.append(self.stageFAA.get_xdata(),mpl.dates.date2num(state['time'])))
         self.stageFAA.set_ydata(numpy.append(self.stageFAA.get_ydata(),temps['T_FAA']))
+        #update plot
+    #    self.updatePlot()
+    #def updatePlot(self):
         # set x limits
         timeDisplayOptions = {'10 minutes':10,'1 hour':60,'6 hours':6*60,'24 hours':24*60,'All':0}
         lastDatetime = mpl.dates.num2date(self.stage60K.get_xdata()[-1])
