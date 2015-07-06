@@ -214,6 +214,7 @@ class ADRController(object):#Tkinter.Tk):
         self.wScale = Tkinter.StringVar(root)
         self.wScale.set(wScaleOptions[1])
         apply(Tkinter.OptionMenu,(tempAndADRControlFrame,self.wScale)+wScaleOptions).grid(row=0, column=3, sticky=Tkinter.E) # pack(side=Tkinter.RIGHT)
+        self.wScale.trace('w',self.updatePlot)
         # refresh instruments button
         refreshInstrButton = Tkinter.Button(root, text='Refresh Instruments', command=self.refreshInstruments)
         refreshInstrButton.pack(side=Tkinter.TOP)
@@ -319,8 +320,18 @@ class ADRController(object):#Tkinter.Tk):
         self.stageFAA.set_xdata(numpy.append(self.stageFAA.get_xdata(),mpl.dates.date2num(state['time'])))
         self.stageFAA.set_ydata(numpy.append(self.stageFAA.get_ydata(),temps['T_FAA']))
         #update plot
-    #    self.updatePlot()
-    #def updatePlot(self):
+        try:
+            self.updatePlot()
+        except Exception as e: print str(e)
+        # update legend
+        labelOrder = ['T_60K','T_3K','T_GGG','T_FAA']
+        lines = [self.stage60K,self.stage03K,self.stageGGG,self.stageFAA]
+        labels = [l.strip('T_')+' ['+"{0:.3f}".format(temps[l])+'K]' for l in labelOrder]
+        labels = [s.replace('1.#QOK','OoR') for s in labels]
+        #self.ax.legend(lines,labels,loc=0)#,bbox_to_anchor=(1.01, 1)) #legend in upper right
+        self.ax.legend(lines,labels,bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
+           ncol=4, mode="expand", borderaxespad=0.) #legend on top (if not using this, delete \n in title)
+    def updatePlot(self,*args):
         # set x limits
         timeDisplayOptions = {'10 minutes':10,'1 hour':60,'6 hours':6*60,'24 hours':24*60,'All':0}
         lastDatetime = mpl.dates.num2date(self.stage60K.get_xdata()[-1])
@@ -349,14 +360,6 @@ class ADRController(object):#Tkinter.Tk):
                 self.ax.xaxis.set_major_formatter(hfmt)
                 self.fig.autofmt_xdate()
                 self.fig.tight_layout()
-        # update legend
-        labelOrder = ['T_60K','T_3K','T_GGG','T_FAA']
-        lines = [self.stage60K,self.stage03K,self.stageGGG,self.stageFAA]
-        labels = [l.strip('T_')+' ['+"{0:.3f}".format(temps[l])+'K]' for l in labelOrder]
-        labels = [s.replace('1.#QOK','OoR') for s in labels]
-        #self.ax.legend(lines,labels,loc=0)#,bbox_to_anchor=(1.01, 1)) #legend in upper right
-        self.ax.legend(lines,labels,bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
-           ncol=4, mode="expand", borderaxespad=0.) #legend on top (if not using this, delete \n in title)
         #draw
         self.canvas.draw()
     def updateLog(self,message=None,alert=False):
