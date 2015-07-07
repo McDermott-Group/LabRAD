@@ -31,7 +31,7 @@ timeout = 20
 ### END NODE INFO
 """
 ADR_SETTINGS_PATH = ['','ADR Settings','ADR3']  # path in registry
-selectedADR = 'adr3'
+selectedADR = 'ADR3'
 
 import matplotlib as mpl
 mpl.use('TkAgg')
@@ -79,9 +79,10 @@ class ADRController(object):#Tkinter.Tk):
     name = 'ADR Controller GUI'
     ID = 6116
     
-    def __init__(self,parent,peripheralDict):
+    def __init__(self,parent):
         #Tkinter.Tk.__init__(self,parent)
         self.parent = parent
+        self.selectedADR = selectedADR
         #initialize and start measurement loop
         self.connect()
     @inlineCallbacks
@@ -94,7 +95,7 @@ class ADRController(object):#Tkinter.Tk):
         else:self.cxn = cxn
         yield self.initializeWindow()
         try: #adr_server may not be open yet
-            logMessages = yield self.cxn[selectedADR].get_log(20) #only load last 20 messages
+            logMessages = yield self.cxn[self.selectedADR].get_log(20) #only load last 20 messages
             for (m,a) in logMessages:
                 self.updateLog(m,a)
         except Exception as e: pass
@@ -104,33 +105,33 @@ class ADRController(object):#Tkinter.Tk):
         """The ADR Server sends out named messages every time the state is changed, the log is updated, or magging or regulation cycles complete.  This function starts the listeners for them.  Note: We used named messages instead of Signals because Signals are registered directly with the server instead of the manager (like named messages), so if the adr server disconnects and reconnects, the signals will no longer be sent here."""
         mgr = self.cxn.manager
         # example of Signal processing:
-        # server = self.cxn[selectedADR]
+        # server = self.cxn[self.selectedADR]
         # update_state = lambda c, payload: self.updateInterface()
         # yield server.signal_state_changed(self.ID)
         # yield server.addListener(listener = update_state, source=None,ID=self.ID)
         
-        # state update
-        update_state = lambda c, (s,payload): self.updateInterface()
+        # state update (only if 
+        update_state = lambda c, (s,payload): self.updateInterface() if s==self.cxn[self.selectedADR].ID else -1
         self.cxn._cxn.addListener(update_state, source=mgr.ID, ID=101)
         yield mgr.subscribe_to_named_message('State Changed', 101, True)
         # log update
-        update_log = lambda c, (s,(m,a)): self.updateLog(m,a)
+        update_log = lambda c, (s,(m,a)): self.updateLog(m,a) if s==self.cxn[self.selectedADR].ID else -1
         self.cxn._cxn.addListener(update_log, source=mgr.ID, ID=102)
         yield mgr.subscribe_to_named_message('Log Changed', 102, True)
         # magging up stopped
-        mag_stop = lambda c, (s,payload): self.magUpStopped()
+        mag_stop = lambda c, (s,payload): self.magUpStopped() if s==self.cxn[self.selectedADR].ID else -1
         self.cxn._cxn.addListener(mag_stop, source=mgr.ID, ID=103)
         yield mgr.subscribe_to_named_message('MagUp Stopped', 103, True)
         # regulation stopped
-        reg_stop = lambda c, (s,payload): self.regulationStopped()
+        reg_stop = lambda c, (s,payload): self.regulationStopped() if s==self.cxn[self.selectedADR].ID else -1
         self.cxn._cxn.addListener(reg_stop, source=mgr.ID, ID=104)
         yield mgr.subscribe_to_named_message('Regulation Stopped', 104, True)
         # magging up started
-        mag_start = lambda c, (s,payload): self.magUpStarted()
+        mag_start = lambda c, (s,payload): self.magUpStarted() if s==self.cxn[self.selectedADR].ID else -1
         self.cxn._cxn.addListener(mag_start, source=mgr.ID, ID=105)
         yield mgr.subscribe_to_named_message('MagUp Started', 105, True)
         # regulation started
-        reg_start = lambda c, (s,payload): self.regulationStarted()
+        reg_start = lambda c, (s,payload): self.regulationStarted() if s==self.cxn[self.selectedADR].ID else -1
         self.cxn._cxn.addListener(reg_start, source=mgr.ID, ID=106)
         yield mgr.subscribe_to_named_message('Regulation Started', 106, True)
     @inlineCallbacks
@@ -182,11 +183,12 @@ class ADRController(object):#Tkinter.Tk):
         tempAndADRControlFrame = Tkinter.Frame(root)
         tempAndADRControlFrame.pack(side=Tkinter.TOP, fill=Tkinter.X)
         # menu to select ADR
-        adrSelectOptions = ('ADR 1','ADR 2','ADR 3')
         self.adrSelect = Tkinter.StringVar(root)
-        self.adrSelect.set(adrSelectOptions[-1])
+        self.adrSelect.set('')
         self.adrSelect.trace('w',self.changeFridge)
-        apply(Tkinter.OptionMenu,(tempAndADRControlFrame,self.adrSelect)+adrSelectOptions).grid(row=0, column=1, sticky=Tkinter.W) # pack(side=Tkinter.LEFT)
+        self.adrSelectWidget = Tkinter.OptionMenu(tempAndADRControlFrame,self.adrSelect,'')
+        self.adrSelectWidget.grid(row=0, column=1, sticky=Tkinter.W)
+        self.populateADRSelectMenu()
         #which temp plots should I show? (checkboxes)
         tempSelectFrameHolder = Tkinter.Frame(tempAndADRControlFrame)
         tempSelectFrameHolder.grid(row=0, column=2, sticky=Tkinter.W+Tkinter.E) # pack(side=Tkinter.LEFT)
@@ -233,8 +235,8 @@ class ADRController(object):#Tkinter.Tk):
         self.regulateTempField.insert(0, "0.1")
         Tkinter.Label(magControlsFrame, text="K").pack(side=Tkinter.LEFT)
         try:
-            mUp = yield self.cxn[selectedADR].get_state_var('maggingUp')
-            reg = yield self.cxn[selectedADR].get_state_var('regulating')
+            mUp = yield self.cxn[self.selectedADR].get_state_var('maggingUp')
+            reg = yield self.cxn[self.selectedADR].get_state_var('regulating')
             if mUp:
                 self.magUpButton.configure(text='Stop Magging Up', command=self.cancelMagUp)
                 self.regulateButton.configure(state=Tkinter.DISABLED)
@@ -261,17 +263,25 @@ class ADRController(object):#Tkinter.Tk):
         self.fig.tight_layout()
         root.protocol("WM_DELETE_WINDOW", self._quit) #X BUTTON
     @inlineCallbacks
-    def changeADRSelectMenu(self):
+    def populateADRSelectMenu(self):
         """This should be called by listeners for servers (dis)connecting.
         It updates the menu of ADRs from which one can select."""
         runningServers = yield self.cxn.manager.servers()
-        runningADRs = [name for name in runningServers if 'ADR' in name and len(name)==4]
-        # &&& still need to add listeners, change menu, select ADR if it is the first added
-    def changeFridge(self):
+        runningADRs = [name for (_,name) in runningServers if 'ADR' in name and len(name)==4]
+        self.adrSelectWidget['menu'].delete(0,'end')
+        for adrServerName in runningADRs:
+            self.adrSelectWidget['menu'].add_command(label=adrServerName, command=Tkinter._setit(self.adrSelect,adrServerName))
+        if self.selectedADR in runningADRs:
+            self.adrSelect.set(self.selectedADR)
+        else: 
+            try:
+                self.adrSelect.set(runningADRs[0])
+            except Exception as e: pass
+        # &&& still need to add listeners
+    @inlineCallbacks
+    def changeFridge(self,*args):
         """Select which ADR you want to operate on.  Called when select ADR menu is changed."""
-        selection = self.adrSelect.get()
-        fridgeSettingNames = {'ADR 1':'ADR1','ADR 2':'ADR2','ADR 3':'ADR3'}
-        self.selectedADR = fridgeSettingNames[selection]
+        self.selectedADR = self.adrSelect.get()
         # clear temps plot
         self.stage60K.set_xdata([])
         self.stage60K.set_ydata([])
@@ -281,18 +291,22 @@ class ADRController(object):#Tkinter.Tk):
         self.stageGGG.set_ydata([])
         self.stageFAA.set_xdata([])
         self.stageFAA.set_ydata([])
+        # &&& load saved temp data
         self.canvas.draw()
-        # &&& clear and reload log
+        # clear and reload log
+        self.log.delete(1.0,Tkinter.END)
+        logMessages = yield self.cxn[self.selectedADR].get_log(20) #only load last 20 messages
+        for (m,a) in logMessages:
+            self.updateLog(m,a)
         # &&& refresh limits
         # refresh interface
         self.updateInterface()
-        # &&& change listeners to be for specific adr
     def refreshInstruments(self):
-        self.cxn[selectedADR].refresh_instruments()
+        self.cxn[self.selectedADR].refresh_instruments()
     @inlineCallbacks
     def updateInterface(self):
         """ update interface to reflect system state """
-        p = self.cxn[selectedADR].packet()
+        p = self.cxn[self.selectedADR].packet()
         p.magnetv().pscurrent().psvoltage()
         p.time()
         p.temperatures()
@@ -320,9 +334,7 @@ class ADRController(object):#Tkinter.Tk):
         self.stageFAA.set_xdata(numpy.append(self.stageFAA.get_xdata(),mpl.dates.date2num(state['time'])))
         self.stageFAA.set_ydata(numpy.append(self.stageFAA.get_ydata(),temps['T_FAA']))
         #update plot
-        try:
-            self.updatePlot()
-        except Exception as e: print str(e)
+        self.updatePlot()
         # update legend
         labelOrder = ['T_60K','T_3K','T_GGG','T_FAA']
         lines = [self.stage60K,self.stage03K,self.stageGGG,self.stageFAA]
@@ -332,6 +344,8 @@ class ADRController(object):#Tkinter.Tk):
         self.ax.legend(lines,labels,bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
            ncol=4, mode="expand", borderaxespad=0.) #legend on top (if not using this, delete \n in title)
     def updatePlot(self,*args):
+        """This just updates the limits on the plot.  We put it in a separate function so
+        it can be called when the time selection menu is changed."""
         # set x limits
         timeDisplayOptions = {'10 minutes':10,'1 hour':60,'6 hours':6*60,'24 hours':24*60,'All':0}
         lastDatetime = mpl.dates.num2date(self.stage60K.get_xdata()[-1])
@@ -368,27 +382,27 @@ class ADRController(object):#Tkinter.Tk):
     def addToLog(self):
         text = str( self.addToLogField.get(1.0, Tkinter.END) )
         try:
-            self.cxn[selectedADR].add_to_log(text)
+            self.cxn[self.selectedADR].add_to_log(text)
             self.addToLogField.delete(1.0, Tkinter.END)
         except Exception as e: pass
     def magUp(self):
-        self.cxn[selectedADR].mag_up()
+        self.cxn[self.selectedADR].mag_up()
     def magUpStarted(self):
         self.magUpButton.configure(text='Stop Magging Up', command=self.cancelMagUp)
         self.regulateButton.configure(state=Tkinter.DISABLED)
     def cancelMagUp(self):
-        self.cxn[selectedADR].cancel_mag_up()
+        self.cxn[self.selectedADR].cancel_mag_up()
     def magUpStopped(self):
         self.magUpButton.configure(text='Mag Up', command=self.magUp)
         self.regulateButton.configure(state=Tkinter.NORMAL)
     def regulate(self): 
         T_target = float(self.regulateTempField.get())
-        self.cxn[selectedADR].regulate(T_target)
+        self.cxn[self.selectedADR].regulate(T_target)
     def regulationStarted(self):
         self.regulateButton.configure(text='Stop Regulating', command=self.cancelRegulate)
         self.magUpButton.configure(state=Tkinter.DISABLED)
     def cancelRegulate(self):
-        self.cxn[selectedADR].cancel_regulation()
+        self.cxn[self.selectedADR].cancel_regulation()
     def regulationStopped(self):
         self.regulateButton.configure(text='Regulate', command=self.regulate)
         self.magUpButton.configure(state=Tkinter.NORMAL)
@@ -401,14 +415,7 @@ class ADRController(object):#Tkinter.Tk):
         reactor.stop()
         
 if __name__ == "__main__":
-    """Define your instruments here.  This allows for easy exchange between different
-    devices to monitor temperature, etc.  For example, the new and old ADR's use two
-    different instruments to measure temperature: The SRS module and the Lakeview 218."""
-    peripheralDict = {  'Ruox Temperature Monitor':['SIM921 Server','SIM900 SRS Mainframe - GPIB0::2::SIM900::1'],
-                        'Diode Temperature Monitor':['SIM922 Server','SIM900 SRS Mainframe - GPIB0::2::SIM900::5'],
-                        'Power Supply':['Agilent 6641A PS','mcdermott5125 GPIB Bus - GPIB0::5'],
-                        'Magnet Voltage Monitor':['SIM922 Server','SIM900 SRS Mainframe - GPIB0::2::SIM900::5'] } #{'device',['name','addr']}
     mstr = Tkinter.Tk()
     tksupport.install(mstr)
-    app = ADRController(mstr,peripheralDict)
+    app = ADRController(mstr)
     reactor.run()

@@ -5,6 +5,8 @@ TODO LIST
 - try running some of this from dif computers
 - ADRClient should get settings path and limits from ADRServer
 - need to be able to open multiple ADR servers at the same time to control two ADRs simultaneously
+- mag up buttons when adr server is not active give error
+- mag up buttons should be updated with the updateState cycle so they get updated if client is opened later
 
 QUESTIONS
 + how can I access the LABRADNODE env variable any time? THISLABRAD should be deleted
