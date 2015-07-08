@@ -114,9 +114,8 @@ class SIM900Server(GPIBBusServer, GPIBManagedServer):
         """Provides direct access to GPIB-enabled devices in a SIM900 mainframe."""
         GPIBManagedServer.initServer(self) # this order is important
         GPIBBusServer.initServer(self)
-        p = yield self.client.gpib_device_manager.packet()
-        p.register_ident_function('custom_ident_function')
-        yield p.send()
+        p = self.client.gpib_device_manager.packet()
+        yield p.register_ident_function('custom_ident_function').send()
     
     @inlineCallbacks
     def handleDeviceMessage(self,*args):
