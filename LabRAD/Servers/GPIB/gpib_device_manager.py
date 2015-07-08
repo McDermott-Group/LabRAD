@@ -50,7 +50,11 @@ def parseIDNResponse(s, idn_cmd='*IDN?'):
         elif idn_cmd == 'ID?':
             return s.upper().split(',')[0]
         elif idn_cmd == 'OI':
-            return s.strip(string.whitespace).split('REV')[0]
+            model = s.strip(string.whitespace).split('REV')[0]
+            if model == '08341B':       # HP8341B response string is expected to be similar to "08341BREV 01 AUG 86"
+                return 'HEWLETT-PACKARD 8341B'
+            else:
+                return s.strip(string.whitespace).split('REV')[0]
     else:
         return UNKNOWN
 
@@ -138,7 +142,7 @@ class GPIBDeviceManager(LabradServer):
         to the identification query.  If the response cannot be parsed
         or the query fails, the name will be listed as '<unknown>'.
         """
-        for cls_cmd, idn_cmd in [('*CLS', '*IDN?'), ('', 'ID?'), ('IP', 'OI')]:
+        for cls_cmd, idn_cmd in [('*CLS', '*IDN?'), ('', 'ID?'), ('CS', 'OI')]:
             resp = None
             name = UNKNOWN
             p = self.client.servers[server].packet()
