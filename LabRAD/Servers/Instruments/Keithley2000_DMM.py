@@ -34,6 +34,7 @@ from labrad.server import setting
 from labrad.gpib import GPIBManagedServer, GPIBDeviceWrapper
 from twisted.internet.defer import inlineCallbacks, returnValue
 from labrad import units
+import numpy
 import math
   
 class KeithleyWrapper(GPIBDeviceWrapper):
