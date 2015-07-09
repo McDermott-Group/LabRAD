@@ -16,7 +16,7 @@
 """
 ### BEGIN NODE INFO
 [info]
-name = Lab Brick RF Generator Server
+name = Lab Brick RF Generators
 version = 0.1
 description =  Gives access to Lab Brick RF generators. This server self-refreshes.
 instancename = %LABRADNODE% LBRF
@@ -66,7 +66,7 @@ class LBRFGenServer(LabradServer):
             self.waitTime = yield reg.get('Lab Brick RF Generator Timeout')
         print("Lab Brick RF Generator Timeout is set to " + str(self.waitTime))
         if 'Lab Brick RF Generator Server Autorefresh' not in keys:
-            self.autoRefresh = False
+            self.autoRefresh = True
         else:
             self.autoRefresh = yield reg.get('Lab Brick RF Generator Server Autorefresh')
         print("Lab Brick RF Generator Server Autorefresh is set to " + str(self.autoRefresh))
@@ -81,26 +81,27 @@ class LBRFGenServer(LabradServer):
             raise Exception('Could not find Lab Brick RF Generator  DLL')
 
         # Disable attenuator DLL test mode.
-        self.VNXdll.fnLMS_SetTestMode(ctypes.c_bool(False)) 
+        #self.VNXdll.fnLMS_SetTestMode(ctypes.c_bool(False)) 
         
         # Number of the currently connected devices.
         self._num_devs = 0
 
-        # Create a dictionary that maps serial numbers to Device ID's.
-        self.SerialNumberDict = dict()
+        
         # Create dictionaries that keeps track of last set power, frequency.
         self.LastFrequency = dict() 
         self.LastPower = dict()  
         # Dictionary to keep track of min/max powers and frequencies.
         self.MinMaxFrequency = dict()
         self.MinMaxPower = dict()
+        # Create a dictionary that maps serial numbers to Device ID's.
+        self.SerialNumberDict = dict()
 
         # Create a context for the server.
         self._pseudo_context = {}
         if self.autoRefresh:
             callLater(0.1, self.startRefreshing)
         else:
-            self.refreshAttenuators()
+            self.refreshRFGenerators()
 
     def startRefreshing(self):
         """Start periodically refreshing the list of devices.
@@ -121,16 +122,20 @@ class LBRFGenServer(LabradServer):
         self.killAttenuatorConnections()
             
     def killAttenuatorConnections(self):
-        for DID in self.SerialNumberDict.itervalues():
-            try:
-                self.VNXdll.fnLMS_CloseDevice(ctypes.c_uint(DID))
-            except Exception:
-                pass
+        try:    
+            for DID in self.SerialNumberDict.itervalues():
+                try:
+                    self.VNXdll.fnLMS_CloseDevice(ctypes.c_uint(DID))
+                except Exception:
+                    pass
+        except Exception:
+            pass
     
     @inlineCallbacks
     def refreshRFGenerators(self):
         '''Refresh attenuator list.'''
         n = yield self.VNXdll.fnLMS_GetNumDevices()
+        print n
         if n == self._num_devs:
             pass
         elif n == 0:

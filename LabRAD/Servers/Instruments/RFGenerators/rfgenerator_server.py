@@ -16,7 +16,7 @@
 """
 ### BEGIN NODE INFO
 [info]
-name = RF Generators
+name = GPIB RF Generators
 version = 0.1
 description = This server provides basic control for microwave generators.
 
@@ -146,7 +146,7 @@ class HP8341BWrapper(GPIBDeviceWrapper):
             
 class RFGeneratorServer(GPIBManagedServer):
     """This server provides basic control for microwave generators."""
-    name = 'RF Generators'
+    name = 'GPIB RF Generators'
     deviceWrappers={'HEWLETT-PACKARD 83620A': HP83620AWrapper,      # HP83620A hasn't yet been tested.
                     'HEWLETT-PACKARD 83712B': HP83712BWrapper,
                     'HEWLETT-PACKARD 8341B':  HP8341BWrapper}

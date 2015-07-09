@@ -16,8 +16,8 @@
 """
 ### BEGIN NODE INFO
 [info]
-name = Lab Brick Attenuator Server
-version = 1.1
+name = Lab Brick Attenuators
+version = 1.1.1
 description =  Gives access to Lab Brick attenuators. This server self-refreshes.
 instancename = %LABRADNODE% LBA
 

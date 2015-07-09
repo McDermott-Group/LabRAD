@@ -54,8 +54,6 @@ class PreampServer(LabradServer):
         reg = self.client.registry()
         yield reg.cd(['', 'Servers', 'DC Rack', 'Links'], True)
         dirs, keys = yield reg.dir()
-        print keys
-        print dirs
         p = reg.packet()
         for k in keys:
             p.get(k, key=k)
@@ -65,13 +63,12 @@ class PreampServer(LabradServer):
         # try to connect
         cxn = self.client
         for name, (server, port) in possibleLinks.items():
-            print 'something'
             if server in cxn.servers:
                 print 'Checking %s...' % name
                 ser = cxn.servers[server]
                 ports = yield ser.list_serial_ports()
                 if port in ports:
-                    print '  Found %s on %s' % (port, server)
+                    print 'Found %s on %s' % (port, server)
                     self.Links.append({
                         'Server': ser,
                         'ServerName': server,
