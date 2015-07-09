@@ -36,7 +36,7 @@ selectedADR = 'ADR3'
 import matplotlib as mpl
 mpl.use('TkAgg')
 import pylab, numpy
-import datetime
+import datetime, struct
 import Tkinter
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
 import labrad
@@ -71,6 +71,10 @@ class LogBox(Tkinter.Text):
         self.configure(state=Tkinter.NORMAL)
         self.insert(1.0,message+'\n')
         if alert: self.tag_add("redAlert", '1.0', '1.end')
+        self.configure(state=Tkinter.DISABLED)
+    def clear(self):
+        self.configure(state=Tkinter.NORMAL)
+        self.delete(1.0,Tkinter.END)
         self.configure(state=Tkinter.DISABLED)
 
 
@@ -292,9 +296,12 @@ class ADRController(object):#Tkinter.Tk):
         self.stageFAA.set_xdata([])
         self.stageFAA.set_ydata([])
         # &&& load saved temp data
-        self.canvas.draw()
+		# file_path = ''
+		# with open(file_path+'\\temperatures'+self.dateAppend+'.temps', 'r') as f:
+            # f.read(  )
+        # self.updatePlot()
         # clear and reload log
-        self.log.delete(1.0,Tkinter.END)
+        self.log.clear()
         logMessages = yield self.cxn[self.selectedADR].get_log(20) #only load last 20 messages
         for (m,a) in logMessages:
             self.updateLog(m,a)
