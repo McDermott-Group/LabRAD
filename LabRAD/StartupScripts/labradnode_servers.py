@@ -15,7 +15,7 @@
 
 """
 This script can be used to start LabRAD servers with the LabRAD node. 
-Run "labradnode_servers.py -h" in the command line for more information.
+Run "labradnode_servers.py -h" in the command line for the command line input options.
 """
 
 import os
@@ -28,12 +28,12 @@ def parseArguments():
     parser = argparse.ArgumentParser(description='Start LabRAD servers with the LabRAD node.')
     parser.add_argument('--registry-path', 
                         nargs='*',
-                        default=['Start Server Lists', os.environ['COMPUTERNAME'].lower()],
+                        default=['Start Lists', os.environ['COMPUTERNAME'].lower()],
                         help='path in the LabRAD Registry to the key containing the list of servers to run;' +
-                        " root folder name ''" + ' must be omitted (default: "Start Server Lists" "%%COMPUTERNAME%%")')
-    parser.add_argument('--registry-key', 
+                        " root folder name ''" + ' must be omitted (default: "Start Lists" "%%COMPUTERNAME%%")')
+    parser.add_argument('--registry-start-list-key', 
                         default='Start Server List',
-                        help='start server list Registry key (default: "Start Server List")')
+                        help='Registry key containg the list of servers to run (default: "Start Server List")')
     parser.add_argument('--node-server-name', 
                         default='node ' + os.environ['COMPUTERNAME'].lower(),
                         help='LabRAD node server name (default: "node %%COMPUTERNAME%%"')
@@ -44,21 +44,20 @@ def startServers(args):
     try:
         cxn = lr.connect()
     except:
-        print('Could not connect to LabRAD. The LabRAD program does not appear to be running.')
-        raise
+        raise Exception('Could not connect to LabRAD. The LabRAD program does not appear to be running.')
 
     running_servers = [name for _, name in cxn.manager.servers()]
     if args.node_server_name not in running_servers:
-        raise Exception("Could not connect to the LabRAD node server '" + args.node_server_name + "'. " + 
+        raise Exception("Cannot connect to the LabRAD node server '" + args.node_server_name + "'. " + 
             "The server does not appear to be running.")
 
     print('Getting the list of servers from the LabRAD Registry...')
     try:
         cxn.registry.cd([''] + args.registry_path)
-        server_list = cxn.registry.get(args.registry_key)
+        server_list = cxn.registry.get(args.registry_start_list_key)
     except:
-        print('Could not read the LabRAD Registry. Please check that the Registry path ' + 
-              str([''] + args.registry_path) + ' and the key name ' + args.registry_key + ' are correct.') 
+        raise Exception('Cannot read the LabRAD Registry. Please check that the Registry path ' + 
+              str([''] + args.registry_path) + ' and the key name ' + args.registry_key + ' are correct.')
     
     # Go through and start all the servers that are not already running.
     print('Starting the servers...')
