@@ -125,14 +125,16 @@ class StartAndBringUp:
         
     def readProgramList(self):
         cxn = self._LabRADConnect()
-
         print('Getting the list of programs and servers to run from the LabRAD Registry...')
         try:
             cxn.registry.cd([''] + self.args.registry_path)
+            print('')
             return cxn.registry.get(self.args.registry_start_list_key)
         except:
             raise Exception('Could not read the LabRAD Registry. Please check that the Registry path ' + 
                   str([''] + self.args.registry_path) + ' and the key name ' + self.args.registry_start_list_key + ' are correct.')
+        finally:
+            cxn.disconnect()
         
     def startLabRADNode(self):
         print('Starting the LabRAD node...')
@@ -148,16 +150,14 @@ class StartAndBringUp:
         self._waitTillEnterKeyIsPressed()
         
     def startLabRADNodeServers(self):
-        print('Starting the servers with the Labrad node...')
+        print('Starting the servers with the LabRAD node...')
         node_servers_filename = os.path.join(LABRAD_PATH, LABRAD_NODE_SERVERS_PATH, LABRAD_NODE_SERVERS_FILENAME)
         
         try:
-            self.processes['LabRAD Node Servers'] = sp.Popen([sys.executable, node_servers_filename], creationflags=sp.CREATE_NEW_CONSOLE)
+            self.processes['LabRAD Node Servers'] = sp.Popen([sys.executable, node_servers_filename])
         except OSError:
             raise Exception('Failed to start the LabRAD node.')
-        
-        print('Please enter the password in the window that poped up.')
-        print('The window will close automatically when the servers are started.')
+
         while self.processes['LabRAD Node Servers'].poll() is None:
             pass
         print('The servers have been started.\n')
@@ -174,7 +174,7 @@ class StartAndBringUp:
         except OSError:
             raise Exception('Failed to start Direct Ethernet Server.')
         
-        print('In Direct Ethernet window please specify the following:' +
+        print('In the Direct Ethernet window please specify the following:' +
               '\n\tLabRAD host name, e.g. "' + LABRAD_HOST + 
               '",\n\tLabRAD port, e.g. "' + str(LABRAD_PORT) + 
               '",\n\tyour password, e.g. "' + LABRAD_PASSWORD +
@@ -194,9 +194,8 @@ class StartAndBringUp:
             raise Exception('Failed to start the GHz FPGA bring up script.')
         
         print('Please enter the password in the GHz FPGA bring-up window and follow the instructions there.')
-        print('Close the GHz FPGA bring-up window when you are done.\n')
-        while self.processes['GHz FPGA Bring Up'].poll() is None:
-            pass
+        print('You may close the GHz FPGA bring-up script window when you are done.')
+        self._waitTillEnterKeyIsPressed()
 
     def startDCRackLabVIEWVI(self):
         cxn = self._LabRADConnect()
@@ -207,7 +206,9 @@ class StartAndBringUp:
         except:
             raise Exception('Cannot read the LabRAD Registry. Please check that the Registry path ' + 
                   str([''] + self.args.registry_path) + ' and the key name ' + self.args.registry_labview_path_key + ' are correct.')
-        
+        finally:
+            cxn.disconnect()
+ 
         print('Starting the DC Rack LabVIEW VI...')
         dc_rack_vi = os.path.join(LABRAD_PATH, DC_RACK_LABVIEW_VI_PATH, DC_RACK_LABVIEW_VI_FILENAME)
          
@@ -215,7 +216,7 @@ class StartAndBringUp:
             raise Exception('Cannot locate the DC Rack LabVIEW VI ' + dc_rack_vi  + '.')
         
         try:
-            self.processes['DC Rack LabVIEW VI'] = sp.Popen('"' + labview_path_filename + '" "' + dc_rack_vi + '"')
+            self.processes['DC Rack LabVIEW VI'] = sp.Popen([labview_path_filename, dc_rack_vi])
         except OSError:
             raise Exception('Failed to start the DC Rack LabVIEW VI.')
         
