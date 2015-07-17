@@ -17,7 +17,7 @@
 ### BEGIN NODE INFO
 [info]
 name = Agilent 5230A Network Analyzer.
-version = 0.10
+version = 0.10.1
 description = Four channel 5230A PNA-L network analyzer server
 
 [startup]
@@ -35,10 +35,10 @@ if __file__ in [f for f in os.listdir('.') if os.path.isfile(f)]:
     SCRIPT_PATH = os.path.dirname(os.getcwd())  # This will be executed when the script is loaded by the labradnode.
 else:
     SCRIPT_PATH = os.path.dirname(__file__)     # This will be executed if the script is started by clicking or in a command line.
-NONBLOCKING_PATH = os.path.join(SCRIPT_PATH.rsplit('LabRAD', 1)[0], 'LabRAD\Servers\Utilities')
+LABRAD_PATH = os.path.join(SCRIPT_PATH.rsplit('LabRAD', 1)[0])
 import sys
-if NONBLOCKING_PATH not in sys.path:
-    sys.path.append(NONBLOCKING_PATH)
+if LABRAD_PATH not in sys.path:
+    sys.path.append(LABRAD_PATH)
 
 import numpy
 
@@ -46,14 +46,12 @@ from labrad.gpib import GPIBManagedServer, GPIBDeviceWrapper
 from labrad.server import setting, returnValue
 import labrad.units as units
 
-from nonblocking import sleep
+from LabRAD.Servers.Utilities.nonblocking import sleep
 
 class Agilent5230AServer(GPIBManagedServer):
     name = 'Agilent 5230A Network Analyzer'
     deviceName = 'AGILENT TECHNOLOGIES N5230A'
     deviceWrapper = GPIBDeviceWrapper
-    
-    defaultTimeout = 0.05
     
     @setting(600, 'Preset')
     def preset(self, c):

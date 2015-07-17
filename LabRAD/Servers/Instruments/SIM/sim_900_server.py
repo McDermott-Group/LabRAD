@@ -17,7 +17,7 @@
 ### BEGIN NODE INFO
 [info]
 name = SIM900 SRS Mainframe
-version = 2.0.2
+version = 2.0.3
 description = Gives access to devices plugged into SRS SIM900 Mainframe.
 instancename = %LABRADNODE% SIM900
 
@@ -36,10 +36,10 @@ if __file__ in [f for f in os.listdir('.') if os.path.isfile(f)]:
     SCRIPT_PATH = os.path.dirname(os.getcwd())  # This will be executed when the script is loaded by the labradnode.
 else:
     SCRIPT_PATH = os.path.dirname(__file__)     # This will be executed if the script is started by clicking or in a command line.
-GPIB_PATH = os.path.join(SCRIPT_PATH.rsplit('LabRAD', 1)[0], 'LabRAD\Servers\GPIB')
+LABRAD_PATH = os.path.join(SCRIPT_PATH.rsplit('LabRAD', 1)[0])
 import sys
-if GPIB_PATH not in sys.path:
-    sys.path.append(GPIB_PATH)
+if LABRAD_PATH not in sys.path:
+    sys.path.append(LABRAD_PATH)
 
 from types import MethodType
 import visa
@@ -52,8 +52,8 @@ from twisted.internet.reactor import callLater
 from labrad.server import setting, returnValue
 from labrad.gpib import GPIBManagedServer, GPIBDeviceWrapper
 
-from gpib_server import GPIBBusServer
-from gpib_device_manager import parseIDNResponse, UNKNOWN
+from LabRAD.Servers.GPIB.gpib_server import GPIBBusServer
+from LabRAD.Servers.GPIB.gpib_device_manager import parseIDNResponse, UNKNOWN
 
 # These are the redefined functions that will be used for the visa instruments to connect to the appropriate slots.
 def set_slot(self, i):

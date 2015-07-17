@@ -198,24 +198,24 @@ class GPIBDeviceManager(LabradServer):
         otherwise returns None.
         """
         if identifier in self.identFunctions:
+            s = self.client[identifier]
+            setting, context = self.identFunctions[identifier]
+            print("Trying to identify device " +  str(server) + " " + str(channel) + " on server " + str(identifier))
             try:
-                # yield self.client.refresh()
-                s = self.client[identifier]
-                setting, context = self.identFunctions[identifier]
-                print("Trying to identify device " +  str(server) + " " + str(channel) + " on server " + str(identifier))
                 if idn is None:
                     resp = yield s[setting](server, channel, context=context)
                 else:
                     resp = yield s[setting](server, channel, idn, context=context)
-                if resp is not None and resp != UNKNOWN:
-                    print("Server " + str(identifier) + ' identified device ' + str(server) +
-                          ' ' + str(channel) + ' as ' + str(resp))
-                    returnValue(resp)
-                else:
-                    print("Server " + str(identifier) + ' could not identify device ' + str(server) +
-                          ' ' + str(channel))
             except Exception:
                 print('Error while attempting to identify a device')
+                returnValue(UNKNOWN)
+
+            if resp is not None and resp != UNKNOWN:
+                print("Server " + str(identifier) + ' identified device ' + str(server) +
+                      ' ' + str(channel) + ' as ' + str(resp))
+                returnValue(resp)
+            else:
+                print("Server " + str(identifier) + ' could not identify device ' + str(server) + ' ' + str(channel))
     
     @setting(1, 'Register Server',
              devices=['s', '*s'], messageID='w',

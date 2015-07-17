@@ -47,7 +47,7 @@ LABRAD_NODE_FILENAME = 'labradnode.py'
 LABRAD_NODE_SERVERS_FILENAME = 'labradnode_servers.py'
 DIRECT_ETHERNET_SERVER_FILENAME = 'DirectEthernet.exe'
 GHZ_FPGA_BRING_UP_FILENAME = 'ghz_fpga_bringup.py'
-DC_RACK_LABVIEW_VI_FILENAME = 'DC_Rack_Control.vi'
+DC_RACK_LABVIEW_VI_FILENAME = 'dc_rack_control.vi'
 
 class QuitException(Exception): pass
 
