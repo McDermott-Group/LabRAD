@@ -172,12 +172,12 @@ class RFGeneratorServer(GPIBManagedServer):
             yield dev.setPower(pwr)
         returnValue(dev.power)
 
-    @setting(12, 'Output', out=['b'], returns=['b'])
-    def output(self, c, out=None):
-        """Get or set the RF generator output."""
+    @setting(12, 'Output', on=['b'], returns=['b'])
+    def output(self, c, on=None):
+        """Get or set the RF generator output (on/off)."""
         dev = self.selectedDevice(c)
-        if out is not None:
-            yield dev.setOutput(out)
+        if on is not None:
+            yield dev.setOutput(on)
         returnValue(dev.output)
         
 __server__ = RFGeneratorServer()

@@ -1,4 +1,4 @@
-# Copyright (C) 2015 Chris Wilen
+# Copyright (C) 2015 Chris Wilen, Ivan Pechenezhskiy
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
 ### BEGIN NODE INFO
 [info]
 name = SIM928
-version = 2.2
+version = 2.3.0
 description = This serves as an interface for the SIM928 Voltage Source.
 
 [startup]
@@ -34,35 +34,69 @@ from twisted.internet.defer import inlineCallbacks, returnValue
 
 from labrad.server import setting
 from labrad.gpib import GPIBManagedServer, GPIBDeviceWrapper
-import labrad.units as units
+from labrad.units import V
+
+
+class SIM928Wrapper(GPIBDeviceWrapper):
+    @inlineCallbacks
+    def initialize(self):
+        self.voltage = yield self.getVoltage()
+        self.output =  yield self.getOutput()
+    
+    @inlineCallbacks    
+    def reset(self):
+        yield self.write('*CLS;*RST')
+        yield self.initialize()
+
+    @inlineCallbacks
+    def getVoltage(self):
+        self.voltage = (yield self.query('VOLT?').addCallback(float)) * V
+        returnValue(self.voltage)
+    
+    @inlineCallbacks
+    def getOutput(self):
+        self.output = yield self.query('EXON?').addCallback(bool)
+        returnValue(self.output)
+
+    @inlineCallbacks
+    def setVoltage(self, v):
+        if self.voltage != v:
+            yield self.write('VOLT ' + str(v['V']))
+            self.voltage = v
+
+    @inlineCallbacks
+    def setOutput(self, on):
+        if self.output != bool(on):
+            yield self.write('EXON ' + str(int(on)))
+            self.output = bool(on)
+
 
 class SIM928Server(GPIBManagedServer):
     """Provides basic control for SRS SIM928 voltage source"""
     name = 'SIM928'
-    deviceName = 'STANFORD RESEARCH SYSTEMS SIM928' # *IDN? = "Stanford_Research_Systems,SIM928,s/n105794,ver3.6"
-    deviceWrapper = GPIBDeviceWrapper
+    deviceName = 'STANFORD RESEARCH SYSTEMS SIM928'
+    deviceWrapper = SIM928Wrapper
+    
+    @setting(100, 'Reset')
+    def reset(self, c):
+        """Reset the voltage source."""
+        yield self.selectedDevice(c).reset()
     
     @setting(101, 'Voltage', v=['v[V]'], returns=['v[V]'])
     def voltage(self, c, v=None):
         """Get or set the voltage."""
         dev = self.selectedDevice(c)
-        if v is None:
-            resp = yield dev.query('VOLT?')
-            v = float(resp)*units.V
-        else:
-            yield dev.write('VOLT %f' %v['V'])
-        returnValue(v)
+        if v is not None:
+            yield dev.setVoltage(v)
+        returnValue(dev.voltage)
         
     @setting(102, 'Output', on=['b'], returns=['b'])
     def output(self, c, on=None):
         """Get or set the output (on/off)."""
         dev = self.selectedDevice(c)
-        if on is None:
-            resp = yield dev.query('EXON?')
-            on = bool(resp)
-        else:
-            yield dev.write('EXON %i' %int(on))
-        returnValue(on)
+        if on is not None:
+            yield dev.setOutput(on)
+        returnValue(dev.output)
 
 __server__ = SIM928Server()
 
