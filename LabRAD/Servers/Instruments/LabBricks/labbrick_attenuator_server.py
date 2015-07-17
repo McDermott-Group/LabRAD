@@ -17,7 +17,7 @@
 ### BEGIN NODE INFO
 [info]
 name = Lab Brick Attenuators
-version = 1.1.1
+version = 1.2.0
 description =  Gives access to Lab Brick attenuators. This server self-refreshes.
 instancename = %LABRADNODE% LBA
 
@@ -39,15 +39,15 @@ from twisted.internet.task import LoopingCall
 
 from labrad.server import LabradServer, setting
 from labrad.errors import DeviceNotSelectedError
-import labrad.units as units
+from labrad.units import dB, s
 
 MAX_NUM_ATTEN = 64      # maximum number of connected attenuators
 MAX_MODEL_NAME = 32     # maximum length of Lab Brick model name
 
 class LBAttenuatorServer(LabradServer):
     name='%LABRADNODE% LBA'
-    refreshInterval = 3
-    defaultTimeout = 0.1 * units.s
+    refreshInterval = 60
+    defaultTimeout = 0.1 * s
     
     @inlineCallbacks
     def getRegistryKeys(self):
@@ -132,7 +132,7 @@ class LBAttenuatorServer(LabradServer):
         if n == self._num_devs:
             pass
         elif n == 0:
-            print('Lab Brick attenuators disconnected')
+            print('Lab Brick attenuators disconnected.')
             self._num_devs = n
             self.SerialNumberDict.clear()
             self.LastAttenuation.clear()
@@ -147,18 +147,19 @@ class LBAttenuatorServer(LabradServer):
                 self.SerialNumberDict.update({SN: DEVIDs_ptr[idx]})
                 NameLength = yield self.VNXdll.fnLDA_GetModelName(DEVIDs_ptr[idx], MODNAME)
                 self.select_attenuator(self._pseudo_context, SN)
-                attn_dB = yield self.get_attenuation(self._pseudo_context)
+                attn_dB = yield self.attenuation(self._pseudo_context)
                 min_attn = yield self.min_attenuation(self._pseudo_context)
                 max_attn = yield self.max_attenuation(self._pseudo_context)
                 self.LastAttenuation.update({SN: attn_dB})
                 self.MinMaxAttenuation.update({SN: (min_attn, max_attn)})
-                print('Found a Lab Brick Attenuator with ' + MODNAME.raw[0:NameLength] + ', serial number: %i, current attenuation: %.1f dB'%(SN, attn_dB))
+                print('Found a Lab Brick Attenuator with ' + MODNAME.raw[0:NameLength] + ', serial number: ' + 
+                    str(SN) + ', current attenuation: ' + str(self.LastAttenuation[SN]))
 
     def getDeviceDID(self, c):
         if 'SN' not in c:
-            raise DeviceNotSelectedError("No Lab Brick Attenuator serial number selected")
+            raise DeviceNotSelectedError('No Lab Brick Attenuator serial number is selected')
         if c['SN'] not in self.SerialNumberDict.keys():
-            raise Exception('Could not find Lab Brick Attenuator with serial number ' + c['SN'])
+            raise Exception('Cannot find Lab Brick Attenuator with serial number ' + c['SN'])
         return self.SerialNumberDict[c['SN']]       
                 
     @setting(1, 'Refresh Device List')
@@ -182,49 +183,45 @@ class LBAttenuatorServer(LabradServer):
         if 'SN' in c:
             del c['SN']
      
-    @setting(11, 'Get Attenuation', returns='v[dB]')
-    def get_attenuation(self, c):
-        '''Get attenuation.'''
-        DID = ctypes.c_uint(self.getDeviceDID(c))
-        yield self.VNXdll.fnLDA_InitDevice(DID)
-        atten = 0.25 * (yield self.VNXdll.fnLDA_GetAttenuation(DID))
-        yield self.VNXdll.fnLDA_CloseDevice(DID)
-        returnValue(units.Value(atten, 'dB'))
-        
-    @setting(12, 'Set Attenuation', atten='v[dB]')
-    def set_attenuation(self, c, atten):
-        '''Set attenuation.'''
+    @setting(10, 'Attenuation', atten='v[dB]', returns='v[dB]')
+    def attenuation(self, c, atten=None):
+        '''Get or set attenuation.'''
         SN = self.getDeviceDID(c)
-        if atten < self.MinMaxAttenuation[c['SN']][0]:
-            atten = self.MinMaxAttenuation[c['SN']][0]
-        elif atten > self.MinMaxAttenuation[c['SN']][1]:
-            atten = self.MinMaxAttenuation[c['SN']][1]
-        # Check to make sure it needs to be changed.
-        if self.LastAttenuation[c['SN']] == atten:
-            return
-        self.LastAttenuation[c['SN']] = atten
-        DID = ctypes.c_uint(self.getDeviceDID(c))
+        if atten is not None:
+            if atten < self.MinMaxAttenuation[c['SN']][0]:
+                atten = self.MinMaxAttenuation[c['SN']][0]
+            elif atten > self.MinMaxAttenuation[c['SN']][1]:
+                atten = self.MinMaxAttenuation[c['SN']][1]
+            if self.LastAttenuation[c['SN']] == atten:      # Check to make sure it needs to be changed.
+                returnValue(atten)
+
+        DID = ctypes.c_uint(SN)
         yield self.VNXdll.fnLDA_InitDevice(DID)
-        yield self.VNXdll.fnLDA_SetAttenuation(DID, ctypes.c_int(int(4. * atten)))
+        if atten is None:
+            atten = 0.25 * (yield self.VNXdll.fnLDA_GetAttenuation(DID)) * dB
+        else:
+            yield self.VNXdll.fnLDA_SetAttenuation(DID, ctypes.c_int(int(4. * atten['dB'])))
+        self.LastAttenuation[c['SN']] = atten
         yield self.VNXdll.fnLDA_CloseDevice(DID)
+        returnValue(atten)
         
     @setting(21, 'Max Attenuation', returns='v[dB]')
     def max_attenuation(self, c):
         '''Return maximum attenuation.'''
         DID = ctypes.c_uint(self.getDeviceDID(c))
         yield self.VNXdll.fnLDA_InitDevice(DID)
-        max_attn = 0.25 * (yield self.VNXdll.fnLDA_GetMaxAttenuation(DID))
+        max_attn = 0.25 * (yield self.VNXdll.fnLDA_GetMaxAttenuation(DID)) * dB
         yield self.VNXdll.fnLDA_CloseDevice(DID)
-        returnValue(units.Value(max_attn, 'dB'))
+        returnValue(max_attn)
 
     @setting(22, 'Min Attenuation', returns='v[dB]')
     def min_attenuation(self, c):
         '''Return minimum attenuation.'''
         DID = ctypes.c_uint(self.getDeviceDID(c))
         yield self.VNXdll.fnLDA_InitDevice(DID)
-        min_attn = 0.25 * (yield self.VNXdll.fnLDA_GetMinAttenuation(DID))
+        min_attn = 0.25 * (yield self.VNXdll.fnLDA_GetMinAttenuation(DID)) * dB
         yield self.VNXdll.fnLDA_CloseDevice(DID)
-        returnValue(units.Value(min_attn, 'dB'))
+        returnValue(min_attn)
         
     @setting(30, 'Model Name', returns='s')
     def model_name(self, c):
