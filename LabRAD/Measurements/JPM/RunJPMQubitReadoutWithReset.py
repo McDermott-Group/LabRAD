@@ -2,19 +2,15 @@
 
 import numpy as np
 
-import JPMQubitReadoutWithResetExpt as qr
+from labrad.units import us, ns, V, GHz, MHz, dB, dBm, DACUnits, FastBiasUnits, PreAmpTimeCounts
 
-G = float(10**9)
-M = float(10**6)
+import JPMQubitReadoutWithResetExpt as qr
 
 # List of the experiment resources. Simply uncomment/comment the devices that should be used/unused.
 # However, 'Resource': 'LabRAD Server' should never be left out.
-Resources = [   { # This is a required resource.
-                    'Resource': 'LabRAD Server', 
-                    'Server Name': 'ghz_fpgas'
-                },
-                { # List here all parameters that specify waveforms.
-                    'Resource': 'Waveform Parameters',
+Resources = [   { # Waveform parameters.
+                    'Resource': 'GHz Boards', 
+                    'Server': 'GHz FPGAs'
                     'Variables': [
                                     'Init Time', 'Bias Time', 'Measure Time',
                                     'Bias Voltage', 'Fast Pulse Time', 'Fast Pulse Amplitude', 'Fast Pulse Width',
@@ -46,43 +42,49 @@ Resources = [   { # This is a required resource.
                                     },
                     'Variables': []
                 },
-                { # GPIB RF Generator
-                    'Resource': 'RF Generator',
-                    'GPIB Address': 'GPIB0::19',
-                    'Variables': ['Readout Power', 'Readout Frequency']
-                },
-                { # GPIB RF Generator
-                    'Resource': 'RF Generator',
-                    'GPIB Address': 'GPIB0::20',
-                    'Variables': ['Qubit Power', 'Qubit Frequency']
-                },
-                # { # GPIB RF Generator
+                # { # GPIB RF Generator.
                     # 'Resource': 'RF Generator',
-                    # 'GPIB Address': 'GPIB0::20',
-                    # 'Variables': ['RF Power', 'RF Frequency']
+                    # 'Server': 'GPIB RF Generators',
+                    # 'Address': os.environ['COMPUTERNAME'] + ' GPIB Bus - GPIB0::19::INSTR',
+                    # 'Variables': {'Readout Power': 'Power', 
+                    #               'Readout Frequency': 'Frequency'}
                 # },
-                # { # Lab Brick Attenuator
+                { # GPIB RF Generator.
+                    'Resource': 'RF Generator',
+                    'Server': 'GPIB RF Generators',
+                    'Address': os.environ['COMPUTERNAME'] + ' GPIB Bus - GPIB0::20::INSTR',
+                    'Variables': {'Qubit Power': 'Power', 
+                                  'Qubit Frequency': 'Frequency'}
+                },
+                # { # GPIB RF Generator.
+                    # 'Resource': 'RF Generator',
+                    # 'Server': 'GPIB RF Generators',
+                    # 'GPIB Address': 'GPIB0::20',
+                    # 'Variables': {'RF Power': 'Power', 
+                    #               'RF Frequency': 'Frequency'}
+                # },
+                # { # Lab Brick Attenuator.
                     # 'Resource': 'Lab Brick Attenuator',
-                    # 'Server': os.environ['COMPUTERNAME'] + ' LBA',
+                    # 'Server': os.environ['COMPUTERNAME'] + ' Lab Brick Attenuators',
                     # 'Serial Number': 7032,
                     # 'Variables': {'Readout Attenuation': 'Attenuation'}
                 # },
-                { # Lab Brick Attenuator
+                { # Lab Brick Attenuator.
                     'Resource': 'Lab Brick Attenuator',
-                    'Server': os.environ['COMPUTERNAME'] + ' LBA',
-                    'Serial Number': 7032,
-                    'Variables': {'Readout Attenuation': 'Attenuation'}
+                    'Server': os.environ['COMPUTERNAME'] + ' Lab Brick Attenuators',
+                    'Address': 7032,
+                    'Variables': 'Readout Attenuation'
                 },
-                { # Lab Brick Attenuator
+                { # Lab Brick Attenuator.
                     'Resource': 'Lab Brick Attenuator',
-                    'Server': os.environ['COMPUTERNAME'] + ' LBA',
-                    'Serial Number': 7033,
+                    'Server': os.environ['COMPUTERNAME'] + ' Lab Brick Attenuators',
+                    'Address': 7033,
                     'Variables': {'Qubit Attenuation': 'Attenuation'}
                 },
-                { # SIM Voltage Source
-                    'Resource': 'SIM',
-                    'GPIB Address': 'GPIB0::26',
-                    'SIM Slot': 3,
+                { # SIM Voltage Source.
+                    'Resource': 'Voltage Source',
+                    'Server': os.environ['COMPUTERNAME'] + ' SIM928',
+                    'Address': 'GPIB0::26::SIM900::3',
                     'Variables': ['Qubit Flux Bias Voltage']
                 },
                 { # External readings.
@@ -108,45 +110,45 @@ ExptInfo = {
 ExptVars = {
             'Reps': 3000, # should not exceed ~50,000
           
-            'Qubit Frequency': 20*G, # Hz
-            'Qubit Power': -110, # dBm
-            'Qubit Attenuation': 63, # dB, should be in (0, 63] range
-            #'Qubit SB Frequency': 0*M, # Hz
-            #'Qubit Amplitude': 0.5, # DAC units
-            #'Qubit Time': 8000, # ns
+            'Qubit Frequency': 20 * GHz,
+            'Qubit Power': -110 * dBm, 
+            'Qubit Attenuation': 63 * dB, # should be in (0, 63] range
+            'Qubit SB Frequency': 0 * MHz,
+            'Qubit Amplitude': 0.5 * DACUnits
+            'Qubit Time': 8000 * ns
             
-            'Qubit Drive to Readout': 0, # ns
+            'Qubit Drive to Readout': 0 * ns,
             
-            'Qubit Flux Bias Voltage': 0., # V
+            'Qubit Flux Bias Voltage': 0 * V,
 
-            'Readout Frequency': 20*G, # Hz
-            'Readout Power': 13, # dBm
-            'Readout Attenuation': 1, # dB, should be in (0, 63] range
-            'Readout SB Frequency': 0*M, # Hz
-            'Readout Amplitude': 1.0, # DAC units
-            'Readout Time': 1000, # ns
-            'Readout Phase': 0, # rad
+            'Readout Frequency': 20 * GHz,
+            'Readout Power': 13 * dBm,
+            'Readout Attenuation': 1 * dB, # should be in (0, 63] range
+            'Readout SB Frequency': 0 * MHz, 
+            'Readout Amplitude': 1 * DACUnits,
+            'Readout Time': 1000 * ns
+            'Readout Phase': 0 * rad
             
-            'Readout to Displacement': 0, # ns
-            'Readout to Displacement Offset': 0.00, # DAC units
+            'Readout to Displacement': 0 * ns,
+            'Readout to Displacement Offset': 0.00 * DACUnits,
             
-            'Displacement Amplitude': 0.0, # DAC units
-            'Displacement Time': 0, # ns
-            'Displacement Phase': 0, # rad
+            'Displacement Amplitude': 0.0 * DACUnits,
+            'Displacement Time': 0 * ns,
+            'Displacement Phase': 0 * rad,
             
-            'Displacement to Fast Pulse': -100, # ns (time delay between the end of the displacement pulse and the start of the fast pulse).
+            'Displacement to Fast Pulse': -100 * ns,  # time delay between the end of the displacement pulse and the start of the fast pulse
           
-            'Init Time': 500, # microseconds
-            'Bias Time': 100, # microseconds
-            'Measure Time': 50, # microseconds
+            'Init Time': 500 * us,
+            'Bias Time': 100 * us,
+            'Measure Time': 50 * us,
           
-            'Bias Voltage': 0.194, # FastBias DAC units
-            'Fast Pulse Time': 10, # nanoseconds
-            'Fast Pulse Amplitude': 0.2205, # DAC units
-            'Fast Pulse Width': 0, #nanoseconds
+            'Bias Voltage': 0.194 * V,
+            'Fast Pulse Time': 10 * ns,
+            'Fast Pulse Amplitude': 0.2205 * DACUnits,
+            'Fast Pulse Width': 0 * ns,
           
-            'Threshold': 100,   # Preamp Time Counts
-            'Temperature': 14.2# mK
+            'Threshold': 100 * counts,
+            'Temperature': 14.2 * mK
            }
 
 with qr.JPMQubitReadoutWithReset() as run:
@@ -165,7 +167,7 @@ with qr.JPMQubitReadoutWithReset() as run:
     # run.Sweep('Displacement to Fast Pulse', np.linspace(-28, 72, 101),
             # Save=True, PrintData=['Switching Probability'], PlotData=['Switching Probability'])
 
-    run.Sweep('Readout Frequency', np.linspace(4.3*G, 5.3*G, 5001), 
+    run.Sweep('Readout Frequency', np.linspace(4.3, 5.3, 5001) * GHz, 
               Save=True, PrintData=['Switching Probability'], PlotData=['Switching Probability'])
 
     # run.Sweep('Readout to Displacement Offset', np.linspace(-0.1, .2, 61), 

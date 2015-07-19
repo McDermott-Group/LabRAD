@@ -17,8 +17,9 @@
 ### BEGIN NODE INFO
 [info]
 name = SIM928
-version = 2.3.0
+version = 2.3.1
 description = This serves as an interface for the SIM928 Voltage Source.
+instancename = %LABRADNODE% SIM928
 
 [startup]
 cmdline = %PYTHON% %FILE%
@@ -73,7 +74,7 @@ class SIM928Wrapper(GPIBDeviceWrapper):
 
 class SIM928Server(GPIBManagedServer):
     """Provides basic control for SRS SIM928 voltage source"""
-    name = 'SIM928'
+    name = '%LABRADNODE% SIM928'
     deviceName = 'STANFORD RESEARCH SYSTEMS SIM928'
     deviceWrapper = SIM928Wrapper
     

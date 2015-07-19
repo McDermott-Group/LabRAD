@@ -17,9 +17,9 @@
 ### BEGIN NODE INFO
 [info]
 name = Lab Brick Attenuators
-version = 1.2.0
+version = 1.2.1
 description =  Gives access to Lab Brick attenuators. This server self-refreshes.
-instancename = %LABRADNODE% LBA
+instancename = %LABRADNODE% Lab Brick Attenuators
 
 [startup]
 cmdline = %PYTHON% %FILE%
@@ -45,7 +45,7 @@ MAX_NUM_ATTEN = 64      # maximum number of connected attenuators
 MAX_MODEL_NAME = 32     # maximum length of Lab Brick model name
 
 class LBAttenuatorServer(LabradServer):
-    name='%LABRADNODE% LBA'
+    name='%LABRADNODE% Lab Brick Attenuators'
     refreshInterval = 60
     defaultTimeout = 0.1 * s
     

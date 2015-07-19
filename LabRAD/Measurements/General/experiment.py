@@ -20,12 +20,10 @@ this as a parent class.
 
 A basic experiment program would look something like this:
 
-cxn = labrad.connect()
-
-with SomeExperiment.Experiment(cxn) as expt:    
-    expt.SetExperiment(ExperimentInformation, ExperimetVariables, Resources) 
-    freq = np.linspace(2e9, 5e9, 101)
-    expt.RunSweep('RF Frequency', freq, Save=True)
+with SomeExperiment.Experiment() as expt:    
+    expt.set_experiment(experiment_information, resources, experimet_variables) 
+    freq = np.linspace(2e9, 5e9, 101) * GHz
+    expt.sweep('RF Frequency', freq, save=True)
 """
 
 import os
@@ -53,31 +51,21 @@ import labrad
 
 import LabRAD.Servers.GHzBoards.ghz_fpga_control as DAC
 
-G = float(10**9)
-
-PREAMP_TIMEOUT = 1253
-
-class ResourceDefinitionError(Exception): pass
-class ExperimentConsistencyError(Exception): pass
+class ExperimentDefinitionError(Exception): pass
 class SweepError(Exception): pass
 
 class Experiment:
-    """
-    Experiment class. Parent class for specific instances of experiments that provides shared functionality
-    """
-###SETUP METHODS#####################################################################################
-#####################################################################################################    
-    def __init__(self, cxn):
+"""
+Experiment class. Parent class for specific instances of experiments that provides shared functionality
+"""   
+    def __init__(self):
         """
-        Initialize experiment class. Provide this function with a labrad connection so we don't have to pass it on
-        every function call.
-        
         Inputs:
-            cxn: a labrad connection object
+            None.
         Outputs:
             None.
         """ 
-        self.cxn = labrad.connect()
+        self._cxn = labrad.connect()
         self._StandardOutputFlag = True      # This flag controls the standard output of the experiment results upon pressing [O].
 
     def __del__(self):
@@ -96,193 +84,188 @@ class Experiment:
         """
         Safely close all connections, close plots, and disconnect from LabRad. Could also catch exceptions here if needed
         """
-        self._CloseResources()
         self.cxn.disconnect()
         print('The instrument resources have been safely terminated! Have a nice day.')
-                
-    def _CloseResources(self):
-        """
-        Close all open resources to prevent GPIB crashes
-        """
-        if hasattr(self, 'RFgen'):
-            for rfg in self.RFgen.values():
-                rfg.ReleaseInstrument()
-        
-        if hasattr(self, 'SIM'):
-            for sim in self.SIM.values():
-                sim.ReleaseInstrument()
-    
-    def SetExperiment(self, ExperimentInformation, ExperimentResources, ExperimentVariables):
+  
+    ###SETUP METHODS#####################################################################################
+    ##################################################################################################### 
+    def SetExperiment(self, experiment_information, resources, experimet_variables)
         """
         Sets experiment information, resources and experiment variables.
         
         Inputs:
-            Experiment Information: see Experiment._SetExperiment(Experiment Information) method.
-            Experiment Resources: see Experiment._SetResources(Experiment Resources) method.
-            Experiment Variables: see Experiment._SetVariables(Experiment Variables) method.
-        Outputs:
-            None.
-        """
-        self._SetInformation(ExperimentInformation)
-        self._SetResources(ExperimentResources)
-        self._SetVariables(ExperimentVariables)
-        
-    def _SetInformation(self, ExperimentInformation):
-        """
-        Sets experiment information, as well as base path for saving. 
-        Base path will be: BasePath\User\Device\Date\ExperimentName\
-        
-        Inputs:
-            ExperimentInformation
-            - dictionary that should have the following parameters (as strings)
+            experiment_information: dictionary that should have the following parameters (as strings):
                 1. Device Name: Name of the resource under study
                 2. User: Who is running the experiment?
                 3. Base Path: initial path for data saving purposes.
                 4. Experiment Name: what are you doing?
-                5. Comments: any comments that will go in the header file of each saved data file (optional, will be blank if not included)
+                5. Comments: any comments that will go in the header file of each saved data file (optional, will be blank if not included).
+            experiment_resources: list of resources in the following format:
+              [ { # Generic device
+                    'Resource': 'device name'
+                    'Server': 'server name',
+                    'Address': 'address that could be used to select the device',
+                    'Variables': {
+                                    'Variable 1': 'server setting that controls Variable 1', 
+                                    'Variable 2': 'server setting that controls Variable 2'
+                                 }
+                },
+                { # Waveform parameters.
+                    'Resource': 'GHz Boards', 
+                    'Server': 'GHz FPGAs'
+                    'Variables': ['Pulse 1 Duration', 'Pulse 2 Duration']
+                },
+                { # DACs are converted to a simple ordered list internally based on 'List Index' value.
+                    'Resource': 'DAC',
+                    'DAC Name': 'Board DAC 1',
+                    'List Index': 0,
+                    'DAC Settings': {
+                                        'DAC A': 'RF I',
+                                        'DAC B': 'RF Q',
+                                        'FO1 FastBias Firmware Version': '2.1'
+                                    },
+                    'Variables': []
+                },
+                { # ADCs are converted to a simple ordered list internally based on 'List Index' value.  
+                    'Resource': 'ADC',
+                    'ADC Name': 'Board ADC 3',
+                    'List Index': 0,
+                    'ADC Settings': { # These default settings might be over-written by the Experiment methods. 
+                                        'RunMode': 'demodulate', #'average'
+                                        'FilterType': 'square',
+                                        'FilterWidth': 9500,
+                                        'FilterLength': 10000,
+                                        'filterStretchAt': 0,
+                                        'filterStretchLen': 0,
+                                        'DemodPhase': 0,
+                                        'DemodCosAmp': 255,
+                                        'DemodSinAmp': 255,
+                                        'DemodFreq': -30*M,
+                                        'ADCDelay': 0
+                                    },
+                    'Variables': ['ADC Time'],
+                },
+                { # GPIB RF Generator.
+                    'Resource': 'RF Generator',
+                    'Server': 'GPIB RF Generators',
+                    'Address': 'GPIB Bus - GPIB0::10',
+                    'Variables': {
+                                    'RF Power': 'Power', 
+                                    'RF Frequency': 'Frequency'
+                                 }
+                },
+                { # Lab Brick Attenuator.
+                    'Resource': 'Lab Brick Attenuator',
+                    'Server': 'Lab Brick Attenuators',
+                    'Address': 7032,
+                    'Variables': 'RF Attenuation'
+                { # SIM Voltage Source.
+                    'Resource': 'Voltage Source',
+                    'Server': 'SIM928',
+                    'Address': 'GPIB0::10::SIM900::3',
+                    'Variables': ['Bias Voltage']
+                },
+                { # External readings.
+                    'Resource': 'Manual Record',
+                    'Variables': ['Temperature']
+                },
+                { # Extra experiment parameters.
+                    'Resource': 'Software Parameters',
+                    'Variables': ['Runs'],
+                }
+              ]
+            experiment_variables: experiment variable dictionary in the {'Variable Name': Value,...} format.
         Outputs:
             None.
         """
-        #check that all variables are in ExperimentInformation as expected   
-        if 'Device Name' not in ExperimentInformation:
-            raise KeyError('Need to provide a resource name!')
-        if 'User' not in ExperimentInformation:
-            raise KeyError('Need to provide a user!')
-        if 'Base Path' not in ExperimentInformation:
-            raise KeyError('Need to provide a base path for save files!')
-        if 'Experiment Name' not in ExperimentInformation:
-            raise KeyError('Need to provide an experiment name!')
-        if 'Comments' not in ExperimentInformation:
-            ExperimentInformation['Comments'] = ''
+        self._set_information(experiment_information)
+        self._set_resources(experiment_resources)
+        self._set_variables(experiment_variables)
+        
+    def _set_information(self, experiment_information):
+        """
+        Sets experiment information, as well as base path for saving. 
+        Base path will be: Base Path\User\Device\Date\Experiment Name\
+        
+        Inputs:
+            experiment_information: dictionary (see set_experiment method for more information).
+        Outputs:
+            None.
+        """
+        # Check that all variables are in experiment_information as expected.   
+        if 'Device Name' not in experiment_information:
+            raise ExperimentDefinitionError('Device name is not specified.')
+        if 'User' not in experiment_information:
+            raise ExperimentDefinitionError('User is not specified.')
+        if 'Base Path' not in experiment_information:
+            raise ExperimentDefinitionError('Base path is not specified.')
+        if 'Experiment Name' not in experiment_information:
+            raise ExperimentDefinitionError('Experiment name is not specified.')
+        if 'Comments' not in experiment_information:
+            experiment_information['Comments'] = ''
 
-        self.ExperimentInformation = ExperimentInformation
+        self.experiment_information = experiment_information
         
-        #make the base path if it does not exist
-        if not os.path.exists(ExperimentInformation['Base Path']):
+        # Make the base path if it does not exist.
+        if not os.path.exists(experiment_information['Base Path']):
             try:
-                os.makedirs(ExperimentInformation['Base Path'])
+                os.makedirs(experiment_information['Base Path'])
             except:
-                raise IOError('Could not create base bath! Is AFS on?')
+                raise IOError('Could not create base path! Is AFS on?')
         
-        #get today's date in MM-DD-YY format, and make the save path
+        # Get today's date in MM-DD-YY format, and make the save path.
         today = time.strftime("%m-%d-%y", time.localtime())
-        self.SavePath = os.path.join(ExperimentInformation['Base Path'],
-                                     ExperimentInformation['User'],
-                                     ExperimentInformation['Device Name'],
-                                     today,
-                                     ExperimentInformation['Experiment Name'])
-        
-        if not os.path.exists(self.SavePath):
+        self._save_path = os.path.join(experiment_information['Base Path'],
+                                       experiment_information['User'],
+                                       experiment_information['Device Name'],
+                                       today,
+                                       experiment_information['Experiment Name'])
+        if not os.path.exists(self._save_path):
             try:
-                os.makedirs(self.SavePath)
+                os.makedirs(self._save_path)
             except:
                 raise IOError('Could not create experiment save path! Is AFS on?')
     
-    def _MapVars2Resources(self, resource):
+    def _add_vars(self, resource):
+        """
+        Add experiment variables to self._vars from a resource. Specify some extra information that is may be required by other methods.
+        
+        Inputs:
+            resource: a resource dictionary from a list of experiment resources.
+        Outputs:
+            None.
+        """
         res = resource
         res.pop('Variables', None)
+        res['Active'] = False
+        res['Save'] = True
         if isinstance(resource['Variables'], str):
-            self._var2res[resource['Variables']] = res
+            self._vars[resource['Variables']] = res
         elif isinstance(resource['Variables'], list):
             for var in resource['Variables']:
-                self._var2res[var] = res
+                self._vars[var] = res
         elif iniinstance(resource['Variables'], dict):
             for var in resournce['Varibales'].keys():
                 res['Setting'] = resource['Variables'][var]
-                self._vars2res[vars] = res
+                self._vars[vars] = res
         else:
-            raise ResourceDefinitionError("Variables in the resource dictionary " + str(resource) +
-                " should be specified as a list of strings (or as a string for a single variable).")
+            raise ExperimentDefinitionError("Variables in the resource dictionary " + str(resource) +
+                " should be specified as a list of strings, a dictionary, or just as a simple string for a single variable.")
     
-    def _SetResources(self, Resources):
+    def _set_resources(self, Resources):
         """
         Sets electronics information (what DACs, ADCs, and RF generators, Lab Bricks, etc. we are running), 
-        initializes connections to the LabRAD servers. Note that pypath should have the location
-        of the various severs already in it.
+        initializes connections to the LabRAD servers.
         
         This methods also creates a map of the experiment variables defined in Resources to these resources.
         
         Inputs:
-            Resources: s list of dictionaries in the following format:
-                [ { # 'LabRAD Server' is a required resource               
-                    'Resource': 'LabRAD Server', # 'Resource' is a required key for all resources.
-                    'Server Name': 'ghz_fpgas',  # 'Server Name' is a key that is currently required only for 'LabRAD Server' resource.
-                  },
-                  { 
-                    'Resource': 'Device 1',      # 'Resource' is a required key for all resources.
-                    'Device Address': address,   # Different resources may have different dictionary keys.
-                    'Variables': ['Variable 1', 'Variable 2']  # 'Variables' is a required key for all resources except LabRAD server, could be empty.
-                  },
-                  { 
-                    'Resource': 'Device 2',
-                    'Protocol': protocol,
-                    'Mode': model,
-                    'Variables': ['Variable 3', 'Variable 4', 'Variable 5']
-                  },
-                  ...
-                  {
-                    'Resource': 'DAC',
-                    'DAC Name': board_name,
-                    'List Index': integer_index,
-                    'DACSettings': {
-                                        'DAC A': waveform,      # string, e.g. 'JPM Fast Pulse'
-                                        'DAC B': waveform,      # string, e.g. 'Readout I'
-                                        'FO1 FastBias Firmware Version': version,       # string, e.g. '2.1'
-                                   },
-                    'Variables': ['DAC Variable 1', 'DAC Variable 2']
-                  },
-                  { # ADCs and DACs are converted to a simple ordered list internally based on 'List Index' value.  
-                    'Resource': 'ADC',
-                    'ADC Name': board_name,
-                    'List Index': integer_index,                  
-                    'ADCSettings': { # Dictionary of ADC demodulation settings with the following keys
-                                     # Should this be moved to ExperimentVariables dictionary instead?
-                                    'RunMode': RunMode: ADC mode setting, either 'demodulate' or 'average'
-                                    'FilterType': one of 'square', 'gaussian', 'hann', or 'exp'
-                                    'FilterWidth': width of filter in ns (for gaussian/hann/exp)
-                                    'FilterLength': length of filter in ns
-                                    'filterStretchAt': ?
-                                    'filterStretchLen': ?
-                                    'DemodPhase': phase of demodulation
-                                    'DemodCosAmp': demodulation cosine trigger amplitude
-                                    'DemodSinAmp': demodulation sine trigger amplitude
-                                    'DemodFreq': frequency of demodulation (Hz)
-                                    'ADC Delay': delay before demodulation starts (ns) -- will be at least DAC_ZERO_PAD_LEN
-                                   }
-                    'Variables': ['ADC variable']
-                  },
-                  { # GPIB RF Generator
-                    'Resource': 'RF Generator',
-                    'GPIB Address': GPIB_address_string,
-                    'Variables': ['Power', 'Frequency']
-                   },
-                   { # Lab Brick Attenuator
-                     'Resource': 'Lab Brick',
-                     'Serial Number': LabBrick_serial_number, # integer, e.g. 7000
-                     'Variables': ['Attenuation']
-                   },
-                   { # SIM Voltage Source
-                     'Resource': 'SIM',
-                     'GPIB Address': GPIB_address,      # string, e.g. 'GPIB0::10'
-                     'SIM Slot': SIM_slot_number,       # integer, e.g. 5
-                     'Variables': ['Voltage']
-                   },
-                  { # Extra parameters should go here.
-                     'Resource': 'Software Parameters',
-                     'Variables': ['Software Parameter 1', 'Software Parameter 2']
-                  },
-                  { # External readings should go here.
-                    'Resource': 'Manual Record',
-                    'Variables': ['Manually Entered Reading'] # e.g. 'Temperature'
-                  }
-                ]
+            Resources: a list of resource dictionaries (see set_experiment method for more information).
         Outputs:
             None.
         """
-        self._var2res = {}          # This dictionary maps the experiment variables to resources.
+        self._vars = {}          # This dictionary maps the experiment variables to resources.
         self.FPGA = None            # LabRAD Server.
-        self.RFgen = {}             # RF generators.
-        self.SIM = {}               # SIM voltage sources.
         DACs = {}                   # Dictionary of DAC boards with the list index as a key.
         ADCs = {}                   # Dictionary of ADC boards with the list index as a key.
         DACSettings = {}            # Dictionary of DAC board settings with the list index as a key. 
@@ -290,87 +273,80 @@ class Experiment:
         
         for resource in Resources:
             if 'Resource' not in resource:
-                raise ResourceDefinitionError("'Resource' key is not found in the resource dictionary: " + str(resource) + ".")
-            if not resource['Resource'] == 'LabRAD Server':
-                if 'Variables' not in resource:
-                    raise ResourceDefinitionError("'Variables' key is not found in the resource dictionary: " + str(resource) + ".")
-                else:
-                    if not isinstance(resource['Variables'], list):
-                        raise ResourceDefinitionError("'Variables' key in the resource dictionary: " + str(resource) +
-                                                      " should be defined as a list of experiment variables.")
-            # Link to LabRAD.         
-            if resource['Resource'] == 'LabRAD Server':
-                if 'Server Name' in resource:
-                    self.FPGA = self.cxn[resource['Server Name']]
-                else:
-                    raise ResourceDefinitionError("'Server Name' key is not found in the LabRAD resource dictionary: " + str(resource) + ".")
+                raise ExperimentDefinitionError("'Resource' key is not found in the resource dictionary: " + str(resource) + ".")
+            if 'Variables' not in resource:
+                raise ExperimentDefinitionError("'Variables' key is not found in the resource dictionary: " + str(resource) + ".")
+            else:
+                if not isinstance(resource['Variables'], str) and 
+                   not isinstance(resource['Variables'], list) and
+                   not isinstance(resource['Variables'], dict):
+                    raise ExperimentDefinitionError("'Variables' key in the resource dictionary: " + str(resource) +
+                        " should be defined as a list of experiment variables or as a simple string for a single variable.")
             
-            # Lab Bricks attenuators.
-            elif resource['Resource'] == 'Lab Brick Attenuator':
-                if 'Serial Number' not in resource:
-                    raise ResourceDefinitionError("'Serial Number' key is not found in the Lab Brick Attenuator resource dictionary: " + str(resource) + ".")
+            self._add_vars(resource)
+            
+            # Lab Bricks attenuators, RF generators and voltage sources.
+            if resource['Resource'].lower() in ['lab brick attenuator', 'rf generator', 'voltage source']:
                 if 'Server' not in resource:
-                    raise ResourceDefinitionError("'Server' key is not found in the Lab Brick Attenuator resource dictionary: " + str(resource) + ".")
-                self._MapVars2Resources(resource)
-            
-            # Connect to RF generators.
-            elif resource['Resource'] == 'RF Generator':
-                if 'GPIB Address' not in resource:
-                    raise ResourceDefinitionError("'GPIB Address' key is not found in the RF generator resource dictionary: " + str(resource) + ".")
-                self.RFgen[resource['GPIB Address']] = RF.RFGenerator(resource['GPIB Address'])
-                self._MapVars2Resources(resource)
+                    raise ExperimentDefinitionError("'Server' key is not found in the " + str(resource['Resource']) + " resource dictionary: " + str(resource) + ".")
+                if 'Address' not in resource:
+                    raise ExperimentDefinitionError("'Address' key is not found in the " + str(resource['Resource']) + " resource dictionary: " + str(resource) + ".")
+                for var in resource['Variables']:
+                    if resource['Resource'].lower() == 'lab brick attenuator':
+                        self._vars[var]['Select Device'] = 'Select Attenuator'
+                        if 'Setting' not in self._vars[var]:
+                            self._vars[var]['Setting'] = 'Attenuation'
+                    elif resource['Resource'].lower() == 'rf generator':
+                        self._vars[var]['Select Device'] = 'Select Device'
+                    elif resource['Resource'].lower() == 'voltage source':
+                        self._vars[var]['Select Device'] = 'Select Device'
+                        if 'Setting' not in self._vars[var]:
+                            self._vars[var]['Setting'] = 'Voltage'
 
-            # Connect to SIM.
-            elif resource['Resource'] == 'SIM':
-                if 'GPIB Address' not in resource:
-                    raise ResourceDefinitionError("'GPIB Address' key is not found in the SIM resource dictionary: " + str(resource) + ".")
-                if 'SIM Slot' not in resource:
-                    raise ResourceDefinitionError("'SIM Slot' key is not found in the SIM resource dictionary: " + str(resource) + ".")
-                self.SIM[(resource['GPIB Address'], resource['SIM Slot'])] = SIM.SIM928(resource['GPIB Address'], resource['SIM Slot'])
-                self._MapVars2Resources(resource)
-        
+            # Link to GHz FPGAs server.         
+            elif resource['Resource'] == 'GHz Boards':
+                if 'Server' in not resource:
+                    raise ExperimentDefinitionError("'Server' key is not found in the GHz Boards resource dictionary: " + str(resource) + ".")
+                self.FPGA = self.cxn[resource['Server']]
+
             # Specify DAC boards.
             elif resource['Resource'] == 'DAC':
                 if 'DAC Name' not in resource:
-                    raise ResourceDefinitionError("'DAC Name' key is not found in the DAC resource dictionary: " + str(resource) + ".")
+                    raise ExperimentDefinitionError("'DAC Name' key is not found in the DAC resource dictionary: " + str(resource) + ".")
                 if 'List Index' not in resource:
-                    raise ResourceDefinitionError("'List Index' key is not found in the DAC resource dictionary: " + str(resource) + ".")
+                    raise ExperimentDefinitionError("'List Index' key is not found in the DAC resource dictionary: " + str(resource) + ".")
                 if 'DAC Settings' not in resource:
-                    raise ResourceDefinitionError("'DAC Settings' key is not found in the DAC resource dictionary: " + str(resource) + ".")
+                    raise ExperimentDefinitionError("'DAC Settings' key is not found in the DAC resource dictionary: " + str(resource) + ".")
                 for channel in ['DAC A', 'DAC B']:
                     if channel not in resource['DAC Settings']:
-                        raise ResourceDefinitionError("'" + str(channel) + "' key is not found in the 'DAC Settings' dictionary: " +
+                        raise ExperimentDefinitionError("'" + str(channel) + "' key is not found in the 'DAC Settings' dictionary: " +
                             str(resource['DAC Settings']) + " in '" + str(resource['DAC Name']) + "'.")    
                 DACs[resource['List Index']] = resource['DAC Name']
                 DACSettings[resource['List Index']] = resource['DAC Settings']
-                self._MapVars2Resources(resource)
+                self._add_vars(resource)
         
             # Specify ADC boards.
             elif resource['Resource'] == 'ADC':
                 if 'ADC Name' not in resource:
-                    raise ResourceDefinitionError("'ADC Name' key is not found in the ADC resource dictionary: " + str(resource) + ".")
+                    raise ExperimentDefinitionError("'ADC Name' key is not found in the ADC resource dictionary: " + str(resource) + ".")
                 if 'List Index' not in resource:
-                    raise ResourceDefinitionError("'List Index' key is not found in the ADC resource dictionary: " + str(resource) + ".")
+                    raise ExperimentDefinitionError("'List Index' key is not found in the ADC resource dictionary: " + str(resource) + ".")
                 if 'ADC Settings' not in resource:
-                    raise ResourceDefinitionError("'ADC Settings' key is not found in the ADC resource dictionary: " + str(resource) + ".")
+                    raise ExperimentDefinitionError("'ADC Settings' key is not found in the ADC resource dictionary: " + str(resource) + ".")
                 ADCs[resource['List Index']] = resource['ADC Name']
                 ADCSettings[resource['List Index']] = resource['ADC Settings']
-                self._MapVars2Resources(resource)
+                self._add_vars(resource)
 
-            elif resource['Resource'] in ['Manual Record', 'Software Parameters', 'Waveform Parameters']:
-                self._MapVars2Resources(resource)
+            elif resource['Resource'].lower() in ['manual record', 'software parameters']:
+                pass
             else:
                 print("Warning: resource '" + str(resource['Resource']) + "' is not yet supported.")
-        
-        # Check that a LabRAD link is given.
-        if self.FPGA == None:
-            raise ResourceDefinitionError("Resource 'LabRAD Server' is not found in the list of resources: " + str(Resources) + ".")
 
         # Check that all DAC and ADC boards are unique.
         if len(DACs.values()) != len(set(DACs.values())):
-            raise ResourceDefinitionError("All DAC boards must have unique names in the resource dictionary. The following boards names are given: ", + str(DACs) + ".")
+            raise ExperimentDefinitionError("All DAC boards must have unique names in the resource dictionary. The following boards names are given: ", + str(DACs) + ".")
         if len(ADCs.values()) != len(set(ADCs.values())):
-            raise ResourceDefinitionError("All ADC boards must have unique names in the resource dictionary. The following boards names are given: ", + str(ADCs) + ".")
+            raise ExperimentDefinitionError("All ADC boards must have unique names in the resource dictionary. The following boards names are given: ", + str(ADCs) + ".")
             
         # Create lists with the DAC and ADC boards as well as lists with ADC and DAC settings according to the specified indecies.
         self.DACs = [DACs[index] for index in sorted(DACs)]
@@ -378,88 +354,95 @@ class Experiment:
         self.DACSettings = [DACSettings[index] for index in sorted(DACs)]
         self.ADCSettings = [ADCSettings[index] for index in sorted(ADCs)]
     
-    def _SetVariables(self, ExperimentVariables):
+    def _set_variables(self, experiment_variables):
         """
         Sets experiment variables.
         
         Inputs:
-            Experiment Variables: dictionary of the experiment variables.
+            experiment_variables: experiment variable dictionary in the {'Variable Name': Value,...} format.
         Outputs:
             None.
         """
-        if not hasattr(self, '_var2res'):
-            raise Exception('Experiment resources should be set prior setting experiment and data variables.')
+        if not hasattr(self, '_vars'):
+            raise ExperimentDefinitionError('Experiment resources should be set prior setting experiment variables.')
         
-        for var in ExperimentVariables:
-            if var not in self._var2res:
-                print("Warning: experiment variable '" + str(var) + "' has not been found in the experiment resources. The variable will be ignored.")
-            else:
-                self._var2res[var]['Value'] = ExperimentVariables[var]
+        for var in experiment_variables:
+            if var not in self._vars:
+                print("Warning: experiment variable '" + str(var) + "' is not found in the experiment resources. The variable will be ignored.")
+                self._vars[var]['Save'] = False
+            self._vars[var]['Value'] = experiment_variables[var]
               
-    def _CheckExptVar(self, var, ValueCheck=True):
+    def _check_var(self, var, value_check=True):
+        """
+        Asserts existance of an experiment variable
+        
+        Inputs:
+            var: name of the experiment variable.
+            value_check (optional): check whether the value is defined.
+        Outputs:
+            None.
+        """        
         if not isinstance(var, str):
-            raise ExperimentConsistencyError("'" + str(var) + "' is expected to be a string that defines an experiment variable.")
-        if var not in self._var2res:                                        # Check that the variable was set in the resource dictionary.
-            raise ExperimentConsistencyError("'" + str(var) + "' variable is not found in the experiment resource dictionary.")
-        if ValueCheck and 'Value' not in self._var2res[var]:                # Check that the variable value is defined.
-            raise ExperimentConsistencyError("'" + str(var) + "' variable value is not defined.")
+            raise ExperimentDefinitionError("'" + str(var) + "' is expected to be a string that defines an experiment variable.")
+        if var not in self._vars:                                        # Check that the variable was set in the resource dictionary.
+            raise ExperimentDefinitionError("'" + str(var) + "' variable is not found in the experiment resource dictionary.")
+        if value_check and 'Value' not in self._vars[var]:                # Check that the variable value is defined.
+            raise ExperimentDefinitionError("'" + str(var) + "' variable value is not defined.")
     
-    def _WrapExptVar(self, var, value=None):
+    def wrap_var(self, var, unit, value=None):
         """
         Asserts an experiment variable and returns its value.
         
         Inputs:
             var: name of the experiment variable.
-            value (optional): assign a new value to the experiment variable var.
+            unit: units to convert to.
+            value (optional): a new value to assign to the experiment variable.
         Outputs:
-            value: value of the experiment variable var.
+            value: value of the experiment variable var in specified units.
         """
-        if not hasattr(self, '_var2res'):
-            raise Exception('Experiment resources and variables should be set prior setting any units.')
-        if var not in self._var2res:
-            raise ExperimentConsistencyError("'" + str(var) + "' variable is not found in the experiment resource dictionary.")
+        if not hasattr(self, '_vars'):
+            raise ExperimentDefinitionError('Experiment resources and variables should be set prior accessing any variables.')
+        if var not in self._vars:
+            raise ExperimentDefinitionError("'" + str(var) + "' variable is not found in the experiment resource dictionary.")
 
-        if 'Value' not in self._var2res[var]:
-            if self._var2res[var]['Resource'] == 'Waveform Parameters':     # Assign 0 if the variable is a waveform parameter
-                if value is None:                                           # that was left out as unnecessary, i.e. simpler waveforms are
-                    value = 0                                               # used than specified in the RunOnce method.
-            else:
-                raise ExperimentConsistencyError("'" + str(var) + "' variable value is not defined.")
+        if 'Value' not in self._vars[var]:
+            if value is None:
+                value = 0 * unit
 
-        if value is not None:                                                # Add the variable to self._var2res if it not there
-            self._var2res[var]['Value'] = value                                       # and reassign the variable value.
+        self._vars[var]['Value'] = value
+        self._vars[var]['Save'] = True
 
-        return self._var2res[var]['Value']
+        return self._vars[var]['Value'][unit]
         
-    def _WrapDataVar(self, var, Distr=None, PlotPref = {}):
+    def wrap_data_var(self, var, distr=None, pref = {}):
         """
         Asserts a data variable and assigns information that can be used for plotting.
         
         Inputs:
             var: name of the experiment variable.
-            Distr: expected statistical distribution (this information could be used for the errors estimation (default: None).
-            PlotPref: plotting preferences (default: {}).
+            distr: expected statistical distribution (this information could be used for the errors estimation (default: None).
+            pref: plotting preferences (default: {}).
         Outputs:
             None.
         """
-        if not hasattr(self, 'DataVarsDistr') or not hasattr(self, 'DataVarsPlotPref'):
+        if not hasattr(self, '_data_vars'):
             raise Exception('Experiment resources and variables should be set prior setting data variable preferences.')
         
-        # Distribution guess. This is used for the error estimation.
+        # distribution guess. This is used for the error estimation.
         if distr is not None:
-            self.DataVarsDistr[var] = Distr
+            self._data_vars[var]['distribution'] = distr
         
         # Define plotting preferences.
-        self.DataVarsPlotPref[var] = PlotPref
+        self._data_vars[var]['Preferences'] = pref
 
-###DATA SAVING METHODS###############################################################################
-#####################################################################################################
+    ###DATA SAVING METHODS###############################################################################
+    #####################################################################################################
     def _TextSave(self, names, values, data, depend_dict={}):
         """
         Save data in human-readable text data file, new and improved version with better support for multidimensional data saves.
         Saves a header containing all experiment variables, then sweep variables, and then all variables in the data dictionary.
         """
-        textFileFolder = os.path.join(self.SavePath, 'TextData')
+        textFileFolder = os.path.join(self._save_path, 'TextData')
         
         if not os.path.exists(textFileFolder):
             try:
@@ -469,7 +452,7 @@ class Experiment:
         
         #which contents are files?
         onlyfiles = [f for f in os.listdir(textFileFolder) if os.path.isfile(os.path.join(textFileFolder,f))]
-        ExptName = self.ExperimentInformation['Experiment Name'].replace(" ", "_")
+        ExptName = self.experiment_information['Experiment Name'].replace(" ", "_")
         #which files start off with 'ExperimentName_'?
         files = [f.split('.')[0] for f in onlyfiles if f[:len(ExptName)+1]==ExptName+'_']
         
@@ -492,16 +475,13 @@ class Experiment:
         h.append('====Experiment Parameters====')
     
         # Save only the variables that have been actually used. Do not save the sweep variables in the header.
-        all_names = []
-        for name_list in names:
-            for name in name_list:
-                all_names.append(name)
-        for var in self._var2res:
-            if var in self._var2res and self._var2res[var] is not None and var not in all_names:
-                h.append(var + ':   ' + ("%f" %self._var2res[var]) + self._GetUnitsInBrackets(var))
+        sweep_vars = [var for name_list in names for var in name_list]
+        for var in self._vars:
+            if var in self._vars and self._vars[var] is not None and var not in sweep_vars:
+                h.append(var + ':   ' + ("%f" %self._vars[var]) + self._GetUnitsInBrackets(var))
 
-        if 'Comments' in self.ExperimentInformation:
-            h.append('Comments:   ' + self.ExperimentInformation['Comments'])
+        if 'Comments' in self.experiment_information:
+            h.append('Comments:   ' + self.experiment_information['Comments'])
         
         h.append('====Sweep Variables====')
         with file(filePath, 'w') as outfile:
@@ -521,8 +501,8 @@ class Experiment:
                 extra = ''
                 if key in depend_dict:
                     extra = '::' + str(depend_dict[key])
-                if key in self.DataVarsDistr and self.DataVarsDistr[key] != '':
-                    extra = extra + ':::[' + self.DataVarsDistr[key] + ']'
+                if key in self._data_vars and self._data_vars[key] != '':
+                    extra = extra + ':::[' + self._data_vars[key] + ']'
                 outfile.write(key + self._GetUnitsInBrackets(key) + ':' + str(list(val.shape)) + extra + '\n')
                 self._NDArrayTextSave(outfile, val)
                     
@@ -538,7 +518,7 @@ class Experiment:
         Save data as a .mat file using scipi.io. Data will be saved as a structure, with a substructure for
         the experiment and electronics, and arrays for the data.
         """
-        MATLABFileFolder = os.path.join(self.SavePath, 'MATLABData')
+        MATLABFileFolder = os.path.join(self._save_path, 'MATLABData')
         
         if not os.path.exists(MATLABFileFolder):
             try:
@@ -548,7 +528,7 @@ class Experiment:
         
         #which contents are files?
         onlyfiles = [ f for f in os.listdir(MATLABFileFolder) if os.path.isfile(os.path.join(MATLABFileFolder,f))]
-        ExptName = self.ExperimentInformation['Experiment Name'].replace(" ","_")
+        ExptName = self.experiment_information['Experiment Name'].replace(" ","_")
         #which files start off with 'ExperimentName_'?
         files = [f.split('.')[0] for f in onlyfiles if f[:len(ExptName)+1]==ExptName+'_']
         
@@ -568,13 +548,13 @@ class Experiment:
         matData = {}
         matExptVars = {}
         matUnits = {}
-        all_names = []
+        sweep_vars = []
         for name_list in names:
             for name in name_list:
-                all_names.append(name)
-        for var in self._var2res:
-            if var in self._var2res and self._var2res[var] is not None and var not in all_names:
-                matExptVars[var.replace(" ", "_")] = self._var2res[var]
+                sweep_vars.append(name)
+        for var in self._vars:
+            if var in self._vars and self._vars[var] is not None and var not in sweep_vars:
+                matExptVars[var.replace(" ", "_")] = self._vars[var]
                 matUnits[var.replace(" ", "_")] = self._GetUnits(var)
         
         # Create dictionary that will be saved to a .mat file.
@@ -582,7 +562,7 @@ class Experiment:
                     'Time': time.asctime(),
                     'Name': ExptName + '_' + num,
                     'ExptVars': matExptVars,
-                    'Comments': self.ExperimentInformation['Comments']
+                    'Comments': self.experiment_information['Comments']
                    }
         
         for key in data:
@@ -594,18 +574,18 @@ class Experiment:
         saveDict['Data'] = matData
         
         # Save the information about the data units and the expected distributions.
-        matDataDistr = {}
+        matDatadistr = {}
         matDataDepend = {}
         for key in data:
             matUnits[key.replace(" ", "_")] = self._GetUnits(key)
-            if key in self.DataVarsDistr:
-                matDataDistr[key.replace(" ", "_")] = self.DataVarsDistr[key]
+            if key in self._data_vars:
+                matDatadistr[key.replace(" ", "_")] = self._data_vars[key]
             if key in depend_dict:
                 matDataDepend[key.replace(" ", "_")] = str(depend_dict[key]).replace(", ", ",").replace(" ", "_")
         if matUnits:
             saveDict['Units'] = matUnits
-        if matDataDistr:
-            saveDict['DataDistr'] = matDataDistr
+        if matDatadistr:
+            saveDict['Datadistr'] = matDatadistr
         if matDataDepend:
             saveDict['DataDepend'] = matDataDepend
   
@@ -632,8 +612,8 @@ class Experiment:
         self._MatSave(names, values, data, depend_dict)
         print('The data has been saved.')
     
-###UTILITIES#########################################################################################
-#####################################################################################################
+    ###UTILITIES#########################################################################################
+    #####################################################################################################
     def _GetUnits(self, name):
         if name in self.Units:
             return self.Units[name]
@@ -789,16 +769,16 @@ class Experiment:
             value of desired variable, or None if it does not exist in dictionary
         """
         if value is None:
-            if name in self._var2res:
-                return self._var2res[name]['Value']
+            if name in self._vars:
+                return self._vars[name]['Value']
             else:
                 return None
         else:
-            if Name not in self._var2res:
-                raise ExperimentConsistencyError("'" + str(Name) + "' key is not found in the experiment variables dictionary: " + 
-                                                 str(self._var2res) + ".")
+            if Name not in self._vars:
+                raise ExperimentDefinitionError("'" + str(Name) + "' key is not found in the experiment variables dictionary: " + 
+                                                 str(self._vars) + ".")
             else:
-                self._var2res[Name] = Value
+                self._vars[Name] = Value
                 print("Experiment variable '" + Name + ("' is set to %f" %Value) + self._GetUnitsInBrackets(Name) + ".")
                 
     def ChangeADCSetting(self, ADCName, setting, value):
@@ -815,7 +795,7 @@ class Experiment:
         ADCName = self._GetADCName(ADCName)
         
         if setting not in self.ADCSettings[self.ADCs.index(ADCName)]:
-            raise ExperimentConsistencyError(str(setting) + " is not a valid ADC setting name.")
+            raise ExperimentDefinitionError(str(setting) + " is not a valid ADC setting name.")
         else:
             self.ADCSettings[self.ADCs.index(ADCName)][setting] = value
             
@@ -839,8 +819,34 @@ class Experiment:
 
         return ADCName    
     
-###EXPERIMENT RUN FUNCTIONS##########################################################################
-#####################################################################################################
+    ###EXPERIMENT RUN FUNCTIONS##########################################################################
+    #####################################################################################################
+    def set_var_request(self, var, enforce=True, value=None)
+        if var not in self._vars:
+            if enforce:
+                raise ExperimentDefinitionError("Variable '" + str(var) + "' is not defined in the resource list.")
+            else:
+                return
+        
+        if value is not None:
+            self._vars['Value'] = value
+        
+        p = self._cxn[self._vars['Server']].packet()
+        p[self._vars['Select Device']](self._vars['Address'])
+        p[self._vars['Setting']](self._vars['Value'])
+        self._vars['Result'] = p.send(wait=False)
+        self._vars['Active'] = True
+        self._vars['Save'] = True
+        
+    def acknowledge_request(self, var)
+        if var not in self._vars:
+            raise ExperimentDefinitionError("Variable '" + str(var) + "' is not defined.")
+        
+        if self._vars['Active']:
+            self._vars['Result'] = self._vars['Result'].wait()
+            self._vars['Active'] = False
+            return self._vars['Result'][self._vars['Setting']]
+
     def RunOnce(self):
         """
         Basic run method. In Experiment this does nothing, and should be what is modified in each specific inherited experiment class.
@@ -901,8 +907,8 @@ class Experiment:
         """
         avg_data = {}
         for key in data:
-            self._WrapDataVar(key, self._GetUnits(key), 'normal')
-            self._WrapDataVar(key + ' Std Dev', self._GetUnits(key), 'std')
+            self.wrap_data_var(key, self._GetUnits(key), 'normal')
+            self.wrap_data_var(key + ' Std Dev', self._GetUnits(key), 'std')
             avg_data[key] = np.mean(data[key], axis=0)            
             avg_data[key + ' Std Dev'] = np.std(data[key], axis=0)
         
@@ -993,8 +999,8 @@ class Experiment:
             for r in range(Runs - 1):
                 self._ListenKeyboard(RecogKeys=[27, 83, 115], ClearBuffer=False)  # Check if the specified keys are pressed.
                 if self._RunStatus in ['abort', 'abort-and-save']:
-                    self._var2res['Runs'] = r + 1
-                    sys.stdout.write(str(round(100 * self._var2res['Runs'] / float(Runs), 1)) + '%\n')
+                    self._vars['Runs'] = r + 1
+                    sys.stdout.write(str(round(100 * self._vars['Runs'] / float(Runs), 1)) + '%\n')
                     print(self._RunMessage)
                     break  
                 single_run_data, extra_data = self.RunOnce()
@@ -1040,7 +1046,7 @@ class Experiment:
         if len(names[0]) == 1:                                                  # Run a 1D sweep.
             for idx in range(values[0][0].size):
                 for p_idx in range(len(names)):
-                    self._var2res[names[p_idx][0]] = values[p_idx][0][idx]
+                    self._vars[names[p_idx][0]] = values[p_idx][0][idx]
                     
                 if Runs == 1:
                     run_data, extra_data = self.RunOnce()                       # Actual run of the experiment.
@@ -1058,16 +1064,16 @@ class Experiment:
 
                     if PrintExptVars is not None:                               # Make a list of the sweep variables that should be printed to the standard output.
                         for var in self._CombineStrsOrStrLists(PrintExptVars):
-                            if var not in self._var2res:
+                            if var not in self._vars:
                                 print("Warning: key '" + str(var) + "' has not been found in the following experiment variables dictionary: " + 
-                                    str([var for var in self._var2res]) + ". The value of this variable will not be printed.")
-                        PrintExptVars = [var for var in self._CombineStrsOrStrLists(PrintExptVars) if var in self._var2res]
+                                    str([var for var in self._vars]) + ". The value of this variable will not be printed.")
+                        PrintExptVars = [var for var in self._CombineStrsOrStrLists(PrintExptVars) if var in self._vars]
 
                     if PrintDataVars is None:                                   # Make a list of the data variables that should be printed to the standard output.
                         PrintDataVars = [var for var in run_data if np.size(run_data[var]) == 1]
                     else:
                         for var in self._CombineStrsOrStrLists(PrintDataVars):
-                            if var not in run_data and var not in self._var2res:
+                            if var not in run_data and var not in self._vars:
                                 print("Warning: key '" + str(var) + "' has not been found in the following data dictionary: " + str(run_data) + ". This data will not be printed.")
                         PrintDataVars = [var for var in self._CombineStrsOrStrLists(PrintDataVars) if var in run_data and np.size(run_data[var]) == 1]
                         
@@ -1100,7 +1106,7 @@ class Experiment:
                 
                 if self._StandardOutputFlag and self._RunStatus != 'abort':     # Print experiment and data variables to the standard output.
                     for var in PrintExptVars:
-                        print(var + (' = %f' %self._var2res[var]) + self._GetUnitsInBrackets(var))
+                        print(var + (' = %f' %self._vars[var]) + self._GetUnitsInBrackets(var))
                     for var in PrintDataVars:
                         print(var + (' = %f' %run_data[var]) + self._GetUnitsInBrackets(var))
                 
@@ -1136,7 +1142,7 @@ class Experiment:
                 
             for idx0 in range(values[0][0].size):
                 for p_idx in range(len(names)):                                 # Assign new values for the sweep variables.
-                    self._var2res[names[p_idx][0]] = values[p_idx][0][idx0]
+                    self._vars[names[p_idx][0]] = values[p_idx][0][idx0]
                 run_data, vals, extra_data = self._Sweep(run_names, run_vals, PrintExptVars, PrintDataVars, PlotDataVars, MaxDataDim, Runs)
                 
                 if idx0 == 0:                                                   # Initialize data dictionary.
@@ -1197,18 +1203,18 @@ class Experiment:
                  
             run.Sweep([['x'], ['y']], [[xval], [yval]], Save=True,  PrintData=['Result 1', 'Result 2'], PlotData=['Result 1', 'Result 2'])
         """
-        if not hasattr(self, '_var2res') or not hasattr(self, 'ExptVars'):
+        if not hasattr(self, '_vars') or not hasattr(self, 'ExptVars'):
             raise Exception('Experiment resources and variables should be set prior attempting any scans.')
 
         ExcptMsg = ('The first argument in Sweep method should be either a string (for a 1D simple scan), '
                     'a list of strings (for a multidimensional scan), or a list of lists of strings (for a parallel any-dimensional scan).')
         if isinstance(names, str):      # If there is only one sweep variable defined as a string, convert it to a list of lists for internal code consistency.
-            self._CheckExptVar(names)   # Check that the variable is properly defined.
+            self._check_var(names)   # Check that the variable is properly defined.
             names = [[names]]
         elif isinstance(names, list):   # If there are no independent parallel scans, convert the list to a list of lists for internal code consistency.
             if len(names) > 0 and isinstance(names[0], str):        # Check that there are more than zero elements and confirm that they are strings.
                 for name in names:                                  # Check that the variables are properly defined.
-                    self._CheckExptVar(name)
+                    self._check_var(name)
                 if len(names) > len(set(names)):                    # Check that the variables are unique.
                     raise SweepError('Sweep method was called with repeated variable names. The data might be hard to interpret.')
                 names = [names]
@@ -1219,7 +1225,7 @@ class Experiment:
                     if len(name_list) != len(names[0]):             # Check that the nested lists have the same length.
                         raise SweepError('The length of name lists should be the same for any parrallel scans.') 
                     for name in name_list:                          # Check that the variables are properly defined.
-                        self._CheckExptVar(name)
+                        self._check_var(name)
                     if len(name_list) > len(set(name_list)):        # Check that the variables are unique.
                         raise SweepError('Sweep method was called with repeated variable names.')
                 for list_idx1, name_list1 in enumerate(names):      # Check that there are no repeated variable names along different scan axes.
@@ -1389,8 +1395,8 @@ class Experiment:
         # Specify y-axis label.
         ylabel = ''
         for var in self._CombineStrsOrStrLists(PlotDataVars):
-            if var in self.DataVarsPlotPref and 'name' in self.DataVarsPlotPref[var]:
-                var = self.DataVarsPlotPref[var]['name']
+            if var in self._data_vars and 'name' in self._data_vars[var]:
+                var = self._data_vars[var]['name']
             ylabel = ylabel + var + self._GetUnitsInBrackets(var) + ', '
         ylabel = ylabel[:-2]
         
@@ -1407,13 +1413,13 @@ class Experiment:
             linestyle = 'b-'            # Default line styles and plot parameters. Predefining helps make the code below a bit shorter and
             linewidth = 2               # can potentially reduce severity of the bugs here.
             linelabel = var
-            if var in self.DataVarsPlotPref:    # Redefine any plot parameters that are actually specified.
-                if 'linestyle' in self.DataVarsPlotPref[var]:
-                    linestyle = self.DataVarsPlotPref[var]['linestyle']
-                if 'linewidth' in self.DataVarsPlotPref[var]:
-                    linewidth = self.DataVarsPlotPref[var]['linewidth']
-                if 'legendlabel' in self.DataVarsPlotPref[var]:
-                    linelabel = self.DataVarsPlotPref[var]['legendlabel']
+            if var in self._data_vars:    # Redefine any plot parameters that are actually specified.
+                if 'linestyle' in self._data_vars[var]:
+                    linestyle = self._data_vars[var]['linestyle']
+                if 'linewidth' in self._data_vars[var]:
+                    linewidth = self._data_vars[var]['linewidth']
+                if 'legendlabel' in self._data_vars[var]:
+                    linelabel = self._data_vars[var]['legendlabel']
             self.plot_lines[var], = plt.plot(values, np.zeros_like(values), linestyle, lw=linewidth, label=linelabel)
         if len(PlotDataVars) > 1:
             plt.legend() 
@@ -1423,17 +1429,17 @@ class Experiment:
         self.plot_ymin = None
         self.plot_ymax = None
         for var in PlotDataVars:
-            if var in self.DataVarsPlotPref and 'ylim' in self.DataVarsPlotPref[var]:
-                if self.DataVarsPlotPref[var]['ylim'][0] is not None:
+            if var in self._data_vars and 'ylim' in self._data_vars[var]:
+                if self._data_vars[var]['ylim'][0] is not None:
                     if self.plot_ymin is not None:
-                        self.plot_ymin = np.min([self.plot_ymin, self.DataVarsPlotPref[var]['ylim'][0]])
+                        self.plot_ymin = np.min([self.plot_ymin, self._data_vars[var]['ylim'][0]])
                     else:
-                        self.plot_ymin = self.DataVarsPlotPref[var]['ylim'][0]
-                if self.DataVarsPlotPref[var]['ylim'][1] is not None:
+                        self.plot_ymin = self._data_vars[var]['ylim'][0]
+                if self._data_vars[var]['ylim'][1] is not None:
                     if self.plot_ymax is not None:    
-                        self.plot_ymax = np.max([self.plot_ymax, self.DataVarsPlotPref[var]['ylim'][1]])
+                        self.plot_ymax = np.max([self.plot_ymax, self._data_vars[var]['ylim'][1]])
                     else:
-                        self.plot_ymax = self.DataVarsPlotPref[var]['ylim'][1]
+                        self.plot_ymax = self._data_vars[var]['ylim'][1]
         if self.plot_ymin is not None and self.plot_ymax is not None:
             plt.ylim(self.plot_ymin, self.plot_ymax)
         
