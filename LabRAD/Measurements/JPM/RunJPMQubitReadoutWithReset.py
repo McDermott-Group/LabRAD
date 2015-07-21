@@ -10,7 +10,7 @@ import JPMQubitReadoutWithResetExpt as qr
 # However, 'Resource': 'LabRAD Server' should never be left out.
 Resources = [   { # Waveform parameters.
                     'Resource': 'GHz Boards', 
-                    'Server': 'GHz FPGAs'
+                    'Server': 'GHz FPGA Boards'
                     'Variables': [
                                     'Init Time', 'Bias Time', 'Measure Time',
                                     'Bias Voltage', 'Fast Pulse Time', 'Fast Pulse Amplitude', 'Fast Pulse Width',
