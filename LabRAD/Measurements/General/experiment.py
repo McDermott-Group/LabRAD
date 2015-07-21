@@ -21,7 +21,7 @@ this as a parent class.
 A basic experiment program would look something like this:
 
 with SomeExperiment.Experiment() as expt:    
-    expt.set_experiment(experiment_information, resources, experimet_variables) 
+    expt.set_experiment(information, resources, experimet_variables) 
     freq = np.linspace(2e9, 5e9, 101) * GHz
     expt.sweep('RF Frequency', freq, save=True)
 """
@@ -50,58 +50,53 @@ import scipy.io as sio
 import labrad
 import labrad.units as units
 
-import LabRAD.Servers.GHzBoards.ghz_fpga_control as ghz_fpga_control
+import LabRAD.Servers.Instruments.GHzBoards.ghz_fpga_control as ghz_fpga_control
 
 class ExperimentDefinitionError(Exception): pass
 class sweepError(Exception): pass
 
 class Experiment:
-"""
-Experiment class. Parent class for specific instances of experiments that provides shared functionality
-"""   
+    """Experiment class. Parent class for specific instances of experiments that provides shared functionality."""
+###SPECIAL METHODS######################################################################################
     def __init__(self):
         """
-        Inputs:
+        Input:
             None.
-        Outputs:
+        Output:
             None.
         """ 
         self._cxn = labrad.connect()
         self._standard_output = True      # This flag controls the standard output of the experiment results upon pressing [O].
 
     def __del__(self):
-        '''
-        Just in case...
-        '''
+        """Just in case..."""
         plt.close('all')
         
     def __enter__(self):
-        '''
-        Context entry. For now all it does is return a copy of the initialized class
-        '''
+        """Context entry. For now all it does is return a copy of the initialized class."""
         return self
     
     def __exit__(self,type, value, traceback):
         """
-        Safely close all connections, close plots, and disconnect from LabRad. Could also catch exceptions here if needed
+        Safely close all connections, close plots, and disconnect from LabRAD. 
+        Catch exceptions if needed.
         """
-        self.cxn.disconnect()
+        self._cxn.disconnect()
         print('The instrument resources have been safely terminated! Have a nice day.')
   
     ###SETUP METHODS#####################################################################################
-    ##################################################################################################### 
-    def set_experiment(self, experiment_information, resources, experimet_variables)
+    def set_experiment(self, information, resources, variables):
         """
         Sets experiment information, resources and experiment variables.
         
         Inputs:
-            experiment_information: dictionary that should have the following parameters (as strings):
+            information: dictionary that should have the following parameters (as strings):
                 1. Device Name: Name of the resource under study
                 2. User: Who is running the experiment?
                 3. Base Path: initial path for data saving purposes.
                 4. Experiment Name: what are you doing?
                 5. Comments: any comments that will go in the header file of each saved data file (optional, will be blank if not included).
-            experiment_resources: list of resources in the following format:
+            resources: list of resources in the following format:
               [ { # Generic device
                     'Resource': 'device name'
                     'Server': 'server name',
@@ -175,52 +170,52 @@ Experiment class. Parent class for specific instances of experiments that provid
                     'Variables': ['runs'],
                 }
               ]
-            experiment_variables: experiment variable dictionary in the {'Variable Name': Value,...} format.
-        Outputs:
+            variables: experiment variable dictionary in the {'Variable Name': Value,...} format.
+        Output:
             None.
         """
-        self._set_information(experiment_information)
-        self._set_resources(experiment_resources)
-        self._set_variables(experiment_variables)
+        self._set_information(information)
+        self._set_resources(resources)
+        self._set_variables(variables)
         
-    def _set_information(self, experiment_information):
+    def _set_information(self, information):
         """
         Sets experiment information, as well as base path for saving. 
         Base path will be: Base Path\User\Device\Date\Experiment Name\
         
         Inputs:
-            experiment_information: dictionary (see set_experiment method for more information).
+            information: dictionary (see set_experiment method for more information).
         Outputs:
             None.
         """
-        # Check that all variables are in experiment_information as expected.   
-        if 'Device Name' not in experiment_information:
+        # Check that all variables are in information as expected.   
+        if 'Device Name' not in information:
             raise ExperimentDefinitionError('Device name is not specified.')
-        if 'User' not in experiment_information:
+        if 'User' not in information:
             raise ExperimentDefinitionError('User is not specified.')
-        if 'Base Path' not in experiment_information:
+        if 'Base Path' not in information:
             raise ExperimentDefinitionError('Base path is not specified.')
-        if 'Experiment Name' not in experiment_information:
+        if 'Experiment Name' not in information:
             raise ExperimentDefinitionError('Experiment name is not specified.')
-        if 'Comments' not in experiment_information:
-            experiment_information['Comments'] = ''
+        if 'Comments' not in information:
+            information['Comments'] = ''
 
-        self.experiment_information = experiment_information
+        self.information = information
         
         # Make the base path if it does not exist.
-        if not os.path.exists(experiment_information['Base Path']):
+        if not os.path.exists(information['Base Path']):
             try:
-                os.makedirs(experiment_information['Base Path'])
+                os.makedirs(information['Base Path'])
             except:
                 raise IOError('Could not create base path! Is AFS on?')
         
         # Get today's date in MM-DD-YY format, and make the save path.
         today = time.strftime("%m-%d-%y", time.localtime())
-        self._save_path = os.path.join(experiment_information['Base Path'],
-                                       experiment_information['User'],
-                                       experiment_information['Device Name'],
+        self._save_path = os.path.join(information['Base Path'],
+                                       information['User'],
+                                       information['Device Name'],
                                        today,
-                                       experiment_information['Experiment Name'])
+                                       information['Experiment Name'])
         if not os.path.exists(self._save_path):
             try:
                 os.makedirs(self._save_path)
@@ -231,22 +226,20 @@ Experiment class. Parent class for specific instances of experiments that provid
         """
         Add experiment variables to self._vars from a resource. Specify some extra information that is may be required by other methods.
         
-        Inputs:
+        Input:
             resource: a resource dictionary from a list of experiment resources.
-        Outputs:
+        Output:
             None.
         """
-        res = resource
+        res = resource.copy()
         res.pop('Variables', None)
-        res['Active'] = False
-        res['save'] = True
         if isinstance(resource['Variables'], str):
             self._vars[resource['Variables']] = res
         elif isinstance(resource['Variables'], list):
             for var in resource['Variables']:
                 self._vars[var] = res
         elif iniinstance(resource['Variables'], dict):
-            for var in resournce['Varibales'].keys():
+            for var in resournce['Varibales']:
                 res['Setting'] = resource['Variables'][var]
                 self._vars[vars] = res
         else:
@@ -260,9 +253,9 @@ Experiment class. Parent class for specific instances of experiments that provid
         
         This methods also creates a map of the experiment variables defined in resources to these resources.
         
-        Inputs:
+        Input:
             resources: a list of resource dictionaries (see set_experiment method for more information).
-        Outputs:
+        Output:
             None.
         """
         self._vars = {}             # This dictionary maps the experiment variables to resources.
@@ -278,9 +271,9 @@ Experiment class. Parent class for specific instances of experiments that provid
             if 'Variables' not in resource:
                 raise ExperimentDefinitionError("'Variables' key is not found in the resource dictionary: " + str(resource) + ".")
             else:
-                if not isinstance(resource['Variables'], str) and 
-                   not isinstance(resource['Variables'], list) and
-                   not isinstance(resource['Variables'], dict):
+                if (not isinstance(resource['Variables'], str) and 
+                    not isinstance(resource['Variables'], list) and
+                    not isinstance(resource['Variables'], dict)):
                     raise ExperimentDefinitionError("'Variables' key in the resource dictionary: " + str(resource) +
                         " should be defined as a list of experiment variables or as a simple string for a single variable.")
             
@@ -306,7 +299,7 @@ Experiment class. Parent class for specific instances of experiments that provid
 
             # Link to GHz FPGAs server.         
             elif resource['Resource'] == 'GHz FPGA Boards':
-                if 'Server' in not resource:
+                if 'Server' not in resource:
                     raise ExperimentDefinitionError("'Server' key is not found in the GHz Boards resource dictionary: " + str(resource) + ".")
                 self.fpga_server = self.cxn[resource['Server']]
 
@@ -355,23 +348,26 @@ Experiment class. Parent class for specific instances of experiments that provid
         self._dac_settings = [dac_settings[index] for index in sorted(dacs)]
         self._adc_settings = [adc_settings[index] for index in sorted(adcs)]
     
-    def _set_variables(self, experiment_variables):
+    def _set_variables(self, variables):
         """
         Sets experiment variables.
         
         Inputs:
-            experiment_variables: experiment variable dictionary in the {'Variable Name': Value,...} format.
-        Outputs:
+            variables: experiment variable dictionary in the {'Variable Name': Value,...} format.
+        Output:
             None.
         """
         if not hasattr(self, '_vars'):
             raise ExperimentDefinitionError('Experiment resources should be set prior setting experiment variables.')
         
-        for var in experiment_variables:
+        for var in variables:
             if var not in self._vars:
-                print("Warning: experiment variable '" + str(var) + "' is not found. The variable will be ignored.")
-                self._vars[var]['save'] = False
-            self._vars[var]['Value'] = experiment_variables[var]
+                print("Warning: experiment variable '" + str(var) + "' is not found in the variable dictionary. " +
+                      "Unless the variable is actually used, its value will not be saved.")
+                self._vars[var] = {'Save': False}
+            else:
+                self._vars[var]['Value'] = variables[var]
+                self._vars[var]['Save'] = True
               
     def _check_var(self, var, value_check=True):
         """
@@ -380,7 +376,7 @@ Experiment class. Parent class for specific instances of experiments that provid
         Inputs:
             var: name of the experiment variable.
             value_check (optional): check whether the value is defined.
-        Outputs:
+        Output:
             None.
         """        
         if not isinstance(var, str):
@@ -390,7 +386,7 @@ Experiment class. Parent class for specific instances of experiments that provid
         if value_check and 'Value' not in self._vars[var]:                # Check that the variable value is defined.
             raise ExperimentDefinitionError("'" + str(var) + "' variable value is not defined.")
     
-    def wrap_expt_var(self, var, unit, value=None):
+    def add_expt_var(self, var, value=None):
         """
         Asserts an experiment variable and returns its value.
         
@@ -398,22 +394,23 @@ Experiment class. Parent class for specific instances of experiments that provid
             var: name of the experiment variable.
             unit: units to convert to.
             value (optional): a new value to assign to the experiment variable.
-        Outputs:
-            value: value of the experiment variable var in specified units.
+        Output:
+            None.
         """
         if not hasattr(self, '_vars'):
-            raise ExperimentDefinitionError('Experiment resources and variables should be set prior accessing any variables.')
-        if var not in self._vars:
-            raise ExperimentDefinitionError("'" + str(var) + "' variable is not found in the experiment resource dictionary.")
+            raise ExperimentDefinitionError('Experiment resources should be set prior accessing any variables.')
+        
+        if var in self._vars:
+            if value is not None:
+                self._vars[var]['Value'] = value
+        else:
+            self._vars[var]['Value'] = value
+            if value is not None:
+                self._vars[var]['Save'] = True
+            else:
+                self._vars[var]['Save'] = False
 
-        if 'Value' not in self._vars[var]:
-            if value is None:
-                value = 0 * unit
-
-        self._vars[var]['Value'] = value
-        self._vars[var]['Save'] = True
-
-        return self._vars[var]['Value'][unit]
+        return self._vars[var]['Value']
         
     def wrap_data_var(self, var, distr=None, pref = {}):
         """
@@ -437,7 +434,6 @@ Experiment class. Parent class for specific instances of experiments that provid
         self._data_vars[var]['Preferences'] = pref
 
     ###DATA SAVING METHODS###############################################################################
-    #####################################################################################################
     def _text_save(self, names, values, data, depend_dict={}):
         """
         Save data in human-readable text data file, new and improved version with better support for multidimensional data saves.
@@ -453,7 +449,7 @@ Experiment class. Parent class for specific instances of experiments that provid
         
         # Which contents are files?
         onlyfiles = [f for f in os.listdir(textFileFolder) if os.path.isfile(os.path.join(textFileFolder, f))]
-        ExptName = self.experiment_information['Experiment Name'].replace(" ", "_")
+        ExptName = self.information['Experiment Name'].replace(" ", "_")
         # Which files start off with 'ExperimentName_'?
         files = [f.split('.')[0] for f in onlyfiles if f[:len(ExptName) + 1] == ExptName+'_']
         
@@ -478,12 +474,12 @@ Experiment class. Parent class for specific instances of experiments that provid
         # save only the variables that have been actually used. Do not save the sweep variables in the header.
         sweep_vars = [var for name_list in names for var in name_list]
         for var in self._vars:
-            if var not in sweep_vars and 'Save' in self._vars[var] and 
-                    self._vars[var]['Save'] and 'Value' in self._vars[var]:
+            if (var not in sweep_vars and 'Save' in self._vars[var] and 
+                    self._vars[var]['Save'] and 'Value' in self._vars[var]):
                 h.append(var + ':   ' + self.val2str(self._vars[var]['Value'], True))
 
-        if 'Comments' in self.experiment_information:
-            h.append('Comments:   ' + self.experiment_information['Comments'])
+        if 'Comments' in self.information:
+            h.append('Comments:   ' + self.information['Comments'])
         
         h.append('====sweep Variables====')
         with file(filePath, 'w') as outfile:
@@ -539,7 +535,7 @@ Experiment class. Parent class for specific instances of experiments that provid
         
         # Which contents are files?
         onlyfiles = [f for f in os.listdir(MATLABFileFolder) if os.path.isfile(os.path.join(MATLABFileFolder,f))]
-        ExptName = self.experiment_information['Experiment Name'].replace(" ", "_")
+        ExptName = self.information['Experiment Name'].replace(" ", "_")
         # Which files start off with 'ExperimentName_'?
         files = [f.split('.')[0] for f in onlyfiles if f[:len(ExptName) + 1] == ExptName + '_']
         
@@ -555,14 +551,14 @@ Experiment class. Parent class for specific instances of experiments that provid
         filePath = os.path.join(MATLABFileFolder,fname)
         
         # Convert ExptVars names to a MATLAB-friendly format.
-        # save the variables that have been actually used. Do not save here the experiment variables that are sweep variables.
+        # Save the variables that have been actually used. Do not save here the experiment variables that are sweep variables.
         matData = {}
         matExptVars = {}
         matUnits = {}
         sweep_vars = [var for name_list in names for var in name_list]
         for var in self._vars:
-            if var not in sweep_vars and 'Save' in self._vars[var] and 
-                    self._vars[var]['Save'] and 'Value' in self._vars[var]:
+            if (var not in sweep_vars and 'Save' in self._vars[var] and 
+                    self._vars[var]['Save'] and 'Value' in self._vars[var]):
                 matExptVars[var.replace(" ", "_")] = self.strip_units(var)
                 matUnits[var.replace(" ", "_")] = self.get_units(var)
         
@@ -571,7 +567,7 @@ Experiment class. Parent class for specific instances of experiments that provid
                     'Time': time.asctime(),
                     'Name': ExptName + '_' + num,
                     'ExptVars': matExptVars,
-                    'Comments': self.experiment_information['Comments']
+                    'Comments': self.information['Comments']
                    }
         
         for key in data:
@@ -622,7 +618,6 @@ Experiment class. Parent class for specific instances of experiments that provid
         print('The data has been saved.')
     
     ###UTILITIES#########################################################################################
-    #####################################################################################################
     def get_units(self, v, brackets=False):
         """
         Return variable units.
@@ -634,7 +629,7 @@ Experiment class. Parent class for specific instances of experiments that provid
         Output:
             units: units the variable is specified with. 
         """
-        def _wrap_in_brackets(s):
+        def _place_in_brackets(s):
             if brackets:
                 if s == '':
                     return s
@@ -646,21 +641,21 @@ Experiment class. Parent class for specific instances of experiments that provid
         if isinstance(v, (int, long, float, complex)):
             return ''
         if isinstance(v, units.Value):
-            return _wrap_in_brackets(str(units.Unit(v)))
+            return _place_in_brackets(str(units.Unit(v)))
         if isinstance(v, np.ndarray):
             u = list(set([units.Unit(val) for val in v.flatten()]))
             if len(u) > 1:
                 raise Exception("More than one physical unit is found: " + str(u) + ".")
             else:
-                return _wrap_in_brackets(str(units.Unit(u[0])))
+                return _place_in_brackets(str(units.Unit(u[0])))
         if v in self._vars:
             if 'Value' in self._vars[v]:
                 if isinstance(self._vars[v]['Value'], units.Value):
-                    return _wrap_in_brackets(str(units.Unit(self._vars[v]['Value'])))
+                    return _place_in_brackets(str(units.Unit(self._vars[v]['Value'])))
                 else:
                     return ''
             else:
-                raise ExperimentDefinitionError("No value was assigned to variable '" + str(v) + "'.")
+                raise ExperimentDefinitionError("No value is assigned to variable '" + str(v) + "'.")
             
     def strip_units(self, v):
         """
@@ -685,7 +680,7 @@ Experiment class. Parent class for specific instances of experiments that provid
                 else:
                     return self._vars[var]['Value']
             else:
-                raise ExperimentDefinitionError("No value was assigned to variable '" + str(var) + "'.")
+                raise ExperimentDefinitionError("No value is assigned to variable '" + str(var) + "'.")
         else:
             raise ExperimentDefinitionError("Variable '" + str(var) + "' is not found in the variable dictionary: " + 
                                  str(self._vars) + ".")
@@ -755,7 +750,6 @@ Experiment class. Parent class for specific instances of experiments that provid
         return Id, Qd
 
     ###DAC AND ADC BOARD INTERFACE#######################################################################
-    #####################################################################################################
     def load_and_run(self, sram, memory, reps=1000, experiment_type='PreAmp', adc_index=0):
         """
         Loads FPGA boards with the required memory and settings, and executes the run sequence a set number of times. Should be called at the end of each run_once.
@@ -796,7 +790,6 @@ Experiment class. Parent class for specific instances of experiments that provid
         return self.fpga_server.run_sequence(reps, True)
 
     ###EXPERIMENT CONTROL METHODS########################################################################
-    #####################################################################################################
     def variable(self, var, value=None):
         """
         Get or set a single variable in the experiment variables dictionary. Useful if you want to run a single point experiment or over a few
@@ -820,8 +813,8 @@ Experiment class. Parent class for specific instances of experiments that provid
                                                  str(self._vars) + ".")
             else:
                 self._vars[var] = value
-                print("Experiment variable '" + var + ("' is set to " + self.val2str(value) + ".")
-                
+                print("Experiment variable '" + var + "' is set to " + self.val2str(value) + ".")
+
     def set_adc_setting(self, setting, value, adc_name=None):
         """
         Change one of the ADC settings.
@@ -862,8 +855,7 @@ Experiment class. Parent class for specific instances of experiments that provid
         return adc_name    
     
     ###EXPERIMENT RUN FUNCTIONS##########################################################################
-    #####################################################################################################
-    def set_var_request(self, var, enforce=True, value=None)
+    def set_var_request(self, var, enforce=True, value=None):
         if var not in self._vars:
             if enforce:
                 raise ExperimentDefinitionError("Variable '" + str(var) + "' is not defined in the resource list.")
@@ -880,7 +872,7 @@ Experiment class. Parent class for specific instances of experiments that provid
         self._vars['Active'] = True
         self._vars['Save'] = True
         
-    def acknowledge_request(self, var)
+    def acknowledge_request(self, var):
         if var not in self._vars:
             raise ExperimentDefinitionError("Variable '" + str(var) + "' is not defined.")
         
@@ -1401,7 +1393,6 @@ Experiment class. Parent class for specific instances of experiments that provid
                 print('There is no data to save!')
  
     ###KEYBOARD LISTENERS################################################################################
-    ##################################################################################################### 
     def _listen_to_keyboard(self, recog_keys=[27, 83, 115, 84, 116, 79, 111, 88, 120], clear_buffer=True):
         if kbhit():                                            # Analyze the first character in the keyboard buffer.
             key = getch()
@@ -1428,8 +1419,6 @@ Experiment class. Parent class for specific instances of experiments that provid
                 getch()
 
     ###PLOTTING METHODS##################################################################################
-    #####################################################################################################
-    # These methods should be removed in the future.
     def _initialize_1d_plot(self, values, data, independent_vars, plot_data_vars):
         # Specify x-axis label.
         xlabel = ''
