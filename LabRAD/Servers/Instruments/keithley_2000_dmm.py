@@ -49,6 +49,12 @@ class KeithleyWrapper(GPIBDeviceWrapper):
         resp = yield self.query('MEAS:VOLT:DC?')
         self.dcVolts = float(resp.split(',')[0].strip('ABCDEFGHIJKLMNOPQRSTUVWXYZ'))
         returnValue(self.dcVolts*units.V)
+        
+    @inlineCallbacks
+    def getRes(self):
+        resp = yield self.query('MEAS:RES?')
+        self.ohms = float(resp.split(',')[0].strip('ABCDEFGHIJKLMNOPQRSTUVWXYZ'))
+        returnValue(self.ohms*units.Ohm)
   
 class KeithleyServer(GPIBManagedServer):
     name = 'Keithley 2000 DMM' # Server name
@@ -58,7 +64,7 @@ class KeithleyServer(GPIBManagedServer):
   
     @setting(10, 'DC Voltage')
     def dcVolts(self, c):
-        """Returns voltage last recorded, but does not aquire again."""
+        """Returns voltage last recorded, but does not acquire again."""
         dev = self.selectedDevice(c)
         return dev.dcVolts
   
@@ -68,8 +74,15 @@ class KeithleyServer(GPIBManagedServer):
         dev = self.selectedDevice(c)
         voltage = yield dev.getdcVolts()
         returnValue(voltage)
+  
+    @setting(12, 'Get Resistance', returns = 'v')
+    def getdcVolts(self, c):
+        """Aquires new value for DC Voltage and returns it."""
+        dev = self.selectedDevice(c)
+        res = yield dev.getRes()
+        returnValue(res)
         
-    @setting(12, 'Get Ruox Temperature', returns=['v[K]'])
+    @setting(20, 'Get Ruox Temperature', returns=['v[K]'])
     def getRuoxTemperature(self, c):
         """Get the temperatures of the Ruox Thermometer for the ADR fridge.  All RuOx readers of every kind must have this method to work with the ADR control program."""
         reg = self.client.registry
@@ -82,7 +95,7 @@ class KeithleyServer(GPIBManagedServer):
         except ValueError: T = numpy.nan*units.K
         returnValue(T)
     
-    @setting(15,'Set ADR Settings Path',path=['*s'])
+    @setting(21,'Set ADR Settings Path',path=['*s'])
     def set_adr_settings_path(self,c,path):
         c['adr settings path'] = path
   
