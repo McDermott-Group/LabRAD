@@ -5,9 +5,9 @@ else:
     SCRIPT_PATH = os.path.dirname(__file__)     # This will be executed if the script is started by clicking or in a command line.
 LABRAD_PATH = os.path.join(SCRIPT_PATH.rsplit('LabRAD', 1)[0])
 import sys
-if LABRAD_PATH not in sys.path:
+if LABRAD_PATH not in sys.path: 
     sys.path.append(LABRAD_PATH)
-
+ 
 import numpy as np
 
 import labrad.units as units
@@ -19,26 +19,24 @@ class SimpleTestExperiment(Experiment):
     Mock-up a simple experiment.
     """
     def run_once(self):
-        self.wrap_data_var('Outcome', 'uniform', {'linestyle': 'b-', 'ylim': [0, 1], 'legendlabel': 'Switch. Prob.'})
-        
-        outcome = np.random.rand(self.variable('Reps'))
+        self.specify_data_var('Outcome', 'uniform', {'linestyle': 'b-', 'ylim': [0, 1], 'legendlabel': 'Switch. Prob.'})
+         outcome = np.random.rand(self.variable('Reps'))
         
         run_data = {
-                    'Outcome': np.random.rand(self.variable(Reps)),
+                    'Outcome': np.random.rand(self.variable('Reps')),
                     'Outcome Mean': np.mean(outcome),
                     'Outcome Std Dev': np.std(outcome),
-                    'Voltage': 10 * V,
-                   } 
-        
+                    'Voltage': 10 * units.V,
+         
         self.add_expt_var('Actual Reps', len(run_data['Outcome']))
-        return run_data, None
+        self.return_data(run_data)
         
         
 # List of the experiment resources. Simply uncomment/comment the devices that should be used/unused.
 # However, 'Resource': 'LabRAD Server' should never be left out.
 Resources = [
                 { # External readings.
-                    'Resource': 'Manual Record',
+ 'Resource': 'Manual Record',
                     'Variables': ['Temperature']
                 },
                 { # Extra experiment parameters.

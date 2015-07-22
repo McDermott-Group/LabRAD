@@ -152,22 +152,22 @@ class StartAndBringUp:
                             self.args.registry_start_list_key + ' is correct.')
         try:
             os.environ['LabRADPassword'] = self._cxn.registry.get(self.args.registry_labrad_password_key)
-            print("Environment variable %%LabRADPassword%% is set to '" + str(os.environ['LabRADPassword']) + "'.")
+            print("Environment variable %LabRADPassword% is set to '" + str(os.environ['LabRADPassword']) + "'.")
         except:
             pass
         try:
             os.environ['LabRADHost'] = self._cxn.registry.get(self.args.registry_labrad_host_key)
-            print("Environment variable %%LabRADHost%% is set to '" + str(os.environ['LabRADHost']) + "'.")
+            print("Environment variable %LabRADHost% is set to '" + str(os.environ['LabRADHost']) + "'.")
         except:
             pass
         try:
             os.environ['LabRADPort'] = self._cxn.registry.get(self.args.registry_labrad_port_key)
-            print("Environment variable %%LabRADPort%% is set to '" + str(os.environ['LabRADPort']) + "'.")
+            print("Environment variable %LabRADPort% is set to '" + str(os.environ['LabRADPort']) + "'.")
         except:
             pass
         try:
             os.environ['LabRADNode'] = self._cxn.registry.get(self.args.registry_labrad_node_key)
-            print("Environment variable %%LabRADNode%% is set to '" + os.environ['LabRADNode'] + "'.")
+            print("Environment variable %LabRADNode% is set to '" + os.environ['LabRADNode'] + "'.")
         except:
             pass
    
