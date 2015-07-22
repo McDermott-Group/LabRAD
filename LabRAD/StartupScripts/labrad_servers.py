@@ -24,12 +24,8 @@ import subprocess as sp
 import argparse
 from msvcrt import getch, kbhit
 
-import labrad as lr
+import labrad
 
-LABRAD_HOST = 'localhost'
-LABRAD_PORT = 7682
-LABRAD_PASSWORD = ''
-LABRAD_NODE = 'Leiden'
 
 # Absolute path to the folder with LabRAD.
 LABRAD_PATH = os.path.join(os.environ['HOME'], r'Desktop\Git Repositories\LabRAD\LabRAD')
@@ -49,7 +45,9 @@ DIRECT_ETHERNET_SERVER_FILENAME = 'DirectEthernet.exe'
 GHZ_FPGA_BRING_UP_FILENAME = 'ghz_fpga_bringup.py'
 DC_RACK_LABVIEW_VI_FILENAME = 'dc_rack_control.vi'
 
+
 class QuitException(Exception): pass
+
 
 class StartAndBringUp:
     def __init__(self):
@@ -62,11 +60,12 @@ class StartAndBringUp:
         return self
 
     def __exit__(self, exception_type, exception_value, traceback):
+        if hasattr(self, '_cxn'):
+            self._cxn.disconnect()
         if exception_type is not None:
             print('Closing the started processes...')
             for process in self.processes:
                 return_code = self.processes[process].poll()
-                # print(process + ": " + str(return_code))
                 if return_code is None:
                     self.processes[process].terminate()
         if exception_type == QuitException:
@@ -84,15 +83,37 @@ class StartAndBringUp:
                             help='Registry key containing the list of programs to run (default: "Start Program List")')
         parser.add_argument('--registry-labview-path-key', 
                             default='LabVIEW Path',
-                            help='Registry key with the LabVIEW Path (default: "LabVIEW Path")')
+                            help='Registry key that specifies the LabVIEW path (default: "LabVIEW Path")')
+        parser.add_argument('--registry-labrad-host-key',
+                            default='LabRAD Host',
+                            help='Regitry key with the value of %%LabRADHost%% environment variable (default: "LabRAD Host")')
+        parser.add_argument('--registry-labrad-port-key',
+                            default='LabRAD Port',
+                            help='Resistry key with the value of %%LabRADPort%% environment variable as a string (default: "LabRAD Port")')
+        parser.add_argument('--registry-labrad-password-key',
+                            default='LabRAD Password',
+                            help='Regitry key with the value of %%LabRADPassword%% environment variable (default: "LabRAD Password")')
+        parser.add_argument('--registry-labrad-node-key',
+                            default='LabRAD Node',
+                            help='Resistry key with thevalue of %%LabRADNode%% environment variable (default: "LabRAD Node")')
         return parser.parse_args()  
     
     def _LabRADConnect(self):
-        print('Connecting to LabRAD...')
+        if not hasattr(self, '_cxn'):
+            print('Connecting to LabRAD...')
+            try:
+                self._cxn = labrad.connect()
+            except:
+                raise Exception('Cannot connect to LabRAD. The LabRAD program does not appear to be running.')
+                
+    def _changeResitryPath(self):
+        self._LabRADConnect()
         try:
-            return lr.connect()
+            print('Changing the LabRAD Registry directory...')
+            self._cxn.registry.cd([''] + self.args.registry_path)
         except:
-            raise Exception('Cannot connect to LabRAD. The LabRAD program does not appear to be running.')
+            raise Exception('Could not read the LabRAD Registry. Please check that the Registry path ' + 
+                            str([''] + self.args.registry_path) + ' is correct.')
     
     def _waitTillEnterKeyIsPressed(self):
         while kbhit():
@@ -111,40 +132,61 @@ class StartAndBringUp:
     def startLabRAD(self):
         print('Starting LabRAD...')
         labrad_filename = os.path.join(LABRAD_PATH, LABRAD_FILENAME)
-        
         if not os.path.isfile(labrad_filename):
             raise Exception('Cannot locate the LabRAD sys.executable file ' + labrad_filename + '.')
-        
         try:
             self.processes['LabRAD'] = sp.Popen(labrad_filename)
         except OSError:
             raise Exception('Failed to start LabRAD.')
-        
-        print('Please press "Run Server" button in the LabRAD window if it is not started automatically.')
+        print('Please press "Run Server" button in the LabRAD window if it has not started automatically.')
         self._waitTillEnterKeyIsPressed()
-        
-    def readProgramList(self):
-        cxn = self._LabRADConnect()
+
+    def readRegistry(self):
         print('Getting the list of programs and servers to run from the LabRAD Registry...')
+        self._changeResitryPath()
         try:
-            cxn.registry.cd([''] + self.args.registry_path)
-            print('')
-            return cxn.registry.get(self.args.registry_start_list_key)
+            print('Getting the list of programs to run...')
+            self.program_list = self._cxn.registry.get(self.args.registry_start_list_key)
         except:
-            raise Exception('Could not read the LabRAD Registry. Please check that the Registry path ' + 
-                  str([''] + self.args.registry_path) + ' and the key name ' + self.args.registry_start_list_key + ' are correct.')
-        finally:
-            cxn.disconnect()
-        
+            raise Exception('Could not read the LabRAD Registry. Please check that the Registry key name ' + 
+                            self.args.registry_start_list_key + ' is correct.')
+        try:
+            os.environ['LabRADPassword'] = self._cxn.registry.get(self.args.registry_labrad_password_key)
+            print("Environment variable %%LabRADPassword%% is set to '" + str(os.environ['LabRADPassword']) + "'.")
+        except:
+            pass
+        try:
+            os.environ['LabRADHost'] = self._cxn.registry.get(self.args.registry_labrad_host_key)
+            print("Environment variable %%LabRADHost%% is set to '" + str(os.environ['LabRADHost']) + "'.")
+        except:
+            pass
+        try:
+            os.environ['LabRADPort'] = self._cxn.registry.get(self.args.registry_labrad_port_key)
+            print("Environment variable %%LabRADPort%% is set to '" + str(os.environ['LabRADPort']) + "'.")
+        except:
+            pass
+        try:
+            os.environ['LabRADNode'] = self._cxn.registry.get(self.args.registry_labrad_node_key)
+            print("Environment variable %%LabRADNode%% is set to '" + os.environ['LabRADNode'] + "'.")
+        except:
+            pass
+   
+    def getProgramList(self):
+        if hasattr(self, 'program_list'):
+            return self.program_list
+        else:
+            return []
+
     def startLabRADNode(self):
+        if 'LabRADNode' in os.environ:
+            print("Removing %%LabRADNode%% from the environment variables...")
+            os.environ.pop('LabRADNode', None)
         print('Starting the LabRAD node...')
         node_filename = os.path.join(LABRAD_PATH, LABRAD_NODE_PATH, LABRAD_NODE_FILENAME)
-        
         try:
             self.processes['LabRAD Node'] = sp.Popen([sys.executable, node_filename], creationflags=sp.CREATE_NEW_CONSOLE)
         except OSError:
             raise Exception('Failed to start the LabRAD node.')
-        
         print('Please enter the password in the LabRAD node window that poped up.')
         print('Do not close the window when you are done.')
         self._waitTillEnterKeyIsPressed()
@@ -152,12 +194,10 @@ class StartAndBringUp:
     def startLabRADNodeServers(self):
         print('Starting the servers with the LabRAD node...')
         node_servers_filename = os.path.join(LABRAD_PATH, LABRAD_NODE_SERVERS_PATH, LABRAD_NODE_SERVERS_FILENAME)
-        
         try:
             self.processes['LabRAD Node Servers'] = sp.Popen([sys.executable, node_servers_filename])
         except OSError:
             raise Exception('Failed to start the LabRAD node.')
-
         while self.processes['LabRAD Node Servers'].poll() is None:
             pass
         print('The servers have been started.\n')
@@ -165,80 +205,68 @@ class StartAndBringUp:
     def startDirectEthernetServer(self):
         print('Starting Direct Ethernet server...')
         direct_ethernet = os.path.join(LABRAD_PATH, DIRECT_ETHERNET_SERVER_PATH, DIRECT_ETHERNET_SERVER_FILENAME)
-        
         if not os.path.isfile(direct_ethernet):
             raise Exception('Cannot locate the Direct Ethernet Server sys.executable file ' + direct_ethernet + '.')
-        
         try:
             self.processes['Direct Ethernet Server'] = sp.Popen(direct_ethernet)
         except OSError:
-            raise Exception('Failed to start Direct Ethernet Server.')
-        
-        print('In the Direct Ethernet window please specify the following:' +
-              '\n\tLabRAD host name, e.g. "' + LABRAD_HOST + 
-              '",\n\tLabRAD port, e.g. "' + str(LABRAD_PORT) + 
-              '",\n\tyour password, e.g. "' + LABRAD_PASSWORD +
-              '",\n\tand the LabRAD node name, e.g. "' + LABRAD_NODE + '".')
+            raise Exception('Failed to start Direct Ethernet Server.') 
+        print('If prompted, in the Direct Ethernet window specify ' +
+              'LabRAD host name, port, password, and/or node name.')
         self._waitTillEnterKeyIsPressed()
         
     def bringUpGHzFPGAs(self):
         print('Starting the GHz FPGA bring-up script...')
         bring_up = os.path.join(LABRAD_PATH, GHZ_FPGA_BRING_UP_PATH, GHZ_FPGA_BRING_UP_FILENAME)
-         
         if not os.path.isfile(bring_up):
             raise Exception('Cannot locate the GHz FPGA bring-up script ' + bring_up + '.')
-        
         try:
             self.processes['GHz FPGA Bring Up'] = sp.Popen([sys.executable, bring_up], creationflags=sp.CREATE_NEW_CONSOLE)
         except OSError:
             raise Exception('Failed to start the GHz FPGA bring up script.')
-        
         print('Please enter the password in the GHz FPGA bring-up window and follow the instructions there.')
         print('You may close the GHz FPGA bring-up script window when you are done.')
         self._waitTillEnterKeyIsPressed()
 
     def startDCRackLabVIEWVI(self):
-        cxn = self._LabRADConnect()
         print('Getting the path to the LabVIEW.exe from the LabRAD Registry...')
+        self._changeResitryPath()
         try:
-            cxn.registry.cd([''] + self.args.registry_path)
-            labview_path_filename = cxn.registry.get(self.args.registry_labview_path_key)
+            labview_path_filename = self._cxn.registry.get(self.args.registry_labview_path_key)
         except:
-            raise Exception('Cannot read the LabRAD Registry. Please check that the Registry path ' + 
-                  str([''] + self.args.registry_path) + ' and the key name ' + self.args.registry_labview_path_key + ' are correct.')
-        finally:
-            cxn.disconnect()
- 
+            raise Exception('Cannot read the LabRAD Registry. Please check that the key name ' + 
+                            self.args.registry_labview_path_key + ' is correct.')
         print('Starting the DC Rack LabVIEW VI...')
         dc_rack_vi = os.path.join(LABRAD_PATH, DC_RACK_LABVIEW_VI_PATH, DC_RACK_LABVIEW_VI_FILENAME)
-         
         if not os.path.isfile(dc_rack_vi):
             raise Exception('Cannot locate the DC Rack LabVIEW VI ' + dc_rack_vi  + '.')
-        
         try:
             self.processes['DC Rack LabVIEW VI'] = sp.Popen([labview_path_filename, dc_rack_vi])
         except OSError:
             raise Exception('Failed to start the DC Rack LabVIEW VI.')
-        
         print('Please press "Run" button in the LabVIEW VI window.')
         self._waitTillEnterKeyIsPressed()
 
-# Define a main() function
+
+# Define a main() function.
 def main():
     with StartAndBringUp() as inst:
         inst.startLabRAD()
-        for prog in inst.readProgramList():
-            if prog.lower() in ['directethernet', 'direct ethernet']:
+        inst.readRegistry()
+        for prog in inst.getProgramList():
+            prog = prog.lower()
+            if prog in ['directethernet', 'direct ethernet']:
                 inst.startDirectEthernetServer()
-            elif prog.lower() in ['labradnode', 'labrad node']:
+            elif prog in ['labradnode', 'labrad node']:
                 inst.startLabRADNode()
-            elif prog.lower() in ['labradnodeservers', 'labradnode servers', 'labrad node servers']:
+            elif prog in ['labradnodeservers', 'labradnode servers', 'labrad node servers']:
                 inst.startLabRADNodeServers()
-            elif prog.lower() in ['ghzfpgabringup', 'ghz fpga bring up']:
+            elif prog in ['ghzfpgabringup', 'ghz fpga bring up', 'ghz fpga bring-up']:
                 inst.bringUpGHzFPGAs()
-            elif prog.lower() in ['dcracklabviewvi', 'dcrack labview vi', 'dc rack labview vi']: 
+            elif prog in ['dcracklabviewvi', 'dcrack labview vi', 'dc rack labview vi']: 
                 inst.startDCRackLabVIEWVI()
-    
+
+
 # This is the standard boilerplate that calls the main() function.
 if __name__ == '__main__':
     main()

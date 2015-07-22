@@ -23,6 +23,7 @@ import sys
 import argparse
 
 import labrad as lr
+from labrad.server import inlineCallbacks
  
 def parseArguments():
     parser = argparse.ArgumentParser(description='Start LabRAD servers with the LabRAD node.')
@@ -34,27 +35,28 @@ def parseArguments():
     parser.add_argument('--registry-start-list-key', 
                         default='Start Server List',
                         help='Registry key containg the list of servers to run (default: "Start Server List")')
-    parser.add_argument('--node-server-name', 
+    parser.add_argument('--node-name', 
                         default='node ' + os.environ['COMPUTERNAME'].lower(),
-                        help='LabRAD node server name (default: "node %%COMPUTERNAME%%"')
+                        help='LabRAD node name (default: "node %%COMPUTERNAME%%"')
     return parser.parse_args()
- 
+
+@inlineCallbacks    
 def startServers(args):
     print('Connecting to LabRAD...')
     try:
-        cxn = lr.connect()
+        cxn = yield lr.connect()
     except:
         raise Exception('Could not connect to LabRAD. The LabRAD program does not appear to be running.')
 
     running_servers = [name for _, name in cxn.manager.servers()]
-    if args.node_server_name not in running_servers:
-        raise Exception("Cannot connect to the LabRAD node server '" + args.node_server_name + "'. " + 
+    if args.node_name not in running_servers:
+        raise Exception("Cannot connect to the LabRAD node server '" + args.node_name + "'. " + 
             "The server does not appear to be running.")
 
     print('Getting the list of servers from the LabRAD Registry...')
     try:
-        cxn.registry.cd([''] + args.registry_path)
-        server_list = cxn.registry.get(args.registry_start_list_key)
+        yield cxn.registry.cd([''] + args.registry_path)
+        server_list = yield cxn.registry.get(args.registry_start_list_key)
     except:
         raise Exception('Cannot read the LabRAD Registry. Please check that the Registry path ' + 
               str([''] + args.registry_path) + ' and the key name ' + args.registry_key + ' are correct.')
@@ -64,10 +66,10 @@ def startServers(args):
     for server in server_list:
         if server not in running_servers:
             try:
-                cxn.servers[args.node_server_name].start(server)
+                yield cxn.servers[args.node_name].start(server)
             except Exception as e:
                 raise Exception( 'Could not start ' + server + ': ' + str(e) + '.')
-    cxn.disconnect()
+    yield cxn.disconnect()
 
 def main():
     startServers(parseArguments())

@@ -57,7 +57,7 @@ class sweepError(Exception): pass
 
 class Experiment:
     """Experiment class. Parent class for specific instances of experiments that provides shared functionality."""
-###SPECIAL METHODS######################################################################################
+###SPECIAL METHODS#######################################################################################
     def __init__(self):
         """
         Input:
