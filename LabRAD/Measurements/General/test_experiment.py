@@ -19,18 +19,21 @@ class SimpleTestExperiment(Experiment):
     Mock-up a simple experiment.
     """
     def run_once(self):
-        self.specify_data_var('Outcome', 'uniform', {'linestyle': 'b-', 'ylim': [0, 1], 'legendlabel': 'Switch. Prob.'})
-         outcome = np.random.rand(self.variable('Reps'))
+        outcome = np.random.rand(self.variable('Reps'))
         
         run_data = {
-                    'Outcome': np.random.rand(self.variable('Reps')),
-                    'Outcome Mean': np.mean(outcome),
-                    'Outcome Std Dev': np.std(outcome),
-                    'Voltage': 10 * units.V,
+                    'Outcome': {'Value': np.random.rand(self.variable('Reps')),
+                                'Mean': np.mean(outcome),
+                                'Std Dev': np.std(outcome),
+                                'Dependencies': ['Runs'],
+                                'Distribution': 'uniform',
+                                'Prefereances': {'linestyle': 'b-', 'ylim': [0, 1], 'legendlabel': 'Switch. Prob.'}},
+                    'Voltage': {'Value': 10 * units.V},
+                    'Runs': {'Value', np.linspace(1, self.variable('Reps'))}
+                   }
          
         self.add_expt_var('Actual Reps', len(run_data['Outcome']))
         self.return_data(run_data)
-        
         
 # List of the experiment resources. Simply uncomment/comment the devices that should be used/unused.
 # However, 'Resource': 'LabRAD Server' should never be left out.
@@ -68,6 +71,6 @@ ExptVars = {
 with SimpleTestExperiment() as expt:
     
     expt.set_experiment(ExptInfo, Resources, ExptVars) 
-
+    
     expt.sweep('Variable 1', np.linspace(0.1, 0.3, 101) * units.V, 
                 save=True, print_data=['Outcome Mean'], plot_data=['Outcome Mean'])
