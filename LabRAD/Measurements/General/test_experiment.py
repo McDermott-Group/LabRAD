@@ -1,11 +1,14 @@
-import os.path
+import os
 if __file__ in [f for f in os.listdir('.') if os.path.isfile(f)]:
-    SCRIPT_PATH = os.path.dirname(os.getcwd())  # This will be executed when the script is loaded by the labradnode.
+    # This is executed when the script is loaded by the labradnode.
+    SCRIPT_PATH = os.path.dirname(os.getcwd())
 else:
-    SCRIPT_PATH = os.path.dirname(__file__)     # This will be executed if the script is started by clicking or in a command line.
+    # This is executed if the script is started by clicking or
+    # from a command line.
+    SCRIPT_PATH = os.path.dirname(__file__)
 LABRAD_PATH = os.path.join(SCRIPT_PATH.rsplit('LabRAD', 1)[0])
 import sys
-if LABRAD_PATH not in sys.path: 
+if LABRAD_PATH not in sys.path:
     sys.path.append(LABRAD_PATH)
  
 import numpy as np
@@ -14,26 +17,36 @@ import labrad.units as units
 
 from LabRAD.Measurements.General.experiment import Experiment
 
+
 class SimpleTestExperiment(Experiment):
     """
     Mock-up a simple experiment.
     """
     def run_once(self):
         outcome = np.random.rand(self.variable('Reps'))
-        
         run_data = {
-                    'Outcome': {'Value': np.random.rand(self.variable('Reps')),
-                                'Mean': np.mean(outcome),
-                                'Std Dev': np.std(outcome),
+                    'Outcome': {'Value': outcome,
+                                'Mean': 'Outcome Mean',
+                                'Std Dev': 'Outcome Std',
                                 'Dependencies': ['Runs'],
                                 'Distribution': 'uniform',
-                                'Prefereances': {'linestyle': 'b-', 'ylim': [0, 1], 'legendlabel': 'Switch. Prob.'}},
+                                'Prefereances': {'linestyle': 'b-', 
+                                                 'ylim': [0, 1], 
+                                                 'legendlabel': 'Switch. Prob.'}
+                               },
+                    'Outcome Mean': {'Value': np.mean(outcome),
+                                     'Prefereances': {'linestyle': 'r-',
+                                                      'ylim': [0, 1], 
+                                                      'legendlabel': 'Mean'}
+                                    },
+                    'Outcome Std': {'Value': np.mean(outcome)},
                     'Voltage': {'Value': 10 * units.V},
-                    'Runs': {'Value', np.linspace(1, self.variable('Reps'))}
+                    'Runs': {'Value': np.linspace(1, self.variable('Reps'), self.variable('Reps')),
+                             'Type': 'Independent'}
                    }
          
-        self.add_expt_var('Actual Reps', len(run_data['Outcome']))
-        self.return_data(run_data)
+        self.add_var('Actual Reps', len(run_data['Outcome']))
+        return run_data
         
 # List of the experiment resources. Simply uncomment/comment the devices that should be used/unused.
 # However, 'Resource': 'LabRAD Server' should never be left out.

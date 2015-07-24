@@ -60,6 +60,7 @@ import LabRAD.Servers.Instruments.GHzBoards.ghz_fpga_control as ghz_fpga_control
 
 
 class ExperimentDefinitionError(Exception): pass
+class DataError(Exception): pass
 class SweepError(Exception): pass
 
 
@@ -271,11 +272,11 @@ class Experiment:
             self._vars[resource['Variables']] = res
         elif isinstance(resource['Variables'], list):
             for var in resource['Variables']:
-                self._vars[var] = res
+                self._vars[var] = res.copy()
         elif iniinstance(resource['Variables'], dict):
             for var in resournce['Varibales']:
                 res['Setting'] = resource['Variables'][var]
-                self._vars[vars] = res
+                self._vars[vars] = res.copy()
         else:
             raise ExperimentDefinitionError("Variables in the resource" + 
                 " dictionary " + str(resource) +
@@ -297,16 +298,16 @@ class Experiment:
         Output:
             None.
         """
-        self._vars = {}     # This dictionary maps the experiment variables to resources.
+        self._vars = {}     # Dictionary of the experiment variables.
         self.fpga_server = None     # LabRAD Server.
         dacs = {}           # Dictionary of DAC boards with the list index as a key.
         adcs = {}           # Dictionary of ADC boards with the list index as a key.
         dac_settings = {}   # Dictionary of DAC board settings with the list index as a key.
         adc_settings = {}   # Dictionary of ADC board settings with the list index as a key.
         
-        def _msg(key, resource)
-            return "'" + key + "' key is not found in the resource " + 
-                   " dictionary: " + str(resource) + "."
+        def _msg(key, resource):
+            return ("'" + key + "' key is not found in the resource " + 
+                   " dictionary: " + str(resource) + ".")
         
         for resource in resources:
             if 'Resource' not in resource:
@@ -419,15 +420,15 @@ class Experiment:
             'should be set prior setting experiment variables.')
         
         for var in variables:
-            if var not in self._vars:
-                print("Warning: experiment variable '" + str(var) + 
-                "' is not found in the variable dictionary. " +
-                "Unless the variable is actually used, " + 
-                "its value will not be saved.")
-                self._vars[var] = {'Save': False}
-            else:
+            if var in self._vars:
                 self._vars[var]['Value'] = variables[var]
                 self._vars[var]['Save'] = True
+            else:
+                print("Warning: variable '" + str(var) + 
+                "' is not found in the experiment variables. " +
+                "Unless the variable is explicitly used, " + 
+                "its value will not be saved.")
+                self._vars[var] = {'Save': False}
               
     def _check_var(self, var, value_check=True):
         """
@@ -440,16 +441,16 @@ class Experiment:
             None.
         """        
         if not isinstance(var, str):
-            raise ExperimentDefinitionError("'" + str(var) +
-            "' is expected to be a string that defines an experiment variable.")
+            raise ExperimentDefinitionError("'" + str(var) + "' is " +
+            "expected to be a string that defines an experiment variable.")
         if var not in self._vars:
-            raise ExperimentDefinitionError("'" + str(var) +
-            "' variable is not found in the experiment resource dictionary.")
+            raise ExperimentDefinitionError("'" + str(var) + "' variable" + 
+            " is not found in the experiment resource dictionary.")
         if value_check and 'Value' not in self._vars[var]:
             raise ExperimentDefinitionError("'" + str(var) +
             "' variable value is not defined.")
     
-    def add_expt_var(self, var, value=None):
+    def add_var(self, var, value=None):
         """
         Asserts an experiment variable and returns its value.
         
@@ -459,7 +460,7 @@ class Experiment:
             value (optional): a new value to assign to the experiment 
                 variable.
         Output:
-            None.
+            value: value of the experiment variable.
         """
         if not hasattr(self, '_vars'):
             raise ExperimentDefinitionError('Experiment resources ' + 
@@ -478,7 +479,7 @@ class Experiment:
         return self._vars[var]['Value']
 
     ###DATA SAVING METHODS#########################################################################
-    def _text_save(self, names, values, data, depend_dict={}):
+    def _text_save(self, data):
         """
         Save data in human-readable text data file, new and improved
         version with better support for multidimensional data saves.
@@ -520,9 +521,8 @@ class Experiment:
     
         # Save only the variables that have been actually used.
         # Do not save the sweep variables in the header.
-        sweep_vars = [var for name_list in names for var in name_list]
         for var in self._vars:
-            if (var not in sweep_vars and 'Save' in self._vars[var] and 
+            if (var not in data and 'Save' in self._vars[var] and 
                     self._vars[var]['Save'] and 'Value' in self._vars[var]):
                 h.append(var + ':   ' + self.val2str(self._vars[var]['Value'], True))
 
@@ -536,26 +536,28 @@ class Experiment:
             
             # This is to avoid duplicative saving of the sweep variables
             # when a parallel scan was run with the same variable name.
-            names_saved = []
-            for p_idx, value_list in enumerate(values):
-                for idx, val in enumerate(value_list):
-                    if names[p_idx][idx] not in names_saved:
-                        outfile.write(names[p_idx][idx] + 
-                            self.get_units(names[p_idx][idx], True) + 
-                            ':' + str(list(val.shape)) + '\n')
-                        self._ndarray_text_save(outfile, self.strip_units(val))
-                        names_saved.append(names[p_idx][idx])
+            for key in data:
+                if ('Type' in data[key] and 'Value' in data[key] and 
+                    data[key]['Type'] == 'Independent'):
+                        outfile.write(key + self.get_units(key, True) + ':' +
+                        str(list(np.shape(data[key]['Value']))) + '\n')
+                        self._ndarray_text_save(outfile, 
+                                self.strip_units(data[key]['Value']))
 
             outfile.write('====Data Variables====\n');
-            for key, val in data.items():
-                extra = ''
-                if key in depend_dict:
-                    extra = '::' + str(depend_dict[key])
-                if key in data and 'Distribution' in data[key]:
-                    extra = extra + ':::[' + data[key] + ']'
-                outfile.write(key + self.get_units(key, True) + ':' + 
-                    str(list(val.shape)) + extra + '\n')
-                self._ndarray_text_save(outfile, self.strip_units(val))
+            for key in data:
+                if ('Type' in data[key] and 'Value' in data[key] and 
+                    data[key]['Type'] == 'Dependent'):
+                    extra = ''
+                    if 'Dependencies' in data[key]:
+                        extra = '::' + str(data[key]['Dependencies'])
+                    if 'Distribution' in data[key]:
+                        extra = extra + ':::[' + data[key]['Distribution'] + ']'
+                    outfile.write(key + self.get_units(data[key]['Value'], True) + 
+                            ':' + str(list(np.shape(data[key]['Value']))) +
+                            extra + '\n')
+                    self._ndarray_text_save(outfile, 
+                            self.strip_units(data[key]['Value']))
                     
     def _ndarray_text_save(self, outfile, array):
         """
@@ -565,7 +567,7 @@ class Experiment:
             outfile: file handle to write the data into.
             array: numpy.ndarray to append to the end of a specified 
                 file.
-        Outputs:
+        Output:
             None.
         """
         if array.ndim == 1 or array.ndim == 2:
@@ -574,7 +576,7 @@ class Experiment:
             for idx in range(array.shape[0]):
                 self._ndarray_text_save(outfile, array[idx])
                 
-    def _mat_save(self, names, values, data, depend_dict={}):
+    def _mat_save(self, data):
         """
         Save data as a .mat file using scipi.io. Data will be saved as
         a structure, with a substructure for the experiment and 
@@ -612,9 +614,8 @@ class Experiment:
         matData = {}
         matExptVars = {}
         matUnits = {}
-        sweep_vars = [var for name_list in names for var in name_list]
         for var in self._vars:
-            if (var not in sweep_vars and 'Save' in self._vars[var] and 
+            if (var not in data and 'Save' in self._vars[var] and 
                     self._vars[var]['Save'] and 'Value' in self._vars[var]):
                 matExptVars[var.replace(" ", "_")] = self.strip_units(var)
                 matUnits[var.replace(" ", "_")] = self.get_units(var)
@@ -628,50 +629,59 @@ class Experiment:
                    }
         
         for key in data:
-            matData[key.replace(" ", "_")] = self.strip_units(data[key])
-        for p_idx, value_list in enumerate(values):
-            for idx, val in enumerate(value_list):
-                matData[names[p_idx][idx].replace(" ", "_")] = self.strip_units(val)
-        
+            if 'Value' in data[key]:
+                matData[key.replace(" ", "_")] = self.strip_units(data[key]['Value'])
+
         saveDict['Data'] = matData
         
-        # save the information about the data units and the expected distributions.
+        # Save the information about the data units and the expected distributions.
         matDatadistr = {}
         matDataDepend = {}
         for key in data:
-            matUnits[key.replace(" ", "_")] = self.get_units(key)
-            if key in data:
-                matDatadistr[key.replace(" ", "_")] = data[key]
-            if key in depend_dict:
-                matDataDepend[key.replace(" ", "_")] = str(depend_dict[key]).replace(", ", ",").replace(" ", "_")
+            if 'Value' in data[key]:
+                matUnits[key.replace(" ", "_")] = self.get_units(key)
+                if 'Distribution' in data[key]:
+                    matDatadistr[key.replace(" ", "_")] = data[key]['Distribution']
+                if 'Dependencies' in data[key]:
+                    matDataDepend[key.replace(" ", "_")] = str(data[key]['Dependencies']).replace(", ", ",").replace(" ", "_")
         if matUnits:
             saveDict['Units'] = matUnits
         if matDatadistr:
-            saveDict['Datadistr'] = matDatadistr
+            saveDict['Distr'] = matDatadistr
         if matDataDepend:
-            saveDict['DataDepend'] = matDataDepend
+            saveDict['Depend'] = matDataDepend
   
         sio.savemat(filePath, {saveDict['Name']: saveDict})                
 
-    def _save_data(self, names, values, data, depend_dict={}):
+    def _save_data(self, data):
         """
         Save data as in a text (.txt) and a MATLAB (.mat) file formats.
         """ 
-        for list_idx, value_list in enumerate(values):      # Remove unnecessary dimensions that contains only one value from the dependency specifications and independent variables.
-            for idx, val in enumerate(value_list):
-                if np.size(val) == 1:
-                    for key in depend_dict:
-                        depend_dict[key] = [name for name in depend_dict[key] if name != names[list_idx][idx]]
-            values[list_idx] = [val for val in value_list if np.size(val) > 1]
-            names[list_idx] = [names[list_idx][name_idx] for name_idx, val in enumerate(value_list) if np.size(val) > 1]
-        depend_dict = {key: dep for key, dep in depend_dict.items() if len(dep) > 0}
-        for key in data.keys():                             # Remove unnecessary dimensions that contain only one value.
-            data[key] = np.squeeze(data[key])
-            if np.size(data[key]) == 1:                     # Convert single numbers (zero-dimensional ndarrays) to one-dimensional ndarrays.
+        # Remove unnecessary dimensions. This means that independent
+        # variables that contain only one value should be removed from
+        # the specifications.
+        # from the dependency specifications and independent variables.
+        rm_vars = []
+        for key in data:
+            if ('Value' in data and 'Type' in data and
+                data[key]['Type'] == 'Independent' and
+                np.size(data[key]['Value']) == 1):
+                    data.pop(key)
+                    rm_vars.append(key)
+        # Remove unnecessary dimensions that contain only one value.
+        for key in data:
+            if 'Value' in data[key]:
+                data[key]['Value'] = np.squeeze(data[key]['Value'])
+            if 'Depenendecies' in data[key]:
+                data[key]['Dependencies'] = [var for var 
+                        in data[key]['Dependencies'] if var not in rm_vars]
+            # Convert single numbers (zero-dimensional numpy arrays) 
+            # to one-dimensional numpy arrays.
+            if np.size(data[key]) == 1:
                 data[key] = np.array([data[key]])
         
-        self._text_save(names, values, data, depend_dict)
-        self._mat_save(names, values, data, depend_dict)
+        self._text_save(data)
+        self._mat_save(data)
         print('The data has been saved.')
     
     ###UTILITIES###################################################################################
@@ -686,26 +696,26 @@ class Experiment:
         Output:
             units: units the variable is specified with. 
         """
-        def _place_in_brackets(s):
-            if brackets:
-                if s == '':
-                    return s
-                else:
-                    return ' [' + s + ']'
+        def _place_in_brackets(unit):
+            if brackets and unit != '':
+                return ' [' + unit + ']'
             else:
-                return s
- 
+                return unit
+        print('v = ' + v)
         if isinstance(v, (int, long, float, complex)):
             return ''
         if isinstance(v, units.Value):
             return _place_in_brackets(str(units.Unit(v)))
         if isinstance(v, np.ndarray):
-            u = list(set([units.Unit(val) for val in v.flatten()]))
-            if len(u) > 1:
-                raise Exception("More than one physical unit is found: " + 
-                str(u) + ".")
+            if any([isinstance(val, units.Value) in v.flatten()]):
+                u = list(set([units.Unit(val) for val in v.flatten()]))
+                if len(u) > 1:
+                    raise Exception("More than one physical unit is found: " + 
+                    str(u) + ".")
+                else:
+                    return _place_in_brackets(str(units.Unit(u[0])))
             else:
-                return _place_in_brackets(str(units.Unit(u[0])))
+                return ''
         if v in self._vars:
             if 'Value' in self._vars[v]:
                 value = self._vars[v]['Value']
@@ -760,8 +770,8 @@ class Experiment:
                 a unitless number.
         """
         if isinstance(val, units.Value) and brackets:
-            return str(val[units.Unit(val)]) + ' [' + 
-            str(units.Unit(val)) + ']'
+            return (str(val[units.Unit(val)]) + ' [' + 
+                    str(units.Unit(val)) + ']')
         else:
             return str(val)
             
@@ -886,8 +896,7 @@ class Experiment:
         """
         if value is not None:
             if var in self._vars:
-            else:
-                self._vars[var] = value
+                self._vars[var]['Value'] = value
                 if output:
                     print("Experiment variable '" + var + 
                     "' is set to " + self.val2str(value) + ".")
@@ -1048,18 +1057,6 @@ class Experiment:
         
         self.return_data(avg_data, extra_data)
    
-    def _is_expendable(self, field):
-        """
-        Return True is the data entry is expendable.
-
-        Input:
-            filed: field name of the the data dictionary.
-        """
-        if filed in ['Value', 'Mean', 'Std Dev', 'Error']:
-            return True
-        else:
-            return False
-   
     def single_shot_iqs(self, adc_name=None, save=False, plot_data=None):
         """
         Run a single experiment, saving individual I and Q points.
@@ -1142,7 +1139,7 @@ class Experiment:
                     str(run_data) + ".")
             plot_data = [var for var in self._combine_strs(plot_data) if var in data]
         if plot_data:
-            self._initialize_1d_plot(self._extra_data['Indep Values'][0][0], 
+            self._init_1d_plot(self._extra_data['Indep Values'][0][0], 
                 data, self._extra_data['Indep Names'][0][0], plot_data)
 
         if runs > 1:        # Run multiple measurement shots.
@@ -1181,6 +1178,84 @@ class Experiment:
         if (save and self._run_status!= 'abort') or self._run_status== 'abort-and-save':        # save data.
             self._save_data(self._extra_data['Indep Names'], self._extra_data['Indep Values'], run_data, self._extra_data['dependencies'])
 
+    def _process_data(self, raw_data):
+        """
+        Check that the data dictionary returned by a single run of
+        an experiment meets minimum consistency criteria. Restore
+        the field entries that are omitted.
+        
+        Input:
+            raw_data: data dictionary returned, for example, by run_once
+                method.
+        Output:
+            data: processed data dictionary potentially with some
+                restored fields.
+        """
+        # Assign 'Type' to be 'Independent' if the variable
+        # is listed in any dependency specifications.
+        data = {}
+        for key in raw_data:
+            data[key] = raw_data[key].copy()
+            if 'Dependencies' in data[key]:
+                for dep in data[key]['Dependencies']:
+                    if dep not in data:
+                        raise DataError("Data variable '" + str(key) + 
+                        "' dependencies should be specified as a string" +
+                        " or a list of strings.")
+                    if 'Value' not in data[dep]:
+                        raise DataError("Independent data variable '" + 
+                        str(dep) + "' does not have 'Value' entry.")
+                    if 'Type' in dep:
+                        if 'Type' != 'Independent':
+                            raise DataError("Conflicted dependencies " +
+                            "are specified in the '" + str(key) + 
+                            "' and '" + str(dep) + "' data entries.")
+                    else:
+                        data[dep]['Type'] = 'Independent'
+        
+        # Check that data variables containing more than one element
+        # have their dependencies properly specified.
+        for key in data:
+            if 'Value' in data[key] and ('Type' not in data[key] or
+                    data[key]['Type'] == 'Dependent'):
+                if (isinstance(data[key]['Value'], np.ndarray)
+                    and data[key]['Value'].size > 1):
+                    if 'Dependencies' not in data[key]:
+                        raise DataError("Data variable '" + str(key) + 
+                        "' is returned without a dependency specification.")
+                    elif isinstance(data[key]['Dependencies'], str):
+                        data[key]['Dependencies'] = [data[key]['Dependencies']]
+                    elif isinstance(data[key]['Dependencies'], list):
+                        if not all([isinstance(name, str) for name in 
+                                data[key]['Dependencies']]):
+                            raise DataError("Data variable '" + str(key) + 
+                            "' dependencies should be specified as a string" +
+                            " or a list of strings.")
+                    expected_shape = ()
+                    for dep in data[key]['Dependencies']:
+                        expected_shape = expected_shape + np.shape(data[dep]['Value'])
+                    if np.shape(data[key]['Value']) != expected_shape:
+                        raise DataError("Data variable '" + str(key) + 
+                        "' shape does not match the size of the " +
+                        "independent variables.")
+                elif 'Dependencies' not in data[key]:
+                    data[key]['Dependencies'] = []
+                elif len(data[key]['Dependencies']) > 0:
+                    raise DataError("Data variable '" + str(key) + 
+                        "' is not a numpy array with more than one " +
+                        "element and, thus, should not have any " +
+                        "dependencies explicitly specified.")
+        
+        # Ensure that the types are assigned correctly.
+        for key in data:
+            if 'Type' not in data[key]:
+                data[key]['Type'] = 'Dependent'
+            elif data[key]['Type'] not in ['Dependent', 'Independent']:
+                raise DataError("The data entry 'Type' should " +
+                "be either 'Dependent' or 'Independent'.")
+
+        return data
+            
     def _sweep(self, names, values, 
             print_expt_vars=None, print_data_vars=None, 
             plot_data_vars=None, max_data_dim=2, runs=1):
@@ -1211,7 +1286,7 @@ class Experiment:
             for idx in range(values[0][0].size):
                 for p_idx in range(len(names)):
                     self.variable(names[p_idx][0], values[p_idx][0][idx], False)
-                    
+
                 if runs == 1:
                     # Run the experiment once.
                     run_data = self.run_once()
@@ -1220,26 +1295,19 @@ class Experiment:
                     run_data = self.run_multiple_times_then_average(runs)
                 
                 self._sweep_pts_acquired = self._sweep_pts_acquired + 1 
-            
+
                 if idx == 0:
-                    # Check that the run_data is properly defined.
-                    for key in run_data:
-                        if ('Value' in run_data[key] and
-                            isinstance(run_data[key]['Value'], np.ndarray)
-                            and run_data[key]['Value'].size > 0):
-                            if 'Dependencies' not in run_data[key]:
-                
-                    # Initialize the data dictionary of a proper size.
-                    data = run_data.copy()
+                    # Initialize the data dictionary.
+                    # Check that the dictionary is properly defined.
+                    data = self._process_data(run_data)
+                    # Preallocate the memory resources.
                     for key in data:
-                        for field in data[key]:
-                            if self._is_expendable(field):
-                                entry_shape = np.shape(values[0][0]) + 
-                                              np.shape(data[key][field])
-                                if len(entry_shape) <= max_data_dim:
-                                    data[key][field] = np.empty(entry_shape)
-                             else:
-                                data[key][field] = np.empty(entry_shape)
+                        if 'Value' in data[key]:
+                            entry_shape = np.shape(values[0][0]) + np.shape(data[key]['Value'])
+                            if len(entry_shape) <= max_data_dim:
+                                data[key]['Value'] = np.empty(entry_shape)
+                            else:
+                                data[key]['Value'] = np.empty(entry_shape)
 
                     # Make a list of the sweep variables that should be 
                     # printed to the standard output.
@@ -1263,43 +1331,12 @@ class Experiment:
                                 str(run_data) + ". This data will not be printed.")
                         print_data_vars = [var for var in self._combine_strs(print_data_vars) if var in run_data and np.size(run_data[var]) == 1]
                         
-                    # Make a list of the data variables that should be plotted.
-                    if plot_data_vars is not None:
-                        for var in self._combine_strs(plot_data_vars):
-                            if var not in run_data:
-                                print("Warning: key '" + var + 
-                                "' has not been found in the data dictionary: " + 
-                                str(run_data) + ". This data will not be plotted.")
-                        plot_data_vars = [var for var in self._combine_strs(plot_data_vars) if var in run_data and np.size(run_data[var]) == 1]
-                        # Determine the X axis label.
-                        if plot_data_vars and values[0][0].size > 1:
-                            SameXAxis = True
-                            SimilarXAxes = True
-                            for p_idx in range(len(names)):
-                                if names[p_idx][0] != names[0][0]:
-                                    SameXAxis = False
-                                if (values[p_idx][0] != values[0][0]).any() or 
-                                    self.get_units(names[p_idx][0]) != self.get_units(names[0][0]):
-                                    SimilarXAxes = False
-                                if SameXAxis == False and SimilarXAxes == False:
-                                    break
-                            if SameXAxis:
-                                self._initialize_1d_plot(values[0][0], data,
-                                    names[0][0], plot_data_vars)
-                            elif SimilarXAxes:
-                                self._initialize_1d_plot(values[0][0], data,
-                                    [nm[0] for nm in names], plot_data_vars)
-                            else:
-                                self._initialize_1d_plot(np.array(range(values[0][0].size)),
-                                    data, 'Run Iteration (along Fast Axis)', plot_data_vars)
-                        else:
-                            plot_data_vars = None  
+                    plot_data_vars = self._init_1d_plot(values, data, names, plot_data_vars)
 
                 # Add the newly acquired data to the data set.
                 for key in data:
-                    for field in data[key]:
-                        if self._is_expendable(field):
-                            data[key][field][idx] = run_data[key][field]
+                    if 'Value' in data[key]:
+                        data[key]['Value'][idx] = run_data[key]['Value']
                 
                 # Print experiment and data variables to the standard output.
                 if self._standard_output and self._run_status!= 'abort':
@@ -1320,15 +1357,15 @@ class Experiment:
                         self._update_1d_plot(np.array(range(idx + 1)), data,
                             'Run Iteration (along Fast Axis)', plot_data_vars)
 
-                if self._run_status== '':
+                if self._run_status == '':
                     # Check whether any key is pressed.
                     self._listen_to_keyboard()
                 if self._run_message != '':
                     print(self._run_message)
                     self._run_message = ''
-                if self._run_status== 'abort':
+                if self._run_status == 'abort':
                     break
-                elif self._run_status== 'abort-and-save':
+                elif self._run_status == 'abort-and-save':
                     # The scan has been aborted.
                     # Delete unused sweep variable values.
                     for p_idx in range(len(values)):
@@ -1336,13 +1373,12 @@ class Experiment:
                     # Delete unfilled data points since the data 
                     # has been previously initialize with np.empty.
                     for key in data:
-                        for field in data[key]:
-                            if self._is_expendable(field):
-                        data[key][field] = np.delete(data[key][field], np.s_[idx+1:], 0)
+                        if 'Value' in data[key]:
+                            data[key]['Value'] = np.delete(data[key]['Value'], np.s_[idx+1:], 0)
                     break
 
             return data, values
-        else:       # Recurrent implementation of the multidimensional sweeps.
+        else:   # Recurrent implementation of the multidimensional sweeps.
             run_names = []
             run_vals = []
             for p_idx in range(len(names)):
@@ -1361,16 +1397,15 @@ class Experiment:
                     # Initialize data dictionary.
                     data = run_data.copy()
                     for key in data:
-                        for field in data[key]:
-                            if self._is_expendable(field):
-                                entry_shape = np.shape(values[0][0]) + 
-                                    np.shape(data[key])
+                        if 'Value' in data[key]:
+                            entry_shape = np.shape(values[0][0]) + np.shape(data[key])
                             if len(data_entry_shape) <= max_data_dim:
-                                data[key][field] = np.empty(entry_shape)
+                                data[key]['Value'] = np.empty(entry_shape)
                 
                 if self._run_status == 'abort-and-save':
                     if idx0 == 0:
-                        # The experiment was aborted during the acquisition of the first slice.
+                        # The experiment was aborted during 
+                        # the acquisition of the first slice.
                         for p_idx in range(len(values)):
                             values[p_idx] = [np.array([values[p_idx][0][0]])] + vals[p_idx]
                         data = run_data
@@ -1379,27 +1414,24 @@ class Experiment:
                         for p_idx in range(len(values)):
                             values[p_idx] = [np.delete(values[p_idx][0], np.s_[idx0+1:], None)] + values[p_idx][1:]
                         for key in data:
-                            for field in data[key]:
-                                if self._is_expendable(field):
-                                    data[key][field][idx0] = run_data[key][field]
-                                    data[key][field] = np.delete(data[key][field], np.s_[idx0+1:], 0)
+                            if 'Value' in data[key]:
+                                data[key]['Value'][idx0] = run_data[key]['Value']
+                                data[key]['Value'] = np.delete(data[key]['Value'], np.s_[idx0+1:], 0)
                     else:
                         # The current slice hasn't been fully acquired.
                         for p_idx in range(len(values)):
                             values[p_idx] = [np.delete(values[p_idx][0], np.s_[idx0:], None)] + values[p_idx][1:]
                         for key in data:
-                            for field in data[key]:
-                                if self._is_expendable(field):
-                                    data[key][field] = np.delete(data[key][field], np.s_[idx0:], 0)
+                            if 'Value' in data[key]:
+                                data[key]['Value'] = np.delete(data[key]['Value'], np.s_[idx0:], 0)
                     break
                 elif self._run_status == 'abort':
                     break
                 
                 # Add the newly acquired data to the data set.
                 for key in data:
-                    for field in data[key]:
-                        if self._is_expendable(field):
-                            data[key][idx0] = run_data[key]
+                    if 'Value' in data[key]:
+                        data[key][idx0] = run_data[key]
 
             return data, values
 
@@ -1455,16 +1487,12 @@ class Experiment:
         ' (for a parallel any-dimensional scan).')
         
         if isinstance(names, str):
-            # If there is only one sweep variable defined as a string,
-            # convert it to a list of lists for internal code consistency.
-        
             # Check that the variable is properly defined.
             self._check_var(names)
+            # If there is only one sweep variable defined as a string,
+            # convert it to a list of lists for internal code consistency.
             names = [[names]]
         elif isinstance(names, list):
-            # If there are no independent parallel scans, convert 
-            # the list to a list of lists for internal code consistency.
-            
             # Check that there are more than zero elements and confirm 
             # that they are strings.
             if len(names) > 0 and isinstance(names[0], str):
@@ -1475,6 +1503,8 @@ class Experiment:
                     raise SweepError('Sweep method was called with ' +
                     'repeated variable names. The data might be hard ' +
                     'to interpret.')
+                # If there are no independent parallel scans, convert 
+                # the list to a list of lists for internal code consistency.
                 names = [names]
             elif (len(names) > 0 and isinstance(names[0], list) 
                   and len(names[0]) > 0):
@@ -1520,23 +1550,23 @@ class Experiment:
         ' equal along the same scan axis. Each numpy array should'
         ' contain at least one number.')
         if isinstance(values, np.ndarray):
-            # If there is only one sweep variable defined as a 1D numpy 
-            # array, convert it to a list of lists for internal code
-            # consistency.
-        
             # Check the number of dimensions.
             if np.ndim(values) != 1:
                 raise SweepError(excpt_msg)
+            # If there is only one sweep variable defined as a 1D numpy 
+            # array, convert it to a list of lists for internal code
+            # consistency.
             values = [[values]]
         elif isinstance(values, list):
-            # If there are no independent parallel scans, convert
-            # the list of 1D numpy arrays to a list of lists for 
-            # internal code consistency.
             if len(values) > 0 and isinstance(values[0], np.ndarray):
                 for value in values:            
                     # Check the type and number of the dimensions.
-                    if not isinstance(values[0], np.ndarray) or np.ndim(value)!= 1:
+                    if (not isinstance(values[0], np.ndarray) or 
+                        np.ndim(value) != 1):
                         raise SweepError(excpt_msg)
+                # If there are no independent parallel scans, convert
+                # the list of 1D numpy arrays to a list of lists for 
+                # internal code consistency.
                 values = [values]
             elif (len(values) > 0 and isinstance(values[0], list) and
                   len(values[0]) > 0):
@@ -1569,21 +1599,20 @@ class Experiment:
         else:
             raise SweepError(excpt_msg)
         
-        # Check that the names and values can be directly mapped to each
-        # other.
+        # Check that the sweep variables (names) and values can be
+        # directly mapped to each other.
         if len(names) != len(values):
             raise SweepError('Sweep method was called with variable' +
             ' names that specified in a way could not be' +
             ' unambigiously matched to the values.')
         for list_idx, name_list in enumerate(names):
             if len(name_list) != len(values[list_idx]):
-                raise SweepError('Sweep method was called with' +
-                ' variable names that specified in a way could not' +
-                ' be unambigiously matched to the values.')
+                raise SweepError('Sweep variables could not' +
+                ' be unambigiously matched to their values.')
         
-        # Prevent any attempts to set any sweep variable twice to 
-        # different values. Otherwise, it would be really hard to
-        # interpret the data.
+        # Prevent any attempts to set any sweep variable twice to some
+        # different values. If this is allowed, it would be really hard
+        # to interpret the data.
         for list_idx1, name_list1 in enumerate(names):
             for name_idx1, name1 in enumerate(name_list1):
                 for list_idx2, name_list2 in enumerate(names):
@@ -1598,7 +1627,7 @@ class Experiment:
         
         excpt_msg = ('Optional parameter dependencies in sweep ' +
         'method should be either a string (for a 1D simple scan), '
-        'a list of strings (for a multidimensional scan), or a list' +
+        'a list of strings (for a single multidimensional scan), or a list' +
         ' of lists of strings (for parallel any-dimensional scans).')
         # If any dependencies are specified, check the following.
         if dependencies is not None:
@@ -1611,20 +1640,18 @@ class Experiment:
                 # of strings to a list of lists for internal code 
                 # consistency.
                 if len(dependencies) > 0 and isinstance(dependencies[0], str):
-                    for dep in dependencies:
-                        # Check that all nested elements are strings.
-                        if not isinstance(dep, str):
-                            raise SweepError(excpt_msg)
+                    # Check that all nested elements are strings.
+                    if any([not isinstance(dep, str) for dep in dependencies]):
+                        raise SweepError(excpt_msg)
                     dependencies = [list(set(dependencies))]
                 elif len(dependencies) > 0 and isinstance(dependencies[0], list):
                     for list_idx, dep_list in enumerate(dependencies):
                         # Check that all nested elements are lists.
                         if not isinstance(dep_list, list):
                             raise SweepError(excpt_msg)
-                        for dep in dep_list:
-                            # Check that all sub-nested elements are strings.
-                            if not isinstance(dep, str):
-                                raise SweepError(excpt_msg)
+                        # Check that all sub-nested elements are strings.
+                        if any([not isinstance(dep, str) for dep in dep_list]):
+                            raise SweepError(excpt_msg)
                         dependencies[list_idx] = list(set(dep_list))
                     for list_idx, dep_list1 in enumerate(dependencies):
                         # Check that the same data variable does not 
@@ -1640,15 +1667,20 @@ class Experiment:
                     raise SweepError(excpt_msg)
             else:
                 raise SweepError(excpt_msg)
+            # Check that the sweep variables (names) and dependencies 
+            # can be directly mapped to each other.
+            if len(dependencies) != len(names):
+                raise SweepError('Dependency specifications could not be' +
+                ' unambigiously matched to sweep variables.')
 
-        self._run_status= ''                    # E.g. 'abort' or 'abort-and-save'.
+        self._run_status= ''            # E.g. 'abort' or 'abort-and-save'.
         self._run_message = '';
         self._sweep_dimension = len(names[0])   # Dimension of the sweep.
         self._sweep_start_time = time.time()    # Start time for the finish time estimation.
-        self._sweep_number_of_points = 1        # Total number of measurement points.
+        self._sweep_number_of_pts = 1   # Total number of measurement points.
         for val in values[0]:
-            self._sweep_number_of_points = len(val) * self._sweep_number_of_points
-        self._sweep_pts_acquired = 0            # Number of the acquired data points.
+            self._sweep_number_of_pts = len(val) * self._sweep_number_of_pts
+        self._sweep_pts_acquired = 0    # Number of the acquired data points.
 
         print('\nStarting a ' + str(self._sweep_dimension) + 
               'D data sweep...\n' + 
@@ -1661,28 +1693,28 @@ class Experiment:
         print_expt_vars = []
         for name_list in names:
             print_expt_vars = print_expt_vars + name_list
-        
+
         data, values = self._sweep(names, values, print_expt_vars,
                 print_data, plot_data, max_data_dim, runs)
 
         if ((save and self._run_status!= 'abort') or
-            self._run_status== 'abort-and-save'):
+            self._run_status == 'abort-and-save'):
             # If there is at least one point to save then...
             if values[0][0].size > 0:
-                # Create a dictionary that specifies the dependency of
+                # Fully specify dependencies of
                 # the data variables on the sweep variables.
-                # This simplifies plotting the results of the
+                # This simplifies work-flow when several
                 # independent measurements that are done in parallel.
                 if dependencies is None and len(names) == 1:
-                    dependencies = [data.keys()]
-                depend_dict = {}
+                    dependencies = [[key for key in data 
+                            if 'Type' in data[key]
+                            and data[key]['Type'] == 'Independent']]
                 if dependencies is not None:
                     for list_idx, dep_list in enumerate(dependencies):
                         for dep in dep_list:
                             if dep in data:
-                                depend_dict[dep] = names[list_idx]
-                                if self._extra_data is not None and 'dependencies' in self._extra_data and dep in self._extra_data['dependencies']:
-                                    depend_dict[dep] = depend_dict[dep] + self._extra_data['dependencies'][dep]
+                                data[dep]['Dependencies'] = (names[list_idx] + 
+                                        data[dep]['Dependencies'])
                             else:
                                 print("Warning: data variable '" + 
                                 str(dep) + "' that is given in the " + 
@@ -1691,11 +1723,12 @@ class Experiment:
                                 "specification will be ignored.") 
                 # Add the dependency specifications to the run_once
                 # data that are not single numbers.
-                if self._extra_data is not None and 'Indep Names' in self._extra_data and 'Indep Values' in self._extra_data: # Add the dependency specifications to the run_once data that are not single numbers.
-                    names = names + self._extra_data['Indep Names']
-                    values = values + self._extra_data['Indep Values']
+                for list_idx, name_list in enumerate(names):
+                    for name_idx, name in enumerate(name_list):
+                        data[name] = {'Value': values[list_idx][name_idx],
+                                      'Type': 'Independent'}
                 # Save the data.
-                self._save_data(names, values, data, depend_dict)
+                self._save_data(data)
             else:
                 print('There is no data to save!')
  
@@ -1719,15 +1752,15 @@ class Experiment:
                     # Either [T] or [t] is pressed.
                     if self._sweep_pts_acquired > 0:
                         finish_time = time.localtime(self._sweep_start_time + 
-                                      self._sweep_number_of_points * 
-                                      (time.time() - self._sweep_start_time) / 
+                                      self._sweep_number_of_pts * 
+                                      (time.time() - self._sweep_start_time) /
                                       self._sweep_pts_acquired)
-                        self._run_message = 'The estimated finish time is ' + 
+                        self._run_message = ('The estimated finish time is ' + 
                         time.strftime("%H:%M:%S", finish_time) + ' on ' + 
-                        time.strftime("%m/%d/%Y", finish_time) + '.'
+                        time.strftime("%m/%d/%Y", finish_time) + '.')
                     else:
-                        self._run_message = 'No data has been aquried yet' +
-                        ' to allow any estimation.'
+                        self._run_message = ('No data has been acquired ' +
+                        ' yet to allow any time estimation.')
                 elif ord(key) == 79 or ord(key) == 111:
                     # Either [O] or [o] is pressed.
                      self._standard_output = not self._standard_output
@@ -1741,8 +1774,44 @@ class Experiment:
                 getch()
 
     ###PLOTTING METHODS############################################################################
-    def _initialize_1d_plot(self, values, data, independent_vars,
-            plot_data_vars):
+    def _init_1d_plot(self, values, data, names, plot_data_vars):  
+        # Make a list of the data variables that should be plotted.
+        if plot_data_vars is not None:
+            for var in self._combine_strs(plot_data_vars):
+                if var not in data:
+                    print("Warning: key '" + var + 
+                    "' has not been found in the data dictionary: " + 
+                    str(run_data) + ". This data will not be plotted.")
+            plot_data_vars = [var for var in self._combine_strs(plot_data_vars) 
+                    if var in data and 
+                    np.size(data[var]['Value']) == 1]
+            # Determine the X axis label.
+            if plot_data_vars and values[0][0].size > 1:
+                SameXAxis = True
+                SimilarXAxes = True
+                for p_idx in range(len(names)):
+                    if names[p_idx][0] != names[0][0]:
+                        SameXAxis = False
+                    if ((values[p_idx][0] != values[0][0]).any() or 
+                        self.get_units(names[p_idx][0]) != self.get_units(names[0][0])):
+                        SimilarXAxes = False
+                    if SameXAxis == False and SimilarXAxes == False:
+                        break
+                if SameXAxis:
+                    self._create_1d_plot(values[0][0], data,
+                        names[0][0], plot_data_vars)
+                elif SimilarXAxes:
+                    self._create_1d_plot(values[0][0], data,
+                        [nm[0] for nm in names], plot_data_vars)
+                else:
+                    self._create_1d_plot(np.array(range(values[0][0].size)),
+                        data, 'Run Iteration (along Fast Axis)', plot_data_vars)
+            else:
+                plot_data_vars = None  
+            
+        return plot_data_vars
+
+    def _create_1d_plot(self, values, data, independent_vars, plot_data_vars):
         # Specify x-axis label.
         xlabel = ''
         for var in self._combine_strs(independent_vars):
@@ -1751,10 +1820,10 @@ class Experiment:
         
         # Specify y-axis label.
         ylabel = ''
-        for var in self._combine_strs(plot_data_vars):
-            if var in data and 'name' in data[var]:
+        for var in plot_data_vars:
+            if 'name' in data[var]['Preferences']:
                 var = data[var]['name']
-            ylabel = ylabel + var + self.get_units(var, True) + ', '
+            ylabel = ylabel + var + self.get_units(data[var]['Value'], True) + ', '
         ylabel = ylabel[:-2]
         
         # Initialize the plot.
