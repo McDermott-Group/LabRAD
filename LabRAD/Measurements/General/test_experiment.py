@@ -27,21 +27,21 @@ class SimpleTestExperiment(Experiment):
         run_data = {
                     'Outcome': {'Value': outcome,
                                 'Mean': 'Outcome Mean',
-                                'Std Dev': 'Outcome Std',
-                                'Dependencies': ['Runs'],
-                                'Distribution': 'uniform',
+                                'Std Dev': 'Outcome Std Dev',
+                                'Dependencies': ['Pseudo Runs'],
+                                'Distribution': 'normal',
                                 'Prefereances': {'linestyle': 'b-', 
                                                  'ylim': [0, 1], 
                                                  'legendlabel': 'Switch. Prob.'}
                                },
-                    'Outcome Mean': {'Value': np.mean(outcome),
+                    'Mean': {'Value': np.mean(outcome),
                                      'Prefereances': {'linestyle': 'r-',
                                                       'ylim': [0, 1], 
                                                       'legendlabel': 'Mean'}
                                     },
-                    'Outcome Std': {'Value': np.mean(outcome)},
+                    'Std Dev': {'Value': np.std(outcome)},
                     'Voltage': {'Value': 10 * units.V},
-                    'Runs': {'Value': np.linspace(1, self.variable('Reps'), self.variable('Reps')),
+                    'Pseudo Runs': {'Value': np.linspace(1, self.variable('Reps'), self.variable('Reps')),
                              'Type': 'Independent'}
                    }
          
@@ -72,7 +72,7 @@ ExptInfo = {
  
 # Experiment Variables
 ExptVars = {
-            'Reps': 10000, # should not exceed ~50,000
+            'Reps': 10, # should not exceed ~50,000
           
             'Variable 1': 10 * units.V,
             'Variable 2': 100 * units.us,
@@ -85,5 +85,23 @@ with SimpleTestExperiment() as expt:
     
     expt.set_experiment(ExptInfo, Resources, ExptVars) 
     
-    expt.sweep('Variable 1', np.linspace(0.1, 0.3, 101) * units.V, 
-                save=True, print_data=['Outcome Mean'], plot_data=['Outcome Mean'])
+    expt.sweep('Variable 1', np.linspace(0.1, 0.3, 21) * units.V, 
+        save=True)
+                
+    expt.sweep('Variable 3', np.linspace(1, 3, 21) * units.V, 
+        save=True, print_data=['Mean'], plot_data=['Mean'], runs=3)
+        
+    expt.sweep(['Variable 1', 'Variable 3'], 
+        [np.linspace(1, 1, 1) * units.V, np.linspace(1, 3, 5) * units.V], 
+        save=True, print_data=['Mean'], plot_data=['Mean'])
+        
+    expt.sweep(['Variable 1', 'Variable 3'], 
+        [np.linspace(1, 2, 2) * units.V, np.linspace(1, 3, 5) * units.V], 
+        save=True, print_data=['Outcome Mean'],
+        plot_data=['Outcome Mean'], runs=3)
+
+    expt.sweep(['Variable 1', 'Variable 2', 'Variable 3'],
+        [np.linspace(1, 2, 2) * units.V, np.linspace(1, 3, 5) * units.us,
+        np.linspace(4, 5, 3) * units.V],
+        save=True, print_data=['Mean'], dependencies=['Mean'], runs=5,
+        max_data_dim = 3)

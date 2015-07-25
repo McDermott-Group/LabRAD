@@ -17,7 +17,7 @@
 ### BEGIN NODE INFO
 [info]
 name = SIM900 SRS Mainframe
-version = 2.0.3
+version = 2.0.4
 description = Gives access to devices plugged into SRS SIM900 Mainframe.
 instancename = %LABRADNODE% SIM900
 
@@ -31,11 +31,14 @@ timeout = 20
 ### END NODE INFO
 """
 
-import os.path
+import os
 if __file__ in [f for f in os.listdir('.') if os.path.isfile(f)]:
-    SCRIPT_PATH = os.path.dirname(os.getcwd())  # This will be executed when the script is loaded by the labradnode.
+    # This is executed when the script is loaded by the labradnode.
+    SCRIPT_PATH = os.path.dirname(os.getcwd())
 else:
-    SCRIPT_PATH = os.path.dirname(__file__)     # This will be executed if the script is started by clicking or in a command line.
+    # This is executed if the script is started by clicking or
+    # from a command line.
+    SCRIPT_PATH = os.path.dirname(__file__)
 LABRAD_PATH = os.path.join(SCRIPT_PATH.rsplit('LabRAD', 1)[0])
 import sys
 if LABRAD_PATH not in sys.path:
@@ -46,8 +49,7 @@ import visa
 from pyvisa.errors import VisaIOError
 
 from twisted.internet.defer import inlineCallbacks, returnValue
-from twisted.internet.reactor import callLater
-# from twisted.internet.task import LoopingCall
+# from twisted.internet.reactor import callLater
 
 from labrad.server import setting, returnValue
 from labrad.gpib import GPIBManagedServer, GPIBDeviceWrapper
@@ -55,7 +57,8 @@ from labrad.gpib import GPIBManagedServer, GPIBDeviceWrapper
 from LabRAD.Servers.GPIB.gpib_server import GPIBBusServer
 from LabRAD.Servers.GPIB.gpib_device_manager import parseIDNResponse, UNKNOWN
 
-# These are the redefined functions that will be used for the visa instruments to connect to the appropriate slots.
+# These are the redefined functions that will be used for the visa
+# instruments to connect to the appropriate slots.
 def set_slot(self, i):
     self.slot = i
 
@@ -111,50 +114,62 @@ class SIM900Server(GPIBBusServer, GPIBManagedServer):
     
     @inlineCallbacks
     def initServer(self):
-        """Provides direct access to GPIB-enabled devices in a SIM900 mainframe."""
+        """
+        Provide direct access to GPIB-enabled devices in a SIM900
+        mainframe.
+        """
         GPIBManagedServer.initServer(self) # this order is important
         GPIBBusServer.initServer(self)
         p = self.client.gpib_device_manager.packet()
         yield p.register_ident_function('custom_ident_function').send()
     
     @inlineCallbacks
-    def handleDeviceMessage(self,*args):
+    def handleDeviceMessage(self, *args):
         oldDevices = self.devices.copy()
-        yield GPIBManagedServer.handleDeviceMessage(self,*args)
+        yield GPIBManagedServer.handleDeviceMessage(self, *args)
         if self.devices != oldDevices:
-            self.refreshDevices # callLater(0.1, self.refreshDevices) # This may or may not help improve the responsiveness of SIM900 to the GPIB queries.
+            self.refreshDevices() # callLater(0.1, self.refreshDevices)
         
     @inlineCallbacks
     def refreshDevices(self):
-        """Refresh the list of known devices (modules) in the SIM900 mainframe."""
-        yield self.client.refresh()     # To avoid calling before the server name was added to the client dictionary.
+        """
+        Refresh the list of known devices (modules) in the SIM900
+        mainframe.
+        """
+        # To avoid calling before the server name was added to the client dictionary.
+        yield self.client.refresh()
         addresses = []
-        statusStr = '0'
         IDs, names = self.deviceLists()
         for SIM900addr in names:
             p = self.client[self.name].packet()
             res = yield p.select_device(SIM900addr).gpib_write('*CLS').gpib_query('CTCR?').send()
             statusStr = res['gpib_query']
-            # ask the SIM900 which slots have an active module, and only deal with those.
+            # Ask the SIM900 which slots have an active module, and only deal with those.
             statusCodes = [bool(int(x)) for x in "{0:016b}".format(int(statusStr))]
             statusCodes.reverse()
             for i in range(1, 9): # slots 1-8 in rack
-                # print('Device on ' + SIM900addr.split(' - ')[-1] + ' in slot ' + str(i) + '?: ' + str(statusCodes[i]))
+                # print('Device on ' + SIM900addr.split(' - ')[-1] + 
+                # ' in slot ' + str(i) + '?: ' + str(statusCodes[i]))
                 if statusCodes[i]: # added or changed
                     # Ex: mcdermott5125 GPIB Bus - GPIB0::2::SIM900::4
-                    devName = '::'.join(SIM900addr.split(' - ')[-1].split('::')[:-1] + ['SIM900', str(i)])
+                    devName = ('::'.join(SIM900addr.split(' - ')[-1].split('::')[:-1] + 
+                            ['SIM900', str(i)]))
                     addresses.append(devName)
         additions = set(addresses) - set(self.mydevices.keys())
         deletions = set(self.mydevices.keys()) - set(addresses)
-        # Get the visa instruments, changing the read/write/query commands to work for only the correct slot in the SIM900.
+        # Get the visa instruments, changing the read/write/query
+        # commands to work for only the correct slot in the SIM900.
         for addr in additions:
             instName = addr.split(' - ')[-1].rsplit('::', 2)[0]
             rm = visa.ResourceManager()
             instr = rm.open_resource(instName, open_timeout=1.0)
             instr.write_termination = ''
-            # Change (decorate) the read, write, query settings to automatically go to right module in SIM rack.
-            instr.read_undecorated, instr.read_raw_undecorated = instr.read, instr.read_raw 
-            instr.write_undecorated, instr.query_undecorated = instr.write, instr.query
+            # Change (decorate) the read, write, query settings to 
+            # automatically go to right module in SIM rack.
+            instr.read_undecorated = instr.read 
+            instr.read_raw_undecorated = instr.read_raw 
+            instr.write_undecorated = instr.write
+            instr.query_undecorated = instr.query
             instr.set_slot = set_slot
             instr.get_slot = get_slot
             instr.read = MethodType(read_decorated, instr)

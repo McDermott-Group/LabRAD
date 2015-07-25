@@ -13,11 +13,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import os.path
+import os
 if __file__ in [f for f in os.listdir('.') if os.path.isfile(f)]:
-    SCRIPT_PATH = os.path.dirname(os.getcwd())  # This will be executed when the script is loaded by the labradnode.
+    # This is executed when the script is loaded by the labradnode.
+    SCRIPT_PATH = os.path.dirname(os.getcwd())
 else:
-    SCRIPT_PATH = os.path.dirname(__file__)     # This will be executed if the script is started by clicking or in a command line.
+    # This is executed if the script is started by clicking or
+    # from a command line.
+    SCRIPT_PATH = os.path.dirname(__file__)
 LABRAD_PATH = os.path.join(SCRIPT_PATH.rsplit('LabRAD', 1)[0])
 import sys
 if LABRAD_PATH not in sys.path:
@@ -25,12 +28,11 @@ if LABRAD_PATH not in sys.path:
 
 import numpy as np
 
-import LabRAD.Measurements.General.experiment as expt
-import LabRAD.Servers.GHzBoards.ghz_fpga_control as dac
-import LabRAD.Servers.GHzBoards.pulse_shapes as pulse
+import labrad.units as units
 
-G = float(10**9)
-M = float(10**6)
+import LabRAD.Measurements.General.experiment as expt
+import LabRAD.Servers.Instruments.GHzBoards.ghz_fpga_control as dac
+import LabRAD.Servers.Instruments.GHzBoards.pulse_shapes as pulse
 
 DAC_ZERO_PAD_LEN = 20
 PREAMP_TIMEOUT = 1253
@@ -39,26 +41,29 @@ class JPMQubitReadoutWithReset(expt.Experiment):
     """
     Read out a qubit connected to a resonator with a readout and a displacement (reset) pulse.
     """
-    def RunOnce(self, Histogram=False, PlotWaveforms=False):
-        ###DATA VARIABLES####################################################################################
-        #####################################################################################################
-        # Units for data variables as well as plotting preferences can be defined here.
-        # Example: self._WrapDataVar('P',  '', 'binomial', ' {'name': 'Probability', 'linestyle': 'b-', 'linewidth': 2, 'legendlabel': 'Prob.', 'ylim': [0, 1]})
-        self._WrapDataVar('Switching Probability',  '', 'binomial', {'linestyle': 'b-', 'ylim': [0, 1], 'legendlabel': 'Switch. Prob.'})
-        self._WrapDataVar('Detection Time', 'PreAmp Time Counts', 'normal', {'linestyle': 'r-', 'ylim': [0, PREAMP_TIMEOUT]})
-        self._WrapDataVar('Detection Time Std Dev', 'PreAmp Time Counts', 'std')
+    def run_once(self, Histogram=False, PlotWaveforms=False):
+        #RF VARIABLES##############################################################################
+        self.send_request('RF Attenuation', False)             # RF attenuation
+        self.send_request('RF Power', False)                   # RF power
+        self.send_request('RF Frequency', False,               # RF frequency
+                self.variable('RF Frequency') + self.variable('RF SB Frequency'))
+
+        #QUBIT VARIABLES###########################################################################
+        self.send_request('Qubit Attenuation', False)          # qubit attenuation
+        self.send_request('Qubit Power', False)                # qubit power
+        self.send_request('Qubit Frequency', False,            # qubit frequency
+                self.variable('Qubit Frequency') + self.variable('Qubit SB Frequency'))
+    
+        #RF DRIVE (READOUT) VARIABLES##############################################################
+        self.send_request('Readout Attenuation', False)        # readout attenuation
+        self.send_request('Readout Power', False)              # readout power
+        self.send_request('Readout Frequency', False,          # readout frequency
+            self.variable('Readout Frequency') + self.variable('Readout SB Frequency'))
+
+        #DC BIAS VARIABLES#########################################################################
+        self.send_request('Qubit Flux Bias Voltage', False)    # qubit flux bias
         
-        ###GENERAL EXPERIMENT VARIABLES######################################################################
-        #####################################################################################################
-        # Experiment variables that do not control any electronics explicitly can be defined here as well
-        # as any data that manually entered. self._WrapExptVar('Variable Name', 'Units' [, New_Value]) method assigns
-        # units and ensures that the variable was defined/set properly. It could be used to redefine the value.
-        # The method returns the value of the variable.        
-        reps = self._WrapExptVar('Reps')                                            # experiment repetitions
-        self._WrapExptVar('Temperature', 'mK')                                      # save temperature as one extra_data experiment variable
-        threshold = self._WrapExptVar('Threshold', 'PreAmp Time Counts')            # save Threshold parameter
-        
-        ###EXPERIMENT VARIABLES USED BY PERMANENTLY PRESENT DEVICES##########################################
+        ###EXPERIMENT VARIABLES USED BY PERMANENTLY PRESENT DEVICES################################
         #####################################################################################################
         # Experiment variables that used by DC Rack, DAC and ADC boards should be defined here.
         
@@ -92,62 +97,7 @@ class JPMQubitReadoutWithReset(expt.Experiment):
         QBtoRO = self._WrapExptVar('Qubit Drive to Readout', 'ns')                  # delay between the end of the qubit pulse and the start of the readout pulse
         ROtoD = self._WrapExptVar('Readout to Displacement', 'ns')                  # delay between the end of readout pulse and the start of displacement pulse
         DtoFP = self._WrapExptVar('Displacement to Fast Pulse', 'ns')               # delay between the end of the displacement pulse and the start of the fast pulse
-        
-        ###EXPERIMENT VARIABLES USED BY DEVICES THAT COULD BE STOLEN BY THE OTHER GROUP MEMBERS##############
-        #####################################################################################################        
-        # Experiment variables that are not be essential for some of the experiment runs should be defined here.
-        # The external electronics should be called here, conditional on the presence of
-        # the corresponding variables in self._var2res.
 
-        #RF VARIABLES########################################################################################
-        if 'RF Attenuation' in self._var2res:                                 # RF attenuation
-            if self._var2res['RF Attenuation']['Resource'] == 'Lab Brick':
-                self.LabBricks.SetAttenuation(self._var2res['RF Attenuation']['Serial Number'], 
-                                              self._WrapExptVar('RF Attenuation', 'dB'))
-
-        if 'RF Power' in self._var2res:                                       # RF power
-            if self._var2res['RF Power']['Resource'] == 'RF Generator':
-                self.RFgen[self._var2res['RF Power']['GPIB Address']].Power(self._WrapExptVar('RF Power', 'dBm'))
-
-        if 'RF Frequency' in self._var2res:                               # RF frequency
-            if self._var2res['RF Frequency']['Resource'] == 'RF Generator':
-                self.RFgen[self._var2res['RF Frequency']['GPIB Address']].Frequency(self._WrapExptVar('RF Frequency', 'Hz'))
-
-        #RF DRIVE (READOUT) VARIABLES########################################################################
-        if 'Readout Attenuation' in self._var2res:                            # readout attenuation
-            if self._var2res['Readout Attenuation']['Resource'] == 'Lab Brick':
-                self.LabBricks.SetAttenuation(self._var2res['Readout Attenuation']['Serial Number'], 
-                                              self._WrapExptVar('Readout Attenuation', 'dB'))
-
-        if 'Readout Power' in self._var2res:                                  # readout power
-            if self._var2res['Readout Power']['Resource'] == 'RF Generator':
-                self.RFgen[self._var2res['Readout Power']['GPIB Address']].Power(self._WrapExptVar('Readout Power', 'dBm'))
-
-        if 'Readout Frequency' in self._var2res:                              # readout frequency
-            if self._var2res['Readout Frequency']['Resource'] == 'RF Generator':
-                self.RFgen[self._var2res['Readout Frequency']['GPIB Address']].Frequency(self._WrapExptVar('Readout Frequency', 'Hz') + RO_SB_freq * G)
-
-        #QUBIT VARIABLES#####################################################################################
-        if 'Qubit Attenuation' in self._var2res:                              # qubit attenuation
-            if self._var2res['Qubit Attenuation']['Resource'] == 'Lab Brick Attenuator':
-            
-                self.cxn(self._var2res['Qubit Attenuation']['Serial Number'], 
-                                              self._WrapExptVar('Qubit Attenuation', 'dB'))
-
-        if 'Qubit Power' in self._var2res:                                    # qubit power
-            if self._var2res['Qubit Power']['Resource'] == 'RF Generator':
-                self.RFgen[self._var2res['Qubit Power']['GPIB Address']].Power(self._WrapExptVar('Qubit Power', 'dBm'))
-
-        if 'Qubit Frequency' in self._var2res:                                # qubit frequency
-            if self._var2res['Qubit Frequency']['Resource'] == 'RF Generator':
-                self.RFgen[self._var2res['Qubit Frequency']['GPIB Address']].Frequency(self._WrapExptVar('Qubit Frequency', 'Hz') + QB_SB_freq * G)
-                
-        #DC BIAS VARIABLES###################################################################################
-        if 'Qubit Flux Bias Voltage' in self.ExptVars and 'Qubit Flux Bias Voltage' in self._var2res:     # qubit flux bias
-            if self._var2res['Qubit Flux Bias Voltage']['Resource'] == 'SIM':
-                self.SIM[(self._var2res['Qubit Flux Bias Voltage']['GPIB Address'], 
-                          self._var2res['Qubit Flux Bias Voltage']['SIM Slot'])].Voltage(self._WrapExptVar('Qubit Flux Bias Voltage', 'V'))
-        
         ###WAVEFORMS#########################################################################################
         #####################################################################################################
         requested_waveforms = [settings['DAC A'] for settings in self.DACSettings] + [settings['DAC B'] for settings in self.DACSettings]
@@ -247,8 +197,9 @@ class JPMQubitReadoutWithReset(expt.Experiment):
         DAC2_SRAM = dac.waves2sram(waveforms[self.DACSettings[1]['DAC A']], waveforms[self.DACSettings[1]['DAC B']])
         DAC2_mem  = dac.memFromList(memList2)
         
-        ###RUN###############################################################################################
-        #####################################################################################################        
+  
+        ###RUN#####################################################################################
+        self.acknowledge_requests()
         P = self.LoadAndRun([DAC1_SRAM, DAC2_SRAM], [DAC1_mem, DAC2_mem], reps, 'PreAmp')
         
         ###DATA POST-PROCESSING##############################################################################
@@ -261,13 +212,22 @@ class JPMQubitReadoutWithReset(expt.Experiment):
 
         t_mean, t_std = self._MeanTimeFromArray(P, PREAMP_TIMEOUT)
         
+        ###DATA STRUCTURE##########################################################################
         run_data = {
-                    'Switching Probability': self._SwitchProbFromArray(P, threshold),
-                    'Detection Time': t_mean,
-                    'Detection Time Std Dev': t_std,
+                    'Switching Probability': {'Value': self._SwitchProbFromArray(P, threshold),
+                                              'Distribution': 'binomial',
+                                              'Preferances':  {'linestyle': 'b-',
+                                                               'ylim': [0, 1],
+                                                               'legendlabel': 'Switch. Prob.'}},
+                    'Detection Time': {'Value': t_mean * units.PreAmpTimeCounts,
+                                       'Distribution': 'normal',
+                                       'Preferances': {'linestyle': 'r-', 
+                                                       'ylim': [0, PREAMP_TIMEOUT]}},
+                    'Detection Time Std Dev': t_std * units.PreAmpTimeCounts,
                    } 
         
         ###EXTRA EXPERIMENT PARAMETERS TO SAVE###############################################################
         #####################################################################################################
-        self._WrapExptVar('Actual Reps', '', len(P[0]))
+        self.add_var('Actual Reps', len(P[0]))
+        
         return run_data, None
