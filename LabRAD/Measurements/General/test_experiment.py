@@ -23,7 +23,7 @@ class SimpleTestExperiment(Experiment):
     Mock-up a simple experiment.
     """
     def run_once(self):
-        outcome = np.random.rand(self.variable('Reps'))
+        outcome = np.random.rand(self.value('Reps'))
         run_data = {
                     'Outcome': {'Value': outcome,
                                 'Mean': 'Outcome Mean',
@@ -41,7 +41,7 @@ class SimpleTestExperiment(Experiment):
                                     },
                     'Std Dev': {'Value': np.std(outcome)},
                     'Voltage': {'Value': 10 * units.V},
-                    'Pseudo Runs': {'Value': np.linspace(1, self.variable('Reps'), self.variable('Reps')),
+                    'Pseudo Runs': {'Value': np.linspace(1, self.value('Reps'), self.value('Reps')),
                              'Type': 'Independent'}
                    }
          
@@ -52,7 +52,7 @@ class SimpleTestExperiment(Experiment):
 # However, 'Resource': 'LabRAD Server' should never be left out.
 Resources = [
                 { # External readings.
- 'Resource': 'Manual Record',
+                    'Resource': 'Manual Record',
                     'Variables': ['Temperature']
                 },
                 { # Extra experiment parameters.

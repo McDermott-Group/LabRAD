@@ -31,76 +31,92 @@ import numpy as np
 import labrad.units as units
 
 import LabRAD.Measurements.General.experiment as expt
-import LabRAD.Servers.Instruments.GHzBoards.ghz_fpga_control as dac
-import LabRAD.Servers.Instruments.GHzBoards.pulse_shapes as pulse
+import LabRAD.Measurements.General.pulse_shapes as pulse
+
+import data_processing
 
 DAC_ZERO_PAD_LEN = 20
-PREAMP_TIMEOUT = 1253
 
 class JPMQubitReadoutWithReset(expt.Experiment):
     """
     Read out a qubit connected to a resonator with a readout and a displacement (reset) pulse.
     """
-    def run_once(self, Histogram=False, PlotWaveforms=False):
+    def run_once(self, histogram=False, plot_waveforms=False):
         #RF VARIABLES##############################################################################
-        self.send_request('RF Attenuation', False)             # RF attenuation
-        self.send_request('RF Power', False)                   # RF power
-        self.send_request('RF Frequency', False,               # RF frequency
-                self.variable('RF Frequency') + self.variable('RF SB Frequency'))
+        if self.value('RF Attenuation') is not None:
+            self.send_request('RF Attenuation')                         # RF attenuation
+        if self.value('RF Power') is not None:
+            self.send_request('RF Power')                               # RF power
+        if self.value('RF Frequency') is not None:
+            if self.value('RF SB Frequency') is not None:               # RF frequency
+                self.send_request('RF Frequency', False,                
+                        self.value('RF Frequency') + 
+                        self.value('RF SB Frequency'))
+            else:
+                self.send_request('RF Frequency')
 
         #QUBIT VARIABLES###########################################################################
-        self.send_request('Qubit Attenuation', False)          # qubit attenuation
-        self.send_request('Qubit Power', False)                # qubit power
-        self.send_request('Qubit Frequency', False,            # qubit frequency
-                self.variable('Qubit Frequency') + self.variable('Qubit SB Frequency'))
+        if self.value('Qubit Attenuation') is not None:
+            self.send_request('Qubit Attenuation')                      # Qubit attenuation
+        if self.value('Qubit Power') is not None:
+            self.send_request('Qubit Power')                            # Qubit power
+        if self.value('Qubit Frequency') is not None:
+            if self.value('Qubit SB Frequency') is not None:            # Qubit frequency
+                self.send_request('Qubit Frequency', False,
+                        self.value('Qubit Frequency') + 
+                        self.value('Qubit SB Frequency'))
+            else:
+                self.send_request('Qubit Frequency')
     
         #RF DRIVE (READOUT) VARIABLES##############################################################
-        self.send_request('Readout Attenuation', False)        # readout attenuation
-        self.send_request('Readout Power', False)              # readout power
-        self.send_request('Readout Frequency', False,          # readout frequency
-            self.variable('Readout Frequency') + self.variable('Readout SB Frequency'))
+        if self.value('Readout Attenuation') is not None:
+            self.send_request('Readout Attenuation')                    # Readout attenuation
+        if self.value('Readout Power') is not None:
+            self.send_request('Readout Power')                          # Readout power
+        if self.value('Readout Frequency') is not None:
+            if self.value('Readout SB Frequency') is not None:          # Readout frequency
+                self.send_request('Readout Frequency', False,
+                        self.value('Readout Frequency') + 
+                        self.value('Readout SB Frequency'))
+            else:
+                self.send_request('Readout Frequency')
 
         #DC BIAS VARIABLES#########################################################################
-        self.send_request('Qubit Flux Bias Voltage', False)    # qubit flux bias
+        if self.value('Qubit Flux Bias Voltage') is not None:
+            self.send_request('Qubit Flux Bias Voltage', False)
         
         ###EXPERIMENT VARIABLES USED BY PERMANENTLY PRESENT DEVICES################################
-        #####################################################################################################
         # Experiment variables that used by DC Rack, DAC and ADC boards should be defined here.
+           
+        #CAVITY DRIVE (READOUT) VARIABLES##########################################################
+        RO_SB_freq = self.value('Readout SB Frequency')['GHz']          # readout sideband frequency (RO_SB_freq in GHz)
+        RO_amp = self.value('Readout Amplitude')['DACUnits']            # amplitude of the sideband modulation
+        RO_time = self.value('Readout Time')['ns']                      # length of the readout pulse
+        RO_phase = self.value('Readout Phase')['rad']                   # readout pulse phase
+        Disp_amp = self.value('Displacement Amplitude')['DACUnits']     # amplitude of the displacement pulse
+        Disp_time = self.value('Displacement Time')['ns']               # length of the displacement pulse time
+        Disp_phase = self.value('Displacement Phase')['rad']            # displacement pulse phase
         
-        #DC RACK TIMING VARIABLES############################################################################
-        initTime = self._WrapExptVar('Init Time', 'us')                             # wait time between reps
-        biasTime = self._WrapExptVar('Bias Time', 'us')                             # time of the FastBias pulse
-        measTime = self._WrapExptVar('Measure Time', 'us')                          # time of the FastBias pulse
-        
-        #CAVITY DRIVE (READOUT) VARIABLES####################################################################
-        RO_SB_freq = self._WrapExptVar('Readout SB Frequency', 'Hz') / G            # readout sideband frequency (RO_SB_freq in GHz)
-        RO_amp = self._WrapExptVar('Readout Amplitude', 'DAC units')                # amplitude of the sideband modulation
-        RO_time = self._WrapExptVar('Readout Time', 'ns')                           # length of the readout pulse
-        RO_phase = self._WrapExptVar('Readout Phase', 'rad')                        # readout pulse phase
-        Disp_amp = self._WrapExptVar('Displacement Amplitude', 'DAC units')         # amplitude of the displacement pulse
-        Disp_time = self._WrapExptVar('Displacement Time', 'ns')                    # length of the displacement pulse time
-        Disp_phase = self._WrapExptVar('Displacement Phase', 'rad')                 # displacement pulse phase
-        
-        ROtoD_offset = self._WrapExptVar('Readout to Displacement Offset', 'DAC units') # zero offset between readout and reset pulses
-        #QUBIT DRIVE VARIABLES###############################################################################
-        QB_SB_freq = self._WrapExptVar('Qubit SB Frequency', 'Hz') / G              # qubit sideband frequency (QB_SB_freq in GHz)
-        QB_amp = self._WrapExptVar('Qubit Amplitude', 'DAC units')                  # amplitude of the sideband modulation
-        QB_time = self._WrapExptVar('Qubit Time', 'ns')                             # length of the qubit pulse
+        ROtoD_offset = self.value('Readout to Displacement Offset')['DACUnits'] # zero offset between readout and reset pulses
+        #QUBIT DRIVE VARIABLES#####################################################################
+        QB_SB_freq = self.value('Qubit SB Frequency')['GHz']            # qubit sideband frequency (QB_SB_freq in GHz)
+        QB_amp = self.value('Qubit Amplitude')['DACUnits']              # amplitude of the sideband modulation
+        QB_time = self.value('Qubit Time')['ns']                        # length of the qubit pulse
       
-        #JPM A VARIABLES##################################################################################### 
-        JPM_bias = self._WrapExptVar('Bias Voltage', 'FastBias DAC units')          # height of the FastBias pulse   
-        JPM_FPT = self._WrapExptVar('Fast Pulse Time', 'ns')                        # length of the DAC pulse
-        JPM_FPA = self._WrapExptVar('Fast Pulse Amplitude', 'DAC units')            # amplitude of the DAC pulse
-        JPM_FPW = self._WrapExptVar('Fast Pulse Width', 'ns')                       # DAC pulse rise time 
+        #JPM A VARIABLES########################################################################### 
+        JPM_bias = self.value('Bias Voltage')['V']                      # height of the FastBias pulse   
+        JPM_FPT = self.value('Fast Pulse Time')['ns']                   # length of the DAC pulse
+        JPM_FPA = self.value('Fast Pulse Amplitude')['DACUnits']        # amplitude of the DAC pulse
+        JPM_FPW = self.value('Fast Pulse Width')['ns']                  # DAC pulse rise time 
         
-        #TIMING VARIABLES####################################################################################
-        QBtoRO = self._WrapExptVar('Qubit Drive to Readout', 'ns')                  # delay between the end of the qubit pulse and the start of the readout pulse
-        ROtoD = self._WrapExptVar('Readout to Displacement', 'ns')                  # delay between the end of readout pulse and the start of displacement pulse
-        DtoFP = self._WrapExptVar('Displacement to Fast Pulse', 'ns')               # delay between the end of the displacement pulse and the start of the fast pulse
+        #TIMING VARIABLES##########################################################################
+        QBtoRO = self.value('Qubit Drive to Readout')['ns']             # delay between the end of the qubit pulse and the start of the readout pulse
+        ROtoD = self.value('Readout to Displacement')['ns']             # delay between the end of readout pulse and the start of displacement pulse
+        DtoFP = self.value('Displacement to Fast Pulse')['ns']          # delay between the end of the displacement pulse and the start of the fast pulse
 
-        ###WAVEFORMS#########################################################################################
-        #####################################################################################################
-        requested_waveforms = [settings['DAC A'] for settings in self.DACSettings] + [settings['DAC B'] for settings in self.DACSettings]
+        ###WAVEFORMS###############################################################################
+        requested_waveforms = [settings[ch] for settings in
+                self.fpga_boards.dac_settings for ch in ['DAC A', 'DAC B']]
 
         JPM_smoothed_FP = pulse.GaussPulse(JPM_FPT, JPM_FPW, JPM_FPA)
         FPtoEnd = max(0, DtoFP + JPM_smoothed_FP.size) + DAC_ZERO_PAD_LEN
@@ -115,119 +131,101 @@ class JPMQubitReadoutWithReset(expt.Experiment):
                                                      pulse.DC(max(0, -DtoFP - JPM_smoothed_FP.size) + DAC_ZERO_PAD_LEN, 0)])      
 
         if 'Qubit I' in requested_waveforms: 
-            if QB_SB_freq != 0:
-                waveforms['Qubit I'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN, 0),
-                                                  pulse.CosinePulse(QB_time, QB_SB_freq, QB_amp, 0.0, 0.0),
-                                                  pulse.DC(QBtoRO + RO_time + ROtoD + Disp_time + FPtoEnd, 0)])
-            else:
-                waveforms['Qubit I'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN, 0),
-                                                  pulse.DC(QB_time, QB_amp),
-                                                  pulse.DC(QBtoRO + RO_time + ROtoD + Disp_time + FPtoEnd, 0)])
+            waveforms['Qubit I'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN, 0),
+                                              pulse.CosinePulse(QB_time, QB_SB_freq, QB_amp, 0.0, 0.0),
+                                              pulse.DC(QBtoRO + RO_time + ROtoD + Disp_time + FPtoEnd, 0)])
 
         if 'Qubit Q' in requested_waveforms: 
-            if QB_SB_freq != 0:
-                waveforms['Qubit Q'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN, 0),
-                                                  pulse.SinePulse(QB_time, QB_SB_freq, QB_amp, 0.0, 0.0),
-                                                  pulse.DC(QBtoRO + RO_time + ROtoD + Disp_time + FPtoEnd, 0)])
-            else:
-                waveforms['Qubit Q'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN + QB_time + QBtoRO + RO_time + ROtoD + Disp_time + FPtoEnd, 0)])
+            waveforms['Qubit Q'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN, 0),
+                                              pulse.SinePulse(QB_time, QB_SB_freq, QB_amp, 0.0, 0.0),
+                                              pulse.DC(QBtoRO + RO_time + ROtoD + Disp_time + FPtoEnd, 0)])
 
         if 'Readout I' in requested_waveforms:
-            if RO_SB_freq != 0:
-                waveforms['Readout I'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN + QB_time + QBtoRO, 0),
-                                                    pulse.CosinePulse(RO_time, RO_SB_freq, RO_amp, RO_phase / (2 * np.pi), 0),
-                                                    pulse.CosinePulse(ROtoD, RO_SB_freq, ROtoD_offset, ROtoD * RO_SB_freq + RO_phase / (2 * np.pi), 0),
-                                                    pulse.CosinePulse(Disp_time, RO_SB_freq, Disp_amp, (RO_time + ROtoD) * RO_SB_freq + Disp_phase / (2 * np.pi), 0),
-                                                    pulse.DC(FPtoEnd, 0)])
-            else:
-                waveforms['Readout I'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN + QB_time + QBtoRO, 0),
-                                                    pulse.DC(RO_time, RO_amp * np.cos(RO_phase)),
-                                                    pulse.DC(ROtoD, ROtoD_offset),
-                                                    pulse.DC(Disp_time, Disp_amp * np.cos(Disp_phase)),
-                                                    pulse.DC(FPtoEnd, 0)])
+            waveforms['Readout I'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN + QB_time + QBtoRO, 0),
+                                                pulse.CosinePulse(RO_time, RO_SB_freq, RO_amp, RO_phase, 0),
+                                                pulse.CosinePulse(ROtoD, RO_SB_freq, ROtoD_offset, ROtoD * RO_SB_freq + RO_phase, 0),
+                                                pulse.CosinePulse(Disp_time, RO_SB_freq, Disp_amp, (RO_time + ROtoD) * RO_SB_freq + Disp_phase, 0),
+                                                pulse.DC(FPtoEnd, 0)])
 
         if 'Readout Q' in requested_waveforms:
-            if RO_SB_freq != 0:
-                waveforms['Readout Q'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN + QB_time + QBtoRO, 0),
-                                                    pulse.SinePulse(RO_time, RO_SB_freq, RO_amp, RO_phase / (2 * np.pi), 0),
-                                                    pulse.SinePulse(ROtoD, RO_SB_freq, ROtoD_offset, ROtoD * RO_SB_freq + RO_phase / (2 * np.pi), 0),
-                                                    pulse.SinePulse(Disp_time, RO_SB_freq, Disp_amp, (RO_time + ROtoD) * RO_SB_freq + Disp_phase / (2 * np.pi), 0),
-                                                    pulse.DC(FPtoEnd, 0)])
-            else:     
-                waveforms['Readout Q'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN + QB_time + QBtoRO, 0),
-                                                    pulse.DC(RO_time, RO_amp * np.sin(RO_phase)),
-                                                    pulse.DC(ROtoD, ROtoD_offset),
-                                                    pulse.DC(Disp_time, Disp_amp * np.sin(Disp_phase)),
-                                                    pulse.DC(FPtoEnd, 0)])
+            waveforms['Readout Q'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN + QB_time + QBtoRO, 0),
+                                                pulse.SinePulse(RO_time, RO_SB_freq, RO_amp, RO_phase, 0),
+                                                pulse.SinePulse(ROtoD, RO_SB_freq, ROtoD_offset, ROtoD * RO_SB_freq + RO_phase, 0),
+                                                pulse.SinePulse(Disp_time, RO_SB_freq, Disp_amp, (RO_time + ROtoD) * RO_SB_freq + Disp_phase, 0),
+                                                pulse.DC(FPtoEnd, 0)])
 
-        for idx, settings in enumerate(self.DACSettings):
+        for idx, settings in enumerate(self.fpga_boards.dac_settings):
             for channel in ['DAC A', 'DAC B']:
-                if self.DACSettings[idx][channel] not in waveforms:
-                    raise expt.ResourceDefinitionError("'" + str(self.DACs[idx]) + "' setting '" + str(channel) + 
-                        "': '" + self.DACSettings[idx][channel] + "' could not be recognized. The allowed '" + str(channel) + 
-                        "' values are 'JPM Fast Pulse', 'Readout I', 'Readout Q', 'Qubit I', 'Qubit Q', and 'None'.")
+                if self.fpga_boards.dac_settings[idx][channel] not in waveforms:
+                    raise expt.ResourceDefinitionError("'" + 
+                        str(self.fpga_boards.dacs[idx]) +
+                        "' setting '" + str(channel) + "': '" +
+                        self.fpga_boards.dac_settings[idx][channel] +
+                        "' could not be recognized. The allowed '" +
+                        str(channel) + "' values are 'JPM Fast Pulse'," + 
+                        "'Readout I', 'Readout Q', 'Qubit I', 'Qubit Q'," +
+                        " and 'None'.")
 
-        if PlotWaveforms:
-            self._PlotWaveforms([waveforms[wf] for wf in requested_waveforms], ['r', 'g', 'b', 'k'], requested_waveforms)
+        if plot_waveforms:
+            self._plot_waveforms([waveforms[wf] for wf in requested_waveforms],
+                    ['r', 'g', 'b', 'k'], requested_waveforms)
 
-        SRAMLength = len(waveforms[self.DACSettings[0]['DAC A']])
+        SRAMLength = len(waveforms[self.fpga_boards.dac_settings[0]['DAC A']])
         SRAMDelay = np.ceil(SRAMLength / 1000)
         
-        # Create memory command list.
-        memList1 = []
-        if 'FO1 FastBias Firmware Version' in self.DACSettings[0]:
-            memList1.append({'Type': 'Firmware', 'Channel': 1, 'Version': self.DACSettings[0]['FO1 FastBias Firmware Version']})
-        memList1.append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
-        memList1.append({'Type': 'Delay', 'Time': initTime})
-        memList1.append({'Type': 'Bias', 'Channel': 1, 'Voltage': JPM_bias})
-        memList1.append({'Type': 'Delay', 'Time': biasTime})
-        memList1.append({'Type': 'SRAM', 'Start': 0, 'Length': SRAMLength, 'Delay': SRAMDelay})
-        memList1.append({'Type': 'Timer', 'Time': measTime})
-        memList1.append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
+        # Create a memory command list.
+        # The format is described in Servers.Instruments.GHzBoards.command_sequences.
+        if 'FO1 FastBias Firmware Version' in self.fpga_boards.dac_settings[0]:
+            mem_list1 = [{'Type': 'Firmware', 'Channel': 1, 
+                          'Version': self.fpga_boards.dac_settings[0]['FO1 FastBias Firmware Version']}]
+        else:
+            mem_list1 = []
+        mem_list1 = mem_list1 + [
+            {'Type': 'Bias', 'Channel': 1, 'Voltage': 0},
+            {'Type': 'Delay', 'Time': self.value('Init Time')['us']},
+            {'Type': 'Bias', 'Channel': 1, 'Voltage': self.value('Bias Voltage')['V']},
+            {'Type': 'Delay', 'Time': self.value('Bias Time')['us']},
+            {'Type': 'SRAM', 'Start': 0, 'Length': SRAMLength, 'Delay': SRAMDelay},
+            {'Type': 'Timer', 'Time': self.value('Measure Time')['us']},
+            {'Type': 'Bias', 'Channel': 1, 'Voltage': 0}]
 
-        memList2 = []
-        memList2.append({'Type': 'Delay', 'Time': (initTime + biasTime)})
-        memList2.append({'Type': 'SRAM', 'Start': 0, 'Length': SRAMLength, 'Delay': SRAMDelay})
-        memList2.append({'Type': 'Timer', 'Time': measTime})
+        mem_list2 = [
+            {'Type': 'Delay', 'Time': (self.value('Init Time')['us'] + 
+                                       self.value('Bias Time')['us'])},
+            {'Type': 'SRAM', 'Start': 0, 'Length': SRAMLength, 'Delay': SRAMDelay},
+            {'Type': 'Timer', 'Time': self.value('Measure Time')['us']}]
         
-        # Generate SRAM and memory for DAC boards.
-        DAC1_SRAM = dac.waves2sram(waveforms[self.DACSettings[0]['DAC A']], waveforms[self.DACSettings[0]['DAC B']])
-        DAC1_mem  = dac.memFromList(memList1)
-
-        DAC2_SRAM = dac.waves2sram(waveforms[self.DACSettings[1]['DAC A']], waveforms[self.DACSettings[1]['DAC B']])
-        DAC2_mem  = dac.memFromList(memList2)
-        
-  
         ###RUN#####################################################################################
         self.acknowledge_requests()
-        P = self.LoadAndRun([DAC1_SRAM, DAC2_SRAM], [DAC1_mem, DAC2_mem], reps, 'PreAmp')
+        P = self.fpga_boards.load_and_run(waveforms, [mem_list1, mem_list2], self.value('Reps'))
         
-        ###DATA POST-PROCESSING##############################################################################
-        #####################################################################################################
-        # If the waveforms are the same but somewhat different post-processing is required then the data 
-        # post-processing should be defined in a grand child of this class. Do not copy-paste the waveform 
-        # specifications when it is not really necessary.
-        if Histogram:
-            self._PlotHistogram(P, 1)
+        ###DATA POST-PROCESSING####################################################################
+        if histogram:
+            self._plot_histogram(P, 1)
 
-        t_mean, t_std = self._MeanTimeFromArray(P, PREAMP_TIMEOUT)
+        preamp_timeout = self.fpga_boards.consts['PREAMP_TIMEOUT']
+        t_mean, t_std = data_processing.mean_time_from_array(P, preamp_timeout)
         
         ###DATA STRUCTURE##########################################################################
-        run_data = {
-                    'Switching Probability': {'Value': self._SwitchProbFromArray(P, threshold),
-                                              'Distribution': 'binomial',
-                                              'Preferances':  {'linestyle': 'b-',
-                                                               'ylim': [0, 1],
-                                                               'legendlabel': 'Switch. Prob.'}},
-                    'Detection Time': {'Value': t_mean * units.PreAmpTimeCounts,
-                                       'Distribution': 'normal',
-                                       'Preferances': {'linestyle': 'r-', 
-                                                       'ylim': [0, PREAMP_TIMEOUT]}},
-                    'Detection Time Std Dev': t_std * units.PreAmpTimeCounts,
-                   } 
+        data = {
+                'Switching Probability': {
+                    'Value': data_processing.prob_from_array(P, self.value('Threshold')),
+                    'Distribution': 'binomial',
+                    'Preferances':  {
+                        'linestyle': 'b-',
+                        'ylim': [0, 1],
+                        'legendlabel': 'Switch. Prob.'}},
+                'Detection Time': {
+                    'Value': t_mean * units.PreAmpTimeCounts,
+                    'Distribution': 'normal',
+                    'Preferances': {
+                        'linestyle': 'r-', 
+                        'ylim': [0, preamp_timeout]}},
+                'Detection Time Std Dev': {
+                    'Value': t_std * units.PreAmpTimeCounts}
+               } 
         
-        ###EXTRA EXPERIMENT PARAMETERS TO SAVE###############################################################
-        #####################################################################################################
+        ###EXTRA EXPERIMENT PARAMETERS TO SAVE#####################################################
         self.add_var('Actual Reps', len(P[0]))
         
-        return run_data, None
+        return data

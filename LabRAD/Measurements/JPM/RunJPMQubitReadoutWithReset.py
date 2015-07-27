@@ -3,87 +3,106 @@
 import os
 import numpy as np
 
-from labrad.units import us, ns, V, GHz, MHz, rad, mK, dB, dBm, DACUnits, PreAmpTimeCounts
+from labrad.units import (us, ns, V, GHz, MHz, rad, mK, dB, dBm,
+                          DACUnits, PreAmpTimeCounts)
 
 import JPMQubitReadoutWithResetExpt as qr
 
-Resources = [   { # Waveform parameters.
-                    'Resource': 'GHz FPGA Boards', 
-                    'Server': 'GHz FPGAs',
-                    'Variables': [
-                                    'Init Time', 'Bias Time', 'Measure Time',
-                                    'Bias Voltage', 'Fast Pulse Time', 'Fast Pulse Amplitude', 'Fast Pulse Width',
-                                    'Qubit SB Frequency', 'Qubit Amplitude', 'Qubit Time',
-                                    'Readout SB Frequency', 'Readout Amplitude', 'Readout Time', 'Readout Phase',
-                                    'Displacement Amplitude', 'Displacement Time', 'Displacement Phase',
-                                    'Qubit Drive to Readout',  'Readout to Displacement', 'Displacement to Fast Pulse',
-                                    'Readout to Displacement Offset'
-                                 ]
-                },
-                { # DACs are converted to a simple ordered list internally based on 'List Index' value.
-                    'Resource': 'DAC',
-                    'DAC Name': 'Shasta Board DAC 9',
-                    'List Index': 0,
-                    'DAC Settings': {
+
+comp_name = os.environ['COMPUTERNAME'].lower()
+Resources = [ {
+                'Resource': 'GHzFPGABoards',
+                'Boards': [
+                            'Shasta Board DAC 9', 
+                            'Shasta Board DAC 10',
+                            # 'Shasta Board ADC 6'
+                          ],
+                'Shasta Board DAC 9':  {
                                         'DAC A': 'JPM Fast Pulse',
                                         'DAC B': 'Qubit I',
-                                        'FO1 FastBias Firmware Version': '2.1'
-                                    },
-                    'Variables': []
-                },
-                {
-                    'Resource': 'DAC',
-                    'DAC Name': 'Leiden Board DAC 10',
-                    'List Index': 1,
-                    'DAC Settings': {   
+                                        'FO1 FastBias Firmware Version': '2.1',
+                                        'Data': True
+                                       },
+                'Shasta Board DAC 10': {   
                                         'DAC A': 'Readout Q',
-                                        'DAC B': 'Readout I'
-                                    },
-                    'Variables': []
+                                        'DAC B': 'Readout I',
+                                       },
+                # 'Shasta Board ADC 6':  {
+                                        # 'RunMode': 'demodulate', #'average'
+                                        # 'FilterType': 'square',
+                                        # 'FilterWidth': 9500 * ns,
+                                        # 'FilterLength': 10000 * ns,
+                                        # 'FilterStretchAt': 0 * ns,
+                                        # 'FilterStretchLen': 0 * ns,
+                                        # 'DemodPhase': 0 * rad,
+                                        # 'DemodCosAmp': 255,
+                                        # 'DemodSinAmp': 255,
+                                        # 'DemodFreq': -30 * MHz,
+                                        # 'ADCDelay': 0 * ns,
+                                        # 'Data': False
+                                       # },
+                'Variables': [
+                                'Init Time',
+                                'Bias Time', 
+                                'Measure Time',
+                                'Bias Voltage', 
+                                'Fast Pulse Time', 
+                                'Fast Pulse Amplitude', 
+                                'Fast Pulse Width',
+                                'Qubit SB Frequency', 
+                                'Qubit Amplitude',
+                                'Qubit Time',
+                                'Readout SB Frequency',
+                                'Readout Amplitude',
+                                'Readout Time',
+                                'Readout Phase',
+                                'Displacement Amplitude',
+                                'Displacement Time',
+                                'Displacement Phase',
+                                'Qubit Drive to Readout',
+                                'Readout to Displacement',
+                                'Displacement to Fast Pulse',
+                                'Readout to Displacement Offset'
+                             ]
                 },
                 # { # GPIB RF Generator.
-                    # 'Resource': 'RF Generator',
-                    # 'Server': 'GPIB RF Generators',
-                    # 'Address': os.environ['COMPUTERNAME'] + ' GPIB Bus - GPIB0::19::INSTR',
+                    # 'Resource': 'RFGenerator',
+                    # 'Server': 'GPIBRFGenerators',
+                    # 'Address': comp_name + ' GPIB Bus - GPIB0::19::INSTR',
                     # 'Variables': {'Readout Power': 'Power', 
                     #               'Readout Frequency': 'Frequency'}
                 # },
                 # { # GPIB RF Generator.
                     # 'Resource': 'RF Generator',
-                    # 'Server': 'GPIB RF Generators',
-                    # 'Address': os.environ['COMPUTERNAME'] + ' GPIB Bus - GPIB0::20::INSTR',
+                    # 'Server': 'GPIBRFGenerators',
+                    # 'Address': comp_name + ' GPIB Bus - GPIB0::20::INSTR',
                     # 'Variables': {'Qubit Power': 'Power', 
                                   # 'Qubit Frequency': 'Frequency'}
                 # },
                 # { # GPIB RF Generator.
                     # 'Resource': 'RF Generator',
-                    # 'Server': 'GPIB RF Generators',
-                    # 'GPIB Address': 'GPIB0::20',
+                    # 'Server': 'GPIBRFGenerators',
+                    # 'Address': comp_name + ' GPIB Bus - GPIB0::20::INSTR',
                     # 'Variables': {'RF Power': 'Power', 
                     #               'RF Frequency': 'Frequency'}
                 # },
                 # { # Lab Brick Attenuator.
-                    # 'Resource': 'Lab Brick Attenuator',
-                    # 'Server': os.environ['COMPUTERNAME'] + ' Lab Brick Attenuators',
-                    # 'Serial Number': 7032,
+                    # 'Resource': 'LabBrickAttenuator',
+                    # 'Address': 7032,
                     # 'Variables': {'Readout Attenuation': 'Attenuation'}
                 # },
                 # { # Lab Brick Attenuator.
-                    # 'Resource': 'Lab Brick Attenuator',
-                    # 'Server': os.environ['COMPUTERNAME'] + ' Lab Brick Attenuators',
+                    # 'Resource': 'LabBrickAttenuator',
                     # 'Address': 7032,
                     # 'Variables': 'Readout Attenuation'
                 # },
                 # { # Lab Brick Attenuator.
-                    # 'Resource': 'Lab Brick Attenuator',
-                    # 'Server': os.environ['COMPUTERNAME'] + ' Lab Brick Attenuators',
+                    # 'Resource': 'LabBrickAttenuator',
                     # 'Address': 7033,
                     # 'Variables': {'Qubit Attenuation': 'Attenuation'}
                 # },
                 { # SIM Voltage Source.
-                    'Resource': 'Voltage Source',
-                    'Server': os.environ['COMPUTERNAME'] + ' SIM928',
-                    'Address': 'GPIB0::26::SIM900::3',
+                    'Resource': 'VoltageSource',
                     'Variables': ['Qubit Flux Bias Voltage']
                 },
                 { # External readings.
@@ -118,7 +137,7 @@ ExptVars = {
             
             'Qubit Drive to Readout': 0 * ns,
             
-            'Qubit Flux Bias Voltage': 0 * V,
+            'Qubit Flux Bias Voltage': 0.28 * V,
 
             'Readout Frequency': 20 * GHz,
             'Readout Power': 13 * dBm,
@@ -155,5 +174,8 @@ with qr.JPMQubitReadoutWithReset() as run:
     
     run.set_experiment(ExptInfo, Resources, ExptVars) 
 
-    run.sweep('Fast Pulse Amplitude', np.linspace(0.2, .25, 201) * DACUnits,
+    run.sweep('Fast Pulse Amplitude', np.linspace(0, .5, 501) * DACUnits,
             save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
+    
+    # run.sweep('Qubit Flux Bias Voltage', np.linspace(0, 1, 1001) * V,
+            # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])

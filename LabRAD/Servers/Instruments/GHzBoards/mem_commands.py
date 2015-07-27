@@ -56,7 +56,8 @@ def _AddFOChannel(cmd, channel):
     elif channel == 2:
         return cmd + 0x200000
     else:
-        raise("Invalid fiber optic output channel: " + str(channel) + ". The supported channels are 0 and 1.")
+        raise("Invalid fiber optic output channel: " + str(channel) + 
+                ". The supported channels are 0 and 1.")
     
 def AppendMemSwitchDAC(mem, mode='Fast', channel=1):
     mode_lowercase = mode.lower()
@@ -67,7 +68,8 @@ def AppendMemSwitchDAC(mem, mode='Fast', channel=1):
     elif mode_lowercase in ['dac1fast', 'fast']:
         a = 0x50001
     else:
-        print("Warning: mode '" + str(mode) + "' is not recognized. The memory command will be ignored.")
+        print("Warning: mode '" + str(mode) + "' is not recognized. " +
+                "The memory command will be ignored.")
         return mem
     mem.append(_AddFOChannel(a, channel))
     AppendMemDelay(mem, 5)
@@ -78,15 +80,20 @@ def _AppendMemSetVoltage_v1p0(mem, voltage=0, mode='Fast', channel=1):
     if mode_lowercase in ['dac0', 'fine']:
         if (voltage < 0) or (voltage > 2.5):
             voltage = np.clip(voltage, 0, 2.5)
-            print("Warning: FastBias DAC0 voltage cannot be set to a value beyond 0 and 2.5 V range. Voltage is set to " + str(voltage) + " V.")
+            print("Warning: FastBias DAC0 voltage cannot be set to a " +
+                    "value beyond 0 and 2.5 V range. Voltage is set " +
+                    "to " + str(voltage) + " V.")
         a = 0x60000 + (int)(voltage / 2.5 * 0xFFFF)
     elif mode_lowercase in ['dac1slow', 'slow', 'dac1fast', 'fast']:
         if (voltage < -2.5) or (voltage > 2.5):
             voltage = np.clip(voltage, -2.5, 2.5)
-            print("Warning: FastBias DAC1 voltage cannot be set to a value beyond -2.5 and 2.5 V range. Voltage is set to " + str(voltage) + " V.")
+            print("Warning: FastBias DAC1 voltage cannot be set to a " +
+                    "value beyond -2.5 and 2.5 V range. Voltage is " + 
+                    "set to " + str(voltage) + " V.")
         a = 0x70000 + (int)((voltage / 2.5 + 1) * 0x7FFF)
     else:
-        print("Warning: mode '" + str(mode) + "' is not recognized. The memory command will be ignored.")
+        print("Warning: mode '" + str(mode) + "' is not recognized. " +
+                "The memory command will be ignored.")
         return mem
     mem.append(_AddFOChannel(a, channel))
     AppendMemDelay(mem, 6)
@@ -104,27 +111,34 @@ def _AppendMemSetVoltage_v2p1(mem, voltage=0, mode='Fast', channel=1):
         dac = 1
         slew = 0
     else:
-        print("Warning: mode '" + str(mode) + "' is not recognized. The memory command will be ignored.")
+        print("Warning: mode '" + str(mode) + "' is not recognized. " +
+                "The memory command will be ignored.")
         return mem
     if dac:
         if (voltage < -2.5) or (voltage > 2.5):
             voltage = np.clip(voltage, -2.5, 2.5)
-            print("Warning: FastBias DAC1 voltage cannot be set to a value beyond -2.5 and 2.5 V range. Voltage is set to " + str(voltage) + " V.")
+            print("Warning: FastBias DAC1 voltage cannot be set to a " +
+                    "value beyond -2.5 and 2.5 V range. Voltage is " +
+                    "set to " + str(voltage) + " V.")
         data = (int)((voltage / 2.5 + 1) * 0x7FFF)
     else:
         if (voltage < 0) or (voltage > 2.5):
             voltage = np.clip(voltage, 0, 2.5)
-            print("Warning: FastBias DAC0 voltage cannot be set to a value beyond 0 and 2.5 V range. Voltage is set to " + str(voltage) + " V.")
+            print("Warning: FastBias DAC0 voltage cannot be set to a " +
+                    "value beyond 0 and 2.5 V range. Voltage is " +
+                    "set to " + str(voltage) + " V.")
         data = (int)(voltage / 2.5 * 0xFFFF)
     cmd = (dac << 19) + (data << 3) + (slew << 2)
     mem.append(_AddFOChannel(cmd, channel))
     mem.append(0x300068)
     return mem
 
-def AppendMemSetVoltage(mem, voltage=0, mode='Fast', channel=1, firmware='2.1'):
+def AppendMemSetVoltage(mem, voltage=0, mode='Fast', channel=1,
+                        firmware='2.1'):
     if firmware == '2.1':
         return _AppendMemSetVoltage_v2p1(mem, voltage, mode, channel)
     elif firmware == '1.0':
         return _AppendMemSetVoltage_v1p0(mem, voltage, mode, channel)
     else:
-        raise Exception('FastBias firmware version ' + str(firmware) + ' is not supported.')
+        raise Exception('FastBias firmware version ' + str(firmware) + 
+                ' is not supported.')

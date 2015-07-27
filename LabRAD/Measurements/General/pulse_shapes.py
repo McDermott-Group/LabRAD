@@ -41,9 +41,10 @@ def CosinePulse(length, frequency, amplitude, phase, offset):
 
 def GaussPulse(length, FW, amplitude):
     '''
-    Returns a "slowed" square pulse that consists of gaussian rise and fall times and a DC segment.
-    Length is the length of the DC part of the pulse in ns, and FW is the width at 1/10 maximum of the 
-    gaussian rise and fall. Total pulse length is thus ~= length + 2 * FW.
+    Returns a "slowed" square pulse that consists of gaussian rise and
+    fall times and a DC segment. Length is the length of the DC part of
+    the pulse in ns, and FW is the width at 1/10 maximum of the gaussian
+    rise and fall. Total pulse length is thus ~= length + 2 * FW.
     '''
     c = FW / (2. * np.sqrt(2. * np.log(10.)))
     t = np.linspace(0, int(length + 3. * FW) - 1, int(length + 3. * FW))

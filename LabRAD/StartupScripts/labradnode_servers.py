@@ -15,7 +15,8 @@
 
 """
 This script can be used to start LabRAD servers with the LabRAD node. 
-Run "labradnode_servers.py -h" in the command line for the command line input options.
+Run "labradnode_servers.py -h" in the command line for the command line
+input options.
 """
 
 import os
@@ -26,18 +27,21 @@ import labrad as lr
 from labrad.server import inlineCallbacks
  
 def parseArguments():
-    parser = argparse.ArgumentParser(description='Start LabRAD servers with the LabRAD node.')
+    parser = argparse.ArgumentParser(description='Start LabRAD ' +
+            'servers with the LabRAD node.')
     parser.add_argument('--registry-path', 
-                        nargs='*',
-                        default=['Start Lists', os.environ['COMPUTERNAME'].lower()],
-                        help='path in the LabRAD Registry to the key containing the list of servers to run;' +
-                        " root folder name ''" + ' must be omitted (default: "Start Lists" "%%COMPUTERNAME%%")')
+            nargs='*',
+            default=['Start Lists', os.environ['COMPUTERNAME'].lower()],
+            help='path in the LabRAD Registry to the key containing ' +
+            'the list of servers to run;' + " root folder name '' " + 
+            'must be omitted (default: "Start Lists" "%COMPUTERNAME%")')
     parser.add_argument('--registry-start-list-key', 
-                        default='Start Server List',
-                        help='Registry key containg the list of servers to run (default: "Start Server List")')
+            default='Start Server List',
+            help='Registry key containg the list of servers to run ' +
+            '(default: "Start Server List")')
     parser.add_argument('--node-name', 
-                        default='node ' + os.environ['COMPUTERNAME'].lower(),
-                        help='LabRAD node name (default: "node %%COMPUTERNAME%%"')
+            default='node ' + os.environ['COMPUTERNAME'].lower(),
+            help='LabRAD node name (default: "node %%COMPUTERNAME%%"')
     return parser.parse_args()
 
 @inlineCallbacks    
@@ -46,20 +50,24 @@ def startServers(args):
     try:
         cxn = yield lr.connect()
     except:
-        raise Exception('Could not connect to LabRAD. The LabRAD program does not appear to be running.')
+        raise Exception('Could not connect to LabRAD. The LabRAD ' +
+                'program does not appear to be running.')
 
     running_servers = [name for _, name in cxn.manager.servers()]
     if args.node_name not in running_servers:
-        raise Exception("Cannot connect to the LabRAD node server '" + args.node_name + "'. " + 
-            "The server does not appear to be running.")
+        raise Exception("Cannot connect to the LabRAD node server '" +
+                args.node_name + "'. " + 
+                "The server does not appear to be running.")
 
     print('Getting the list of servers from the LabRAD Registry...')
     try:
         yield cxn.registry.cd([''] + args.registry_path)
         server_list = yield cxn.registry.get(args.registry_start_list_key)
     except:
-        raise Exception('Cannot read the LabRAD Registry. Please check that the Registry path ' + 
-              str([''] + args.registry_path) + ' and the key name ' + args.registry_key + ' are correct.')
+        raise Exception('Cannot read the LabRAD Registry. Please ' +
+                'check that the Registry path ' + 
+                str([''] + args.registry_path) + ' and the key name ' +
+                args.registry_key + ' are correct.')
     
     # Go through and start all the servers that are not already running.
     print('Starting the servers...')
@@ -68,7 +76,8 @@ def startServers(args):
             try:
                 yield cxn.servers[args.node_name].start(server)
             except Exception as e:
-                raise Exception( 'Could not start ' + server + ': ' + str(e) + '.')
+                raise Exception( 'Could not start ' + server + ': ' +
+                    str(e) + '.')
     yield cxn.disconnect()
 
 def main():

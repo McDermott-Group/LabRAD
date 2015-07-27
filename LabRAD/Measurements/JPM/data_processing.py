@@ -1,9 +1,9 @@
 import numpy as np
     
-def mean_time_from_array(self, t, threshold):
+def mean_time_from_array(t, threshold):
     """
-    Take a switch probability result array from the PreAmp timer, and compute
-    mean switching time using the specified threshold.
+    Take a switch probability result array from the PreAmp timer, and 
+    compute mean switching time using the specified threshold.
     """
     t = np.array(t)
     t = t[t < threshold]
@@ -16,10 +16,10 @@ def mean_time_from_array(self, t, threshold):
 
     return t_mean, t_std
 
-def mean_time_diff_from_array(self, t, threshold):
+def mean_time_diff_from_array(t, threshold):
     """
-    Take a switch probability result array from the PreAmp timers, and compute
-    mean switching time using the specified threshold.
+    Take a switch probability result array from the PreAmp timers, and
+    compute mean switching time using the specified threshold.
     """
     t = np.array(t)
     dt = t[0][:] - t[1][:]
@@ -33,26 +33,26 @@ def mean_time_diff_from_array(self, t, threshold):
 
     return dt_mean, dt_std
 
-def prob_from_array(self, t, threshold):
+def prob_from_array(t, threshold):
     """
-    Take a switch probability result array from the PreAmp timer, and compute
-    switching probability using the specified threshold.
+    Take a switch probability result array from the PreAmp timer, and
+    compute switching probability using the specified threshold.
     """
     t = np.array(t)
 
     return float(np.size(t[t < threshold])) / float(np.size(t))
     
-def preamp_counts_to_array(self, t, threshold):
+def outcomes_from_array(t, threshold):
     """
-    Take a switch probability result array from the PreAmp timer, and convert
-    to a numpy array of 0 or 1 based on the threshold.
+    Take a switch probability result array from the PreAmp timer, and
+    convert to a numpy array of 0 or 1 based on the threshold.
     """
-    def _Threshold(x):
+    def _threshold(x):
         if x < threshold:
             return 1
         else:
             return 0
     
-    ThresholdVectorized = np.vectorize(_Threshold)
+    threshold_vectorized = np.vectorize(_threshold)
 
-    return ThresholdVectorized(t)
+    return threshold_vectorized(t)

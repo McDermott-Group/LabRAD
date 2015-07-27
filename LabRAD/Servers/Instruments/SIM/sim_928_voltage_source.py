@@ -17,7 +17,7 @@
 ### BEGIN NODE INFO
 [info]
 name = SIM928
-version = 2.3.2
+version = 2.3.3
 description = This serves as an interface for the SIM928 Voltage Source.
 instancename = SIM928
 
@@ -63,13 +63,15 @@ class SIM928Wrapper(GPIBDeviceWrapper):
     def setVoltage(self, v):
         if self.voltage != v:
             yield self.write('VOLT ' + str(v['V']))
-            self.voltage = v
+            # Ensure that the voltage is actually set to the right level.
+            self.voltage = yield self.getVoltage()
 
     @inlineCallbacks
     def setOutput(self, on):
         if self.output != bool(on):
             yield self.write('EXON ' + str(int(on)))
-            self.output = bool(on)
+            # Ensure that the output is set properly.
+            self.output = yield self.getOutput()
 
 
 class SIM928Server(GPIBManagedServer):
