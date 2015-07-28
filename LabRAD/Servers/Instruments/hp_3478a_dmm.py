@@ -68,6 +68,9 @@ class HP3478AServer(GPIBManagedServer):
     
     @inlineCallbacks
     def HP_write(self,c,data):
+        """Since *IDN? does not work with this instrument, we cannot select devices or 
+        write in the normal way.  This contacts all gpib buses and looks for the selected
+        address and writes the data to it."""
         allServers = yield self.client.manager.servers()
         servers = [s for n, s in allServers
                      if (('GPIB Bus' in s) or ('gpib_bus' in s)) ]
