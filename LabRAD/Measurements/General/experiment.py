@@ -38,7 +38,7 @@ information = {
                 'Comments': '' 
               }
 resources =  { # GPIB RF Generator.
-                'Resource': 'RF Generator',
+                'Interface': 'RF Generator',
                 'Server': 'GPIB RF Generators',
                 'Address': (os.environ['COMPUTERNAME'].lower() + 
                             ' GPIB Bus - GPIB0::01::INSTR)',
@@ -83,7 +83,7 @@ import scipy.io as sio
 import labrad
 import labrad.units as units
 
-import resource_interfaces
+import server_interfaces
 
 class ExperimentDefinitionError(Exception): pass
 class DataError(Exception): pass
@@ -145,11 +145,10 @@ class Experiment(object):
                     file of each saved data file (optional, will be 
                     blank if not included).
             resources: list of resources in the following format:
-              [ { # Generic device
-                    'Resource': 'device name'
-                    'Server': 'server name',
-                    'Address': 'address that could be used to select 
-                        the device',
+              [ { # Generic resource.
+                    'Interface': 'ResourceServerInterface',
+                    'Device Address': 'address that could be used to
+                        select a specific device',
                     'Variables': {
                                     'Variable 1': 'server setting that 
                                         controls Variable 1', 
@@ -158,73 +157,71 @@ class Experiment(object):
                                  }
                 },
                 { # Waveform parameters.
-                    'Resource': 'GHz Boards', 
-                    'Server': 'GHz FPGAs'
-                    'Variables': ['Pulse 1 Length', 'Pulse 2 Length']
-                },
-                { # DACs are converted to a simple ordered list 
-                  # internally based on 'List Index' value.
-                    'Resource': 'DAC',
-                    'DAC Name': 'Board DAC 1',
-                    'List Index': 0,
-                    'DAC Settings': {
-                                        'DAC A': 'RF I',
-                                        'DAC B': 'RF Q',
-                                        'FO1 FastBias Firmware Version':
-                                            '2.1'
-                                    },
-                    'Variables': []
-                },
-                { # ADCs are converted to a simple ordered list 
-                  # internally based on 'List Index' value.  
-                    'Resource': 'ADC',
-                    'ADC Name': 'Board ADC 3',
-                    'List Index': 0,
-                    'ADC Settings': { # These default settings might be 
-                                      # over-written by the Experiment 
-                                      # methods. 
-                                        'RunMode': 'demodulate', 
-                                            # or 'average'
+                'Interface': 'GHz FPGA Boards',
+                'Boards': [
+                            'Shasta Board DAC 9', 
+                            'Shasta Board DAC 10',
+                            'Shasta Board ADC 6'
+                          ],
+                'Shasta Board DAC 9':  {
+                                        'DAC A': 'JPM Fast Pulse',
+                                        'DAC B': 'Qubit I',
+                                        'FO1 FastBias Firmware Version': '2.1',
+                                        'Data': True
+                                       },
+                'Shasta Board DAC 10': {   
+                                        'DAC A': 'Readout Q',
+                                        'DAC B': 'Readout I',
+                                       },
+                'Shasta Board ADC 6':  {
+                                        'RunMode': 'demodulate', #'average'
                                         'FilterType': 'square',
-                                        'FilterWidth': 9500,
-                                        'FilterLength': 10000,
-                                        'filterStretchAt': 0,
-                                        'filterStretchLen': 0,
-                                        'DemodPhase': 0,
+                                        'FilterWidth': 9500 * ns,
+                                        'FilterLength': 10000 * ns,
+                                        'FilterStretchAt': 0 * ns,
+                                        'FilterStretchLen': 0 * ns,
+                                        'DemodPhase': 0 * rad,
                                         'DemodCosAmp': 255,
                                         'DemodSinAmp': 255,
-                                        'DemodFreq': -30 * units.MHz,
-                                        'ADCDelay': 0
-                                    },
-                    'Variables': ['ADC Time'],
+                                        'DemodFreq': -30 * MHz,
+                                        'ADCDelay': 0 * ns,
+                                        'Data': False
+                                       },
+                'Variables': [
+                                'Init Time',
+                                'Bias Time', 
+                                'Measure Time',
+                                'Bias Voltage', 
+                                'Fast Pulse Time', 
+                                'Fast Pulse Amplitude', 
+                                'Fast Pulse Width',
+                                'ADC Time'
+                             ]
                 },
                 { # GPIB RF Generator.
-                    'Resource': 'RF Generator',
+                    'Interface': 'GPIB RF Generator'
                     'Server': 'GPIB RF Generators',
-                    'Address': 'GPIB Bus - GPIB0::10',
+                    'Address': 'computer-name GPIB Bus - GPIB0::10:INSTR',
                     'Variables': {
                                     'RF Power': 'Power', 
                                     'RF Frequency': 'Frequency'
                                  }
                 },
                 { # Lab Brick Attenuator.
-                    'Resource': 'Lab Brick Attenuator',
-                    'Server': 'Lab Brick Attenuators',
-                    'Address': 7032,
+                    'Interface': 'Lab Brick Attenuator',
+                    'Serial Number': 7032,
                     'Variables': 'RF Attenuation'
                 { # SIM Voltage Source.
-                    'Resource': 'Voltage Source',
-                    'Server': 'SIM928',
+                    'Interface': 'SIM928 Voltage Source',
                     'Address': 'GPIB0::10::SIM900::3',
-                    'Variables': ['Bias Voltage']
+                    'Variables': 'Bias Voltage'
                 },
-                { # External readings.
-                    'Resource': 'Manual Record',
-                    'Variables': ['Temperature']
-                },
-                { # Extra experiment parameters.
-                    'Resource': 'Software Parameters',
-                    'Variables': ['Runs'],
+                { # Readings entered manually, software parameters.
+                    'Interface': None,
+                    'Variables': ['Temperature', 
+                                  'Reps',
+                                  'Actual Reps',
+                                  'Threshold'],
                 }
               ]
             variables: experiment variable dictionary 
@@ -295,9 +292,7 @@ class Experiment(object):
         """
         res = resource.copy()
         res.pop('Variables', None)
-        if isinstance(resource['Variables'], str):
-            self._vars[resource['Variables']] = res
-        elif isinstance(resource['Variables'], list):
+        if isinstance(resource['Variables'], list):
             for var in resource['Variables']:
                 self._vars[var] = res.copy()
         elif isinstance(resource['Variables'], dict):
@@ -326,66 +321,45 @@ class Experiment(object):
             None.
         """
         self._vars = {}     # Dictionary of the experiment variables.
-        self.fpga_server = None     # LabRAD Server.
-        dacs = {}           # Dictionary of DAC boards with the list index as a key.
-        adcs = {}           # Dictionary of ADC boards with the list index as a key.
-        dac_settings = {}   # Dictionary of DAC board settings with the list index as a key.
-        adc_settings = {}   # Dictionary of ADC board settings with the list index as a key.
+        self.fpga_server = None     # LabRAD GHz FPGA server.
         
         def _msg(key, resource):
             return ("'" + key + "' key is not found in the resource " + 
                    " dictionary: " + str(resource) + ".")
         
-        for resource in resources:
-            if 'Resource' not in resource:
-                raise ExperimentDefinitionError(_msg('Resource', resource))
-            if 'Variables' not in resource:
-                raise ExperimentDefinitionError(_msg('Variables', resource))
-            elif (not isinstance(resource['Variables'], str) and 
-                    not isinstance(resource['Variables'], list) and
-                    not isinstance(resource['Variables'], dict)):
+        for res in resources:
+            if 'Interface' not in res:
+                raise ExperimentDefinitionError(_msg('Interface', res))
+            if 'Variables' not in res:
+                raise ExperimentDefinitionError(_msg('Variables', res))
+            elif (not isinstance(res['Variables'], str) and 
+                    not isinstance(res['Variables'], list) and
+                    not isinstance(res['Variables'], dict)):
                 raise ExperimentDefinitionError("'Variables' key" +
-                " in the resource dictionary: " + str(resource) +
+                " in the resource dictionary: " + str(res) +
                 " should be defined as a list of experiment" + 
                 " variables or as a simple string for a single variable.")
             
-            self._add_vars(resource)
+            if isinstance(res['Variables'], str):
+                res['Variables'] = [res['Variables']]
+            self._add_vars(res)
 
-            # GHz FPGA boards.         
-            if resource['Resource'] == 'GHzFPGABoards':
-                self.fpga_boards = getattr(resource_interfaces,
-                        resource['Resource'])(self.cxn, resource)
+            # Readings entered manually, software parameters.
+            if res['Interface'] is None:
+                pass
+            # GHz FPGA boards.
+            elif res['Interface'].replace(' ', '') == 'GHzFPGABoards':
+                self.ghz_fpga_boards = getattr(server_interfaces,
+                        res['Interface'].replace(' ', ''))(self.cxn, res)
             # Resources specified in the resources module: Lab Bricks
             # attenuators, RF generators, voltage sources, etc.
-            elif hasattr(resource_interfaces, resource['Resource']):
-                for var in resource['Variables']:
-                    self._vars[var]['Resource'] = getattr(resource_interfaces,
-                            resource['Resource'])(self.cxn, resource, var)
-            # Extra experiment variables.            
-            elif resource['Resource'].lower() in ['manual record', 
-                                                  'software parameters']:
-                pass
-
+            elif hasattr(server_interfaces, res['Interface'].replace(' ', '')):
+                for var in res['Variables']:
+                    self._vars[var]['Interface'] = getattr(server_interfaces,
+                            res['Interface'].replace(' ', ''))(self.cxn, res, var)
             else:
-                print("Warning: resource type '" + str(resource['Resource']) +
+                print("Warning: resource type '" + str(res['Interface']) +
                       "' is not yet supported.")
-
-        # Check that all DAC and ADC boards are unique.
-        if len(dacs.values()) != len(set(dacs.values())):
-            raise ExperimentDefinitionError("All DAC boards must have" +
-            " unique names in the resource dictionary. The following" + 
-            " boards names are given: ", + str(dacs) + ".")
-        if len(adcs.values()) != len(set(adcs.values())):
-            raise ExperimentDefinitionError("All ADC boards must have" +
-            " unique names in the resource dictionary. The following" +
-            " boards names are given: ", + str(adcs) + ".")
-            
-        # Create lists with the DAC and ADC boards as well as lists 
-        # with ADC and DAC settings according to the specified indecies.
-        self._dacs = [dacs[index] for index in sorted(dacs)]
-        self._adcs = [adcs[index] for index in sorted(adcs)]
-        self._dac_settings = [dac_settings[index] for index in sorted(dacs)]
-        self._adc_settings = [adc_settings[index] for index in sorted(adcs)]
     
     def _set_variables(self, variables):
         """
@@ -442,7 +416,7 @@ class Experiment(object):
         if check_value and 'Value' not in self._vars[var]:
             raise ExperimentDefinitionError("No value is assigned to " + 
                     "the experiment variable '" + str(var) + "'.")
-        if check_resource and 'Resource' not in self._vars[var]:
+        if check_resource and 'Interface' not in self._vars[var]:
             raise ExperimentDefinitionError("No resource " + 
                     "is responsible for the experiment variable '" +
                     str(var) + "'.")
@@ -810,29 +784,6 @@ class Experiment(object):
                 result.append(var)
 
         return result
-    
-    ###DATA POSTPROCESSING METHODS#################################################################
-    def _software_demod(self, t, Is, Qs, adc_name=None):
-        """
-        Demodulate I and Q data in software. This method uses
-        ADC frequency for demodulation. 
-        
-        Input:
-            t: time vector during which to demodulate data (ns).
-            Is: I data.
-            Qs: Q data.
-        Output:
-            Id, Qd: demodulated I and Q.
-        """
-        demod = 2 * np.pi * t['ns'] * self._adc_settings[self._adcs.index(self._get_adc_name(adc_name))]['DemodFreq']['GHz']
-        
-        Sv = np.sin(demod)
-        Cv = np.cos(demod)
-
-        Id = np.mean(Is * Cv - Qs * Sv)
-        Qd = np.mean(Is * Sv + Qs * Cv)
-        
-        return Id, Qd
 
     ###EXPERIMENT CONTROL METHODS##################################################################
     def value(self, var, value=None, output=True):
@@ -874,55 +825,6 @@ class Experiment(object):
                 print("Experiment variable '" + var + 
                 "' is set to " + self.val2str(value) + ".")
 
-    def set_adc_setting(self, setting, value, adc_name=None):
-        """
-        Change one of the ADC settings.
-        
-        Inputs:
-            adc_name: name string of the ADC. If adc_name is None and
-                there is only one board in the resource dictionary,
-                the board name will be automatically recognized.
-            setting: name of setting you want to change.
-            value: value to change the setting to.
-        Output:
-            None.
-        """
-        if adc_name is None:
-            adc_name = self._get_adc_name(adc_name)
-        
-        if setting not in self._adc_settings[self._adcs.index(adc_name)]:
-            raise ExperimentDefinitionError(str(setting) + 
-            " is not a valid ADC setting name.")
-        else:
-            self._adc_settings[self._adcs.index(adc_name)][setting] = value
-            
-    def _get_adc_name(self, adc_name=None):
-        """
-        Check whether the ADC board with a specific name exist. If the
-        input ADC board name is not specified and there is only one ADC
-        board in the resource dictionary, then the name of this board is
-        returned.
-        
-        Input: 
-            adc_name (optional): ADC board name.
-        Output: 
-            adc_name: name of an existing ADC board (i.e. either 
-                given as input adc_name or found in the resource 
-                dictionary).
-        """
-        if adc_name is None:
-            if len(self._adcs) == 1:
-                adc_name = self._adcs[0]
-            else:
-                raise("The ADC board name should be explicitly " +
-                "specified since there are more than one ADC board in " +
-                "the experiment resource dictionary.")
-        elif adc_name not in self._adcs:
-            raise Exception("ADC board '" + str(adc_name) + 
-            "' does not exist.")
-
-        return adc_name    
-    
     ###EXPERIMENT RUN FUNCTIONS####################################################################
     def run_once(self):
         """
@@ -998,7 +900,6 @@ class Experiment(object):
                 avg_data[key + ' Std Dev'] = data[key].copy()
                 avg_data[key + ' Std Dev']['Value'] = np.std(data[key]['Value'],
                         axis=0)
-                avg_data[key + ' Std Dev'].pop('Distribution', None)
 
         return avg_data
         
@@ -1020,7 +921,7 @@ class Experiment(object):
                 self._check_var(var, check_value=False)
             else:
                 self._check_var(var, check_value=True)
-            if 'Resource' not in self._vars[var]:
+            if 'Interface' not in self._vars[var]:
                 raise ExperimentDefinitionError("Variable '" + str(var) + 
                     " is not set to be used with the send_request method.")
         except ExperimentDefinitionError:
@@ -1033,7 +934,7 @@ class Experiment(object):
 
         if value is not None:
             self._vars[var]['Value'] = value
-        self._vars[var]['Resource'].send_request(self._vars[var]['Value'])
+        self._vars[var]['Interface'].send_request(self._vars[var]['Value'])
         self._vars[var]['Save'] = True
         
     def acknowledge_request(self, var, enforce=True):
@@ -1049,9 +950,9 @@ class Experiment(object):
         """
         if enforce:
             self._check_var(var)
-        if ('Resource' in self._vars[var] and
-            hasattr(self._vars[var]['Resource'], 'acknowledge_request')):
-            self._vars[var]['Resource'].acknowledge_request()
+        if ('Interface' in self._vars[var] and
+            hasattr(self._vars[var]['Interface'], 'acknowledge_request')):
+            self._vars[var]['Interface'].acknowledge_request()
     
     def acknowledge_requests(self):
         """
@@ -1065,133 +966,6 @@ class Experiment(object):
         """
         for var in self._vars:
             self.acknowledge_request(var, False)
-   
-    def single_shot_iqs(self, adc_name=None, save=False, plot_data=None):
-        """
-        Run a single experiment, saving individual I and Q points.
-        
-        Inputs:
-            adc_name: the ADC board name. If the board is not specified
-                and there is only one board in experiment resource 
-                dictionary than it will be used by default.
-            save: save the data if save is True.
-            plot_data: plot the data (True by default)
-        Output:
-            None.
-        """
-        adc_name = self._get_adc_name(adc_name)
-        previous_adc_mode = self._adc_settings[self._adcs.index(adc_name)]['RunMode']
-        self._adc_settings[self._adcs.index(adc_name)]['RunMode'] = 'demodulate'
-            
-        data = self._process_data(self.run_once())
-        
-        self._adc_settings[self._adcs.index(adc_name)]['RunMode'] = previous_adc_mode
-        
-        if plot_data is not None:
-            plt.ion()
-            plt.figure(13)
-            plt.plot(run_data['Single Shot Is']['Value'], run_data['Single Shot Qs']['Value'], 'b.')
-            plt.xlabel('I [ADC units]')
-            plt.ylabel('Q [ADC units]')
-            plt.title('Single Shot Is and Qs')
-            plt.draw()
-
-        # Save the data.
-        if save:
-            self._save_data(data)
-
-    def single_shot_osc(self, adc_name=None, save=False, plot_data=None):
-        """
-        Run a single shot experiment in average mode, and save the 
-        time-demodulated data to file.
-        
-        Inputs: 
-            adc_name: the ADC board name. If the board is not specified
-                and there is only one board in experiment resource
-                dictionary than it will be used by default.
-            save: save the data if save is True (default: False).
-            plot_data: data variables to plot.
-        Output:
-            None.
-        """
-        self.avg_osc(adc_name, save, plot_data, runs=1)
-
-    def avg_osc(self, adc_name=None, save=False, plot_data=None, runs=100):
-        """
-        Run a single experiment in average mode Reps number of times 
-        and average the results together.
-        
-        Inputs:
-            adc_name: ADC board name.
-            save: save the data to disk.
-            plot_data: data variables to plot.
-            runs: number of runs (default: 100).
-        Output:
-            None.
-        """
-        print('\nCollecting the ADC data...\n')
-              
-        self._run_status= ''
-        self._run_message = ''
-        
-        adc_name = self._get_adc_name(adc_name)
-        previous_adc_mode = self._adc_settings[self._adcs.index(adc_name)]['RunMode']
-        self._adc_settings[self._adcs.index(adc_name)]['RunMode'] = 'average'
-        
-        data = self._process_data(self.run_once())
-        
-        # Make a list of data variables that should be plotted.
-        if plot_data is not None:
-            for var in self._combine_strs(plot_data):
-                if var not in data:
-                    print("Warning: variable '" + var + 
-                    "' is not found among the data dictionary keys: " + 
-                    str(data.keys()) + ".")
-            plot_data = [var for var in
-                    self._combine_strs(plot_data) if var in data]
-        if plot_data:
-            self._init_1d_plot(self._extra_data['Indep Names'][0][0],
-                self._extra_data['Indep Values'][0][0], 
-                data, plot_data)
-
-        if runs > 1:        # Run multiple measurement shots.
-            print('\t[ESC]:\tAbort the run.' + 
-                  '\n\t[S]:\tAbort the run but [s]ave the data.\n')
-            sys.stdout.write('Progress: 0%')
-            self.add_expt_var('Runs', runs)
-            stepsize = max(int(round(runs / 25)), 1)
-            plot_data = run_data
-            for r in range(runs - 1):
-                self._listen_to_keyboard(recog_keys=[27, 83, 115], clear_buffer=False)  # Check if the specified keys are pressed.
-                if self._run_statusin ['abort', 'abort-and-save']:
-                    self._vars['Runs']['Value'] = r + 1
-                    sys.stdout.write(str(round(100 * self._vars['Runs']['Value'] / float(runs), 1)) + '%\n')
-                    print(self._run_message)
-                    break  
-                self.run_once()
-                for key in data:    # Accumulate the data values. These values should be divided by the actual number of Reps to get the average values.
-                    data[key] = data[key] + run_data[key]
-                if np.mod(r, stepsize) == 0:
-                    sys.stdout.write('.')
-                    if plot_data:
-                        for key in plot_data:
-                            plot_data[key] = run_data[key] / float(r + 1)
-                        self._update_1d_plot(self._extra_data['Indep Values'][0][0], plot_data, self._extra_data['Indep Names'][0][0], plot_data)
-                if r == runs - 2:
-                    sys.stdout.write('100%\n')
-            for key in data:
-                if 'Value' in data[key]:
-                    data[key]['Value'] = data[key]['Value'] / float(runs)
-        
-        if plot_data:        # Save the data.
-            self._update_1d_plot(self._extra_data['Indep Values'][0][0], run_data, self._extra_data['Indep Names'][0][0], plot_data)
-        
-        self._adc_settings[self._adcs.index(adc_name)]['RunMode'] = previous_adc_mode
-        
-        # Save the data.
-        if ((save and self._run_status!= 'abort') or
-            self._run_status== 'abort-and-save'):
-            self._save_data(data)
 
     def _process_data(self, raw_data):
         """
@@ -2041,4 +1815,13 @@ class Experiment(object):
             'devices is not implemented.')
         plt.xlabel('Timing Information [counts]')
         plt.ylabel('Counts')
+        plt.draw()
+ 
+    def plot_iqs(self):
+        plt.ion()
+        plt.figure(13)
+        plt.plot(data['Single Shot Is']['Value'], data['Single Shot Qs']['Value'], 'b.')
+        plt.xlabel('I [ADC units]')
+        plt.ylabel('Q [ADC units]')
+        plt.title('Single Shot Is and Qs')
         plt.draw()

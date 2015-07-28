@@ -32,12 +32,11 @@ import sys
 if LABRAD_PATH not in sys.path:
     sys.path.append(LABRAD_PATH)
 
+import numpy as np
 import itertools
 
 from labrad.server import inlineCallbacks
 import labrad.units as units
-
-import LabRAD.Servers.Instruments.GHzBoards.command_sequences as seq
 
 class ResourceDefinitionError(Exception): pass
 
@@ -125,6 +124,16 @@ class GHzFPGABoards(object):
             raise ResourceDefinitionError("Either DAC or ADC boards " +
                     "must return the data, not both.")
         
+        # Check that all DAC and ADC boards are unique.
+        if len(self.dacs) != len(set(self.dacs)):
+            raise ExperimentDefinitionError("All DAC boards must have" +
+            " unique names in the resource dictionary. The following" + 
+            " DAC boards are given: ", + str(dacs) + ".")
+        if len(self.adcs) != len(set(self.adcs)):
+            raise ExperimentDefinitionError("All ADC boards must have" +
+            " unique names in the resource dictionary. The following" +
+            " ADC boards are given: ", + str(self.adcs) + ".")
+
         p = self.server.packet()
         listed_boards = (yield p.list_devices().send())['list_devices']
         listed_boards = [board for idx, board in listed_boards]
@@ -168,7 +177,67 @@ class GHzFPGABoards(object):
             self.consts['PREAMP_TIMEOUT'] = (preamp_timeout *
                     units.PreAmpTimeCounts)
 
-    def load_dacs(self, memory, sram):
+    def get_adc(self, adc=None):
+        """
+        If only a single ADC board is present, return its name. If more
+        than one board is present, check that a board with a a given name
+        actually exists, otherwise raise an error. Return the board index
+        as a second parameter.
+        
+        Input:
+            adc (optional): ADC board name (default: None).
+        Output:
+            adc: ADC board name.
+        """
+        if len(self.adcs) == 1:
+            return self.adcs[0], 0
+        elif adc is None:
+            raise Exception("The ADC board name should be explicitly " +
+                "specified since more than one ADC board is present.")
+        elif adc not in self.adcs:
+            raise Exception("ADC board '" + str(adc) + "' is not found.")
+        return adc, self.adcs.index(adc)
+ 
+    def set_adc_setting(self, setting, value, adc=None):
+        """
+        Change one of the ADC settings.
+        
+        Inputs:
+            setting: name of setting you want to change.
+            value: value to change the setting to.
+            adc: ADC board name. If None and only one board in is
+            present the board name will be automatically recognized.
+        Output:
+            None.
+        """
+        adc, idx = self.get_adc(adc)
+        
+        if setting in self.adc_settings[idx]:
+            self.adc_settings[idx][setting] = value
+        else:
+            raise Exception("'" + str(setting) + 
+                    "' is not a valid ADC setting.")
+
+    def get_adc_setting(self, setting, adc=None):
+        """
+        Get an ADC setting.
+        
+        Inputs:
+            setting: name of setting you want to change.
+            adc: ADC board name. If None and only one board in is
+            present the board name will be automatically recognized.
+        Output:
+            value: value of the ADC setting.
+        """
+        adc, idx = self.get_adc(adc)
+        
+        if setting in self.adc_settings[idx]:
+            return self.adc_settings[idx][setting]
+        else:
+            raise Exception("'" + str(setting) + 
+                    "' is not a valid ADC setting.")
+
+    def load_dacs(self, sram, memory):
         """Load DACs with Memory commands and SRAM."""
         for k, dac in enumerate(self.dacs):
             p = self.server.packet()
@@ -206,30 +275,30 @@ class GHzFPGABoards(object):
             
     def load_adcs(self):
         """Load ADCs with correct variables."""
-        for k, adc in enumerate(self.adcs):
+        for idx, adc in enumerate(self.adcs):
             p = self.server.packet()
             p.select_device(adc)
-            p.start_delay(int((self.adc_settings[k]['ADCDelay']['ns']) / 4) + 
-                    self.adc_settings[k]['CalibDelay'])
-            p.adc_run_mode(self.adc_settings[k]['RunMode'])
-            p.adc_filter_func(self.filter_bytes(self.adc_settings[k]), 
-                    self.adc_settings[k]['FilterStretchLen']['ns'],
-                    self.adc_settings[k]['FilterStretchAt']['ns'])
+            p.start_delay(int((self.adc_settings[idx]['ADCDelay']['ns']) / 4) + 
+                    self.adc_settings[idx]['CalibDelay'])
+            p.adc_run_mode(self.adc_settings[idx]['RunMode'])
+            p.adc_filter_func(self.filter_bytes(self.adc_settings[idx]), 
+                    self.adc_settings[idx]['FilterStretchLen']['ns'],
+                    self.adc_settings[idx]['FilterStretchAt']['ns'])
+            dPhi = int(self.adc_settings[idx]['DemodFreq']['MHz'] / 7629)
+            phi0 = int(self.adc_settings[idx]['DemodPhase']['rad'] * (2**16))
             for k in range(self.consts['DEMOD_CHANNELS']):
-                dPhi = int(self.adc_settings[k]['DemodFreq']['MHz'] / 7629)
-                phi0 = int(self.adc_settings[k]['DemodPhase']['rad'] * (2**16))
                 p.adc_demod_phase(k, dPhi, phi0)
-                p.adc_trig_magnitude(k, self.adc_settings[k]['DemodSinAmp'],
-                        self.adc_settings[k]['DemodCosAmp'])
+                p.adc_trig_magnitude(k, self.adc_settings[idx]['DemodSinAmp'],
+                        self.adc_settings[idx]['DemodCosAmp'])
             self._results.append(p.send(wait=False))
         
-    def filter_bytes(self, setting):
+    def filter_bytes(self, settings):
         """Set the filter for a specific experiment."""
         # ADC collects at a 2 ns acquisition rate, but the filter function
         # has a 4 ns resolution.
-        filter_func = setting['FilterType'].lower()
-        sigma = setting['FilterWidth']['ns']
-        window = np.zeros(int(setting['FilterLength']['ns'] / 4))
+        filter_func = settings['FilterType'].lower()
+        sigma = settings['FilterWidth']['ns']
+        window = np.zeros(int(settings['FilterLength']['ns'] / 4))
         if filter_func == 'square':
             window = window + (128)
             filt = np.append(window, np.zeros(self.consts['FILTER_LEN'] -
@@ -258,7 +327,7 @@ class GHzFPGABoards(object):
         return filt.tostring()
 
     
-    def load_and_run(self, waveforms, memory_dict_list, reps=1020):
+    def load_and_run(self, dac_srams, dac_mems, reps=1020):
         """
         Load FPGA boards with the required memory and settings, and 
         execute the run sequence a set number of times. This method
@@ -279,18 +348,11 @@ class GHzFPGABoards(object):
             run_data: returns the result of the fpga.run_sequence 
                 command.
         """
-        if len(memory_dict_list) != len(self.dacs):
+        if len(dac_mems) != len(dac_srams):
             raise Exception('Not enough memory commands to ' +
                     'populate the boards!')
-
-        dac_srams = []
-        dac_mems = []
-        for k, dac in enumerate(self.dacs):
-            dac_srams.append(seq.waves2sram(waveforms[self.dac_settings[k]['DAC A']], 
-                                            waveforms[self.dac_settings[k]['DAC B']]))
-            dac_mems.append(seq.mem_from_list(memory_dict_list[k]))
         
-        self.load_dacs(dac_mems, dac_srams)
+        self.load_dacs(dac_srams, dac_mems)
         
         if self._data_adcs:
             p = self.server.packet()
@@ -298,7 +360,7 @@ class GHzFPGABoards(object):
             p.daisy_chain(list(itertools.chain(*[self.dacs, self.adcs])))
             timing_order_list = []
             for idx, adc in enumerate(self._data_adcs):
-                if 'RunMode' in self.adc_setting[idx]:
+                if 'RunMode' in self.adc_settings[idx]:
                     if (self.adc_settings[idx]['RunMode'].lower() ==
                             'average'):
                         timing_order_list.append(adc)
@@ -394,6 +456,7 @@ class RFGenerator(object):
         else:
             self._single_device = False
         
+        self._request_sent = False
         self._output_set = False
         
         p = self.server.packet()
@@ -408,12 +471,12 @@ class RFGenerator(object):
             p.output(True)
             self._output_set = True
         self._result = p[self._setting](value).send(wait=False)
-        self._sent = True
+        self._request_sent = True
         
     def acknowledge_request(self):
         """Wait for the result of a non-blocking request."""
-        if self._sent:
-            self._sent = False
+        if self._request_sent:
+            self._request_sent = False
             return self._result.wait()
 
 
@@ -470,22 +533,24 @@ class LabBrickAttenuator(object):
         else:
             self._single_device = False
         
+        self._request_sent = False
+        
     def send_request(self, attenuation):
         """Send a request to set the attenuation."""
         p = self.server.packet()
         if not self._single_device:
             p.select_attenuator(self.address)
         self._result = p.attenuation(attenuation).send(wait=False)
-        self._sent = True
+        self._request_sent = True
         
     def acknowledge_request(self):
         """Wait for the result of a non-blocking request."""
-        if self._sent:
-            self._sent = False
+        if self._request_sent:
+            self._request_sent = False
             return self._result.wait()
             
 
-class VoltageSource(object):
+class SIM928VoltageSource(object):
     """
     SRS SIM928 voltage source simplified interface.
     """
@@ -519,24 +584,26 @@ class VoltageSource(object):
         """Initialize a voltage source."""
         p = self.server.packet()
         devices = (yield p.list_devices().send())['list_devices']
-        if 'Address' in resource:
-            if resource['Address'] in devices:
-                self.address = resource['Address']
+        if 'Serial Number' in resource:
+            if resource['Serial Number'] in devices:
+                self.address = resource['Serial Number']
             else:
-                raise ResourceDefinitionError("Device with address '" +
-                    str(resource['Address']) + "' is not found on server '" +
-                    self.server_name + "'.")
+                raise ResourceDefinitionError("Device with Serial " +
+                    "Number " + str(resource['Serial Number']) +
+                    " is not found on server '" + self.server_name + "'.")
         elif len(devices) == 1:
             self.address = devices[0][0]
         else:
-            raise ResourceDefinitionError("'Address' field is absent " +
-                    " in the experiment resource: " + str(resource) + ".")
+            raise ResourceDefinitionError("'Serial Number' field is " +
+                    "not found in the experiment resource: " +
+                    str(resource) + ".")
         
         if len(devices) == 1:
             self._single_device = True
         else:
             self._single_device = False
         
+        self._request_sent = False
         self._output_set = False
         
         p = self.server.packet()
@@ -551,10 +618,10 @@ class VoltageSource(object):
             p.output(True)
             self._output_set = True
         self._result = p.voltage(voltage).send(wait=False)
-        self._sent = True
+        self._request_sent = True
         
     def acknowledge_request(self):
         """Wait for the result of a non-blocking request."""
-        if self._sent:
-            self._sent = False
+        if self._request_sent:
+            self._request_sent = False
             return self._result.wait()

@@ -56,3 +56,26 @@ def outcomes_from_array(t, threshold):
     threshold_vectorized = np.vectorize(_threshold)
 
     return threshold_vectorized(t)
+
+def software_demod(t, freq, Is, Qs):
+    """
+    Demodulate I and Q data in software. This method uses
+    ADC frequency for demodulation. 
+    
+    Input:
+        t: time vector during which to demodulate data (ns).
+        freq: demodulation frequency (GHz).
+        Is: I data.
+        Qs: Q data.
+    Output:
+        Id, Qd: demodulated I and Q.
+    """
+    demod = 2 * np.pi * t * freq
+    
+    Sv = np.sin(demod)
+    Cv = np.cos(demod)
+
+    Id = np.mean(Is * Cv - Qs * Sv)
+    Qd = np.mean(Is * Sv + Qs * Cv)
+    
+    return Id, Qd

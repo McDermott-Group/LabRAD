@@ -33,6 +33,8 @@ import labrad.units as units
 import LabRAD.Measurements.General.experiment as expt
 import LabRAD.Measurements.General.pulse_shapes as pulse
 
+import LabRAD.Servers.Instruments.GHzBoards.command_sequences as seq
+
 import data_processing
 
 DAC_ZERO_PAD_LEN = 20
@@ -115,8 +117,9 @@ class JPMQubitReadoutWithReset(expt.Experiment):
         DtoFP = self.value('Displacement to Fast Pulse')['ns']          # delay between the end of the displacement pulse and the start of the fast pulse
 
         ###WAVEFORMS###############################################################################
+        fpga = self.ghz_fpga_boards
         requested_waveforms = [settings[ch] for settings in
-                self.fpga_boards.dac_settings for ch in ['DAC A', 'DAC B']]
+                fpga.dac_settings for ch in ['DAC A', 'DAC B']]
 
         JPM_smoothed_FP = pulse.GaussPulse(JPM_FPT, JPM_FPW, JPM_FPA)
         FPtoEnd = max(0, DtoFP + JPM_smoothed_FP.size) + DAC_ZERO_PAD_LEN
@@ -154,13 +157,13 @@ class JPMQubitReadoutWithReset(expt.Experiment):
                                                 pulse.SinePulse(Disp_time, RO_SB_freq, Disp_amp, (RO_time + ROtoD) * RO_SB_freq + Disp_phase, 0),
                                                 pulse.DC(FPtoEnd, 0)])
 
-        for idx, settings in enumerate(self.fpga_boards.dac_settings):
+        for idx, settings in enumerate(fpga.dac_settings):
             for channel in ['DAC A', 'DAC B']:
-                if self.fpga_boards.dac_settings[idx][channel] not in waveforms:
-                    raise expt.ResourceDefinitionError("'" + 
-                        str(self.fpga_boards.dacs[idx]) +
+                if fpga.dac_settings[idx][channel] not in waveforms:
+                    raise expt.ExperimentDefinitionError("'" + 
+                        str(fpga.dacs[idx]) +
                         "' setting '" + str(channel) + "': '" +
-                        self.fpga_boards.dac_settings[idx][channel] +
+                        fpga.dac_settings[idx][channel] +
                         "' could not be recognized. The allowed '" +
                         str(channel) + "' values are 'JPM Fast Pulse'," + 
                         "'Readout I', 'Readout Q', 'Qubit I', 'Qubit Q'," +
@@ -170,14 +173,13 @@ class JPMQubitReadoutWithReset(expt.Experiment):
             self._plot_waveforms([waveforms[wf] for wf in requested_waveforms],
                     ['r', 'g', 'b', 'k'], requested_waveforms)
 
-        SRAMLength = len(waveforms[self.fpga_boards.dac_settings[0]['DAC A']])
-        SRAMDelay = np.ceil(SRAMLength / 1000)
-        
+        sram_length = len(waveforms[fpga.dac_settings[0]['DAC A']])
+        sram_delay = np.ceil(sram_length / 1000)
         # Create a memory command list.
         # The format is described in Servers.Instruments.GHzBoards.command_sequences.
-        if 'FO1 FastBias Firmware Version' in self.fpga_boards.dac_settings[0]:
+        if 'FO1 FastBias Firmware Version' in fpga.dac_settings[0]:
             mem_list1 = [{'Type': 'Firmware', 'Channel': 1, 
-                          'Version': self.fpga_boards.dac_settings[0]['FO1 FastBias Firmware Version']}]
+                          'Version': fpga.dac_settings[0]['FO1 FastBias Firmware Version']}]
         else:
             mem_list1 = []
         mem_list1 = mem_list1 + [
@@ -185,25 +187,31 @@ class JPMQubitReadoutWithReset(expt.Experiment):
             {'Type': 'Delay', 'Time': self.value('Init Time')['us']},
             {'Type': 'Bias', 'Channel': 1, 'Voltage': self.value('Bias Voltage')['V']},
             {'Type': 'Delay', 'Time': self.value('Bias Time')['us']},
-            {'Type': 'SRAM', 'Start': 0, 'Length': SRAMLength, 'Delay': SRAMDelay},
+            {'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay},
             {'Type': 'Timer', 'Time': self.value('Measure Time')['us']},
             {'Type': 'Bias', 'Channel': 1, 'Voltage': 0}]
 
         mem_list2 = [
             {'Type': 'Delay', 'Time': (self.value('Init Time')['us'] + 
                                        self.value('Bias Time')['us'])},
-            {'Type': 'SRAM', 'Start': 0, 'Length': SRAMLength, 'Delay': SRAMDelay},
+            {'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay},
             {'Type': 'Timer', 'Time': self.value('Measure Time')['us']}]
+        
+        dac_srams = [seq.waves2sram(waveforms[fpga.dac_settings[k]['DAC A']], 
+                                    waveforms[fpga.dac_settings[k]['DAC B']])
+                                    for k, dac in enumerate(fpga.dacs)]
+        mems1 = seq.mem_from_list(mem_list1)
+        mems2 = seq.mem_from_list(mem_list2)
         
         ###RUN#####################################################################################
         self.acknowledge_requests()
-        P = self.fpga_boards.load_and_run(waveforms, [mem_list1, mem_list2], self.value('Reps'))
+        P = fpga.load_and_run(dac_srams, [mems1, mems2], self.value('Reps'))
         
         ###DATA POST-PROCESSING####################################################################
         if histogram:
             self._plot_histogram(P, 1)
 
-        preamp_timeout = self.fpga_boards.consts['PREAMP_TIMEOUT']
+        preamp_timeout = fpga.consts['PREAMP_TIMEOUT']
         t_mean, t_std = data_processing.mean_time_from_array(P, preamp_timeout)
         
         ###DATA STRUCTURE##########################################################################

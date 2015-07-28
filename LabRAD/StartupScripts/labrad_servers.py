@@ -150,7 +150,7 @@ class StartAndBringUp:
             self.processes['LabRAD'] = sp.Popen(labrad_filename)
         except OSError:
             raise Exception('Failed to start LabRAD.')
-        print('Please press "Run Server" button in the LabRAD window' +
+        print('Please press [Run server] button in the LabRAD window ' +
                 'if it has not started automatically.')
         self._waitTillEnterKeyIsPressed()
 
@@ -273,7 +273,7 @@ class StartAndBringUp:
                     dc_rack_vi])
         except OSError:
             raise Exception('Failed to start the DC Rack LabVIEW VI.')
-        print('Please press "Run" button in the LabVIEW VI window.')
+        print('Please press [Run] button in the LabVIEW VI window.')
         self._waitTillEnterKeyIsPressed()
 
 

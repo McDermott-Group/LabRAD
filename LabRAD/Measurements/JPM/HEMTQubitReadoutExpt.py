@@ -33,6 +33,8 @@ import labrad.units as units
 import LabRAD.Measurements.General.experiment as expt
 import LabRAD.Measurements.General.pulse_shapes as pulse
 
+import LabRAD.Servers.Instruments.GHzBoards.command_sequences as seq
+
 import data_processing
 
 DAC_ZERO_PAD_LEN = 20
@@ -41,7 +43,7 @@ class HEMTQubitReadout(expt.Experiment):
     """
     Read out a qubit connected to a resonator.
     """
-    def RunOnce(self, ADCName=None, plot_waveforms=False):
+    def run_once(self, adc=None, plot_waveforms=False):
         #QUBIT VARIABLES###########################################################################
         if self.value('Qubit Attenuation') is not None:
             self.send_request('Qubit Attenuation')                      # Qubit attenuation
@@ -82,7 +84,7 @@ class HEMTQubitReadout(expt.Experiment):
         
         #QUBIT DRIVE VARIABLES#####################################################################
         QB_SB_freq = self.value('Qubit SB Frequency')['GHz']         # qubit sideband frequency (RO_SB_freq in GHz)
-        QB_amp = self.value('Qubit Amplitude')['DAC units']          # amplitude of the sideband modulation
+        QB_amp = self.value('Qubit Amplitude')['DACUnits']          # amplitude of the sideband modulation
         QB_time = self.value('Qubit Time')['ns']                     # length of the qubit pulse
       
         #TIMING VARIABLES##########################################################################
@@ -90,8 +92,9 @@ class HEMTQubitReadout(expt.Experiment):
         ADC_wait_time = self.value('ADC Wait Time')['ns']            # delay from the start of the readout pulse to the start of the demodulation
         
         ###WAVEFORMS###############################################################################
+        fpga = self.ghz_fpga_boards
         requested_waveforms = [settings[ch] for settings in
-                self.fpga_boards.dac_settings for ch in ['DAC A', 'DAC B']]
+                fpga.dac_settings for ch in ['DAC A', 'DAC B']]
 
         waveforms = {};
         if 'None' in requested_waveforms:
@@ -117,13 +120,13 @@ class HEMTQubitReadout(expt.Experiment):
                                               pulse.SinePulse(QB_time, QB_SB_freq, QB_amp, 0.0, 0.0),
                                               pulse.DC(QBtoRO + RO_time + DAC_ZERO_PAD_LEN, 0)])
  
-        for idx, settings in enumerate(self.fpga_boards.dac_settings):
+        for idx, settings in enumerate(fpga.dac_settings):
             for channel in ['DAC A', 'DAC B']:
-                if self.fpga_boards.dac_settings[idx][channel] not in waveforms:
-                    raise expt.ResourceDefinitionError("'" + 
-                        str(self.fpga_boards.dacs[idx]) + 
+                if fpga.dac_settings[idx][channel] not in waveforms:
+                    raise expt.ExperimentDefinitionError("'" + 
+                        str(fpga.dacs[idx]) + 
                         "' setting '" + str(channel) + "': '" +
-                        self.fpga_boards.dac_settings[idx][channel] +
+                        fpga.dac_settings[idx][channel] +
                         "' could not be recognized. The allowed '" +
                         str(channel) + "' values are 'Readout I', '" +
                         "Readout Q', 'Qubit I', 'Qubit Q', and 'None'.")
@@ -132,117 +135,257 @@ class HEMTQubitReadout(expt.Experiment):
             self._plot_waveforms([waveforms[wf] for wf in requested_waveforms],
                     ['r', 'g', 'b', 'k'], requested_waveforms)
 
-        SRAMLength = len(waveforms[self.DACSettings[0]['DAC A']])
-        SRAMDelay = np.ceil(SRAMLength / 1000)
-                              
-        ADCName = self._GetADCName(ADCName)
-        self.ADCSettings[self.ADCs.index(ADCName)]['ADCDelay'] = (DAC_ZERO_PAD_LEN +
-                ADC_wait_time + QB_time + QBtoRO) * units.ns        # Waiting time before starting demodulation.
-        self.ADCSettings[self.ADCs.index(ADCName)]['DemodFreq'] = -self.value('Readout SB Frequency')
+        ###SET BOARDS PROPERLY#####################################################################
+        demod_freq = -self.value('Readout SB Frequency')
+        fpga.set_adc_setting('DemodFreq', demod_freq, adc)
+        # Waiting time before the demodulation start.
+        fpga.set_adc_setting('ADCDelay', (DAC_ZERO_PAD_LEN +
+                ADC_wait_time + QB_time + QBtoRO) * units.ns, adc)
 
-        DAC1_SRAM = dac.waves2sram(waveforms[self.DACSettings[0]['DAC A']], waveforms[self.DACSettings[0]['DAC B']])
-        DAC2_SRAM = dac.waves2sram(waveforms[self.DACSettings[1]['DAC A']], waveforms[self.DACSettings[1]['DAC B']])
-        DAC_mem =  dac.mem_simple(self.value('Init Time')['us'], SRAMLength, 0, SRAMDelay)
+        sram_length = len(waveforms[fpga.dac_settings[0]['DAC A']])
+        sram_delay = np.ceil(sram_length / 1000)
+        dac_srams = [seq.waves2sram(waveforms[fpga.dac_settings[k]['DAC A']], 
+                                    waveforms[fpga.dac_settings[k]['DAC B']])
+                                    for k, dac in enumerate(fpga.dacs)]
+        dac_mems = [seq.mem_simple(self.value('Init Time')['us'], sram_length, 0, sram_delay)
+                    for k, dac in enumerate(fpga.dacs)]
         
         ###RUN#####################################################################################
         self.acknowledge_requests()
-        P = self.fpga_boards.load_and_run(waveforms, [mem_list1, mem_list2], self.value('Reps'))
+        result = fpga.load_and_run(dac_srams, dac_mems, self.value('Reps'))
         
         ###DATA POST-PROCESSING####################################################################
         Is, Qs = result[0] 
-        
-        run_data = {'I': np.array(Is),
-                    'Q': np.array(Qs)}
+        Is = np.array(Is)
+        Qs = np.array(Qs)
 
-        if self.ADCSettings[self.ADCs.index(ADCName)]['RunMode'] == 'demodulate':
-            self._WrapDataVar('Single Shot Is', 'ADC units', None, {'linestyle': 'b.'})
-            self._WrapDataVar('Single Shot Qs', 'ADC units', None, {'linestyle': 'g.'})
-            self._WrapDataVar('I', 'ADC units', 'normal', {'linestyle': 'b-'})
-            self._WrapDataVar('Q', 'ADC units', 'normal', {'linestyle': 'g-'})
-            self._WrapDataVar('I Std Dev', 'ADC units', 'std')
-            self._WrapDataVar('Q Std Dev', 'ADC units', 'std')
-            self._WrapDataVar('ADC Amplitude', 'ADC units', None, {'linestyle': 'r-'})
-            self._WrapDataVar('ADC Phase', 'rad', None, {'linestyle': 'k-'})
-            self.value('Rep Iteration')
-
-            run_data['Single Shot Is'] = run_data['I']
-            run_data['Single Shot Qs'] = run_data['Q']
-            run_data['I'] = np.mean(run_data['Single Shot Is'])
-            run_data['Q'] = np.mean(run_data['Single Shot Qs'])
-            run_data['I Std Dev'] = np.std(run_data['Single Shot Is'])
-            run_data['Q Std Dev'] = np.std(run_data['Single Shot Qs'])
-            run_data['ADC Amplitude'] = np.sqrt(run_data['I']**2 + run_data['Q']**2)
-            run_data['ADC Phase'] = np.arctan2(run_data['Q'], run_data['I']) # numpy.arctan2(y, x) expects reversed arguments.
-            
-            extra_data['Indep Names'] = [['Rep Iteration']]
-            extra_data['Indep Vals'] = [[np.linspace(1, len(Is), len(Is))]]
-            extra_data['Dependencies'] = {'Single Shot Is': extra_data['Indep Names'][0],
-                                          'Single Shot Qs': extra_data['Indep Names'][0]}
-        elif self.ADCSettings[self.ADCs.index(ADCName)]['RunMode'] == 'average':
-            self._WrapDataVar('Software Demod I', 'ADC units', None, {'linestyle': 'b-'})
-            self._WrapDataVar('Software Demod Q', 'ADC units', None, {'linestyle': 'g-'})
-            self._WrapDataVar('Software Demod ADC Amplitude', 'ADC units', None, {'linestyle': 'r-'})
-            self._WrapDataVar('Software Demod ADC Phase', 'rad', None, {'linestyle': 'k-'})
-            self.value('Reps', '', 1)
-            self.value('ADC Time', 'ns')
-            
+        if fpga.adc_settings[self.ADCs.index(adc)]['RunMode'] == 'demodulate':
+            I = np.mean(Is)
+            Q = np.mean(Qs)
+            data = {
+                    'Single Shot Is': { 
+                        'Value': Is * units.ADCUnits,
+                        'Dependencies': ['Rep Iteration'],
+                        'Preferances':  {
+                            'linestyle': 'b.'}},
+                    'Single Shot Qs': { 
+                        'Value': Qs * units.ADCUnits,
+                        'Dependencies': ['Rep Iteration'],
+                        'Preferances':  {
+                            'linestyle': 'g.'}},
+                    'I': { 
+                        'Value': I * units.ADCUnits,
+                        'Distribution': 'normal',
+                        'Preferances':  {
+                            'linestyle': 'b-'}},
+                    'Q': { 
+                        'Value': Q * units.ADCUnits,
+                        'Distribution': 'normal',
+                        'Preferances':  {
+                            'linestyle': 'g-'}}, 
+                    'I Std Dev': { 
+                        'Value': np.std(Is) * units.ADCUnits,
+                        'Distribution': 'normal'},
+                    'Q Std Dev': { 
+                        'Value': np.std(Qs) * units.ADCUnits,
+                        'Distribution': 'normal'},
+                    'ADC Ammplitude': { 
+                        'Value': np.sqrt(I**2 + Q**2) * units.ADCUnits,
+                        'Preferances':  {
+                            'linestyle': 'r-'}},
+                    'ADC Phase': { # numpy.arctan2(y, x) expects reversed arguments.
+                        'Value': np.arctan2(Q, I) * rad,
+                        'Preferances':  {
+                            'linestyle': 'k-'}},
+                    'Rep Iteration': {
+                        'Value': np.linspace(1, len(Is), len(Is)),
+                        'Type': 'Independent'},
+                   }
+        elif fpga.adc_settings[self.ADCs.index(adc)]['RunMode'] == 'average':
+            self.value('Reps', 1)
             time = np.linspace(0, 2 * (len(Is) - 1), len(Is))
-            run_data['Software Demod I'], run_data['Software Demod Q'] = self._SoftwareDemodulate(time, run_data['I'], run_data['Q'], ADCName)
-            run_data['Software Demod ADC Amplitude'] = np.sqrt(run_data['Software Demod I']**2 + run_data['Software Demod Q']**2)
-            run_data['Software Demod ADC Phase'] = np.arctan2(run_data['Software Demod Q'], run_data['Software Demod I']) # numpy.arctan2(y, x) expects reversed arguments.
+            I, Q = data_processing.soft_demod(time, demod_freq, Is, Qs)
+            data = {
+                    'I': { 
+                        'Value': Is * units.ADCUnits,
+                        'Dependencies': ['Rep Iteration'],
+                        'Preferances':  {
+                            'linestyle': 'b.'}},
+                    'Q': { 
+                        'Value': Qs * units.ADCUnits,
+                        'Dependencies': ['Rep Iteration'],
+                        'Preferances':  {
+                            'linestyle': 'g.'}},
+                    'Software Demod I': { 
+                        'Value': I * units.ADCUnits,
+                        'Preferances':  {
+                            'linestyle': 'b-'}},
+                    'Software Demod Q': { 
+                        'Value': Q * units.ADCUnits,
+                        'Preferances':  {
+                            'linestyle': 'g-'}}, 
+                    'Software Demod ADC Amplitude': { 
+                        'Value': np.sqrt(I**2 + Q**2) * units.ADCUnits,
+                        'Preferances':  {
+                            'linestyle': 'r-'}},
+                    'Software Demod ADC Phase': { 
+                        'Value': np.arctan2(Q, I) * rad,
+                        'Preferances':  {
+                            'linestyle': 'k-'}},
+                    'ADC Time': {
+                        'Value': time * units.ns,
+                        'Type': 'Independent'},
+                   }
+        
+        return data
 
-            extra_data['Indep Names'] = [['ADC Time']]
-            extra_data['Indep Vals'] = [[time]]
-            extra_data['Dependencies'] = {'I': extra_data['Indep Names'][0], 'Q': extra_data['Indep Names'][0]}
-        
-        ###DATA VARIABLES####################################################################################
-        #####################################################################################################
-        # Units for data variables as well as plotting preferences can be defined here.
-        # Example: self._WrapDataVar('P',  '', 'binomial', ' {'name': 'Probability', 'linestyle': 'b-', 'linewidth': 2, 'legendlabel': 'Prob.', 'ylim': [0, 1]})
-        self._WrapDataVar('I', 'ADC units', None, {'linestyle': 'b-', 'linewidth': 1})
-        self._WrapDataVar('Q', 'ADC units', None, {'linestyle': 'g-', 'linewidth': 1})
-
-        
-        if self.ADCSettings[self.ADCs.index(ADCName)]['RunMode'] in ['average', 'demodulate']:
-            return run_data, extra_data
-        else:
-            return run_data
-
-    def _AverageData(self, data, extra_data):
-        """
-        This method should be used for proper averaging of the data returned by RunOnce method.
-        
-        The method should return a "data" and an "extra data" dictionaries.
-        
-        Inputs: 
-            Runs: number of independent runs of the experiment.
-        """
-        avg_data = {}
+    def average_data(self, data):
+        data = {}
         for key in data:
             if key in ['I', 'Q']:
                 if 'Single Shot ' + key + 's' in data:
-                    avg_data[key] = np.mean(data['Single Shot ' + key + 's'])
-                    avg_data[key + ' Std Dev'] = np.std(data['Single Shot ' + key + 's'])
+                    data[key]['Value'] = np.mean(data['Single Shot ' + key + 's']['Value'])
+                    data[key + ' Std Dev']['Value'] = np.std(data['Single Shot ' + key + 's']['Value'])
                 else:
-                    self._WrapDataVar(key, self._GetUnits(key), 'normal')
-                    self._WrapDataVar(key + ' Std Dev', self._GetUnits(key), 'std')
-                    avg_data[key] = np.mean(data[key], axis=0)            
-                    avg_data[key + ' Std Dev'] = np.std(data[key], axis=0)
-            if key in ['Software Demod I', 'Software Demod Q']:
-                self._WrapDataVar(key, self._GetUnits(key), 'normal')
-                self._WrapDataVar(key + ' Std Dev', self._GetUnits(key), 'std')
-                avg_data[key] = np.mean(data[key], axis=0)            
-                avg_data[key + ' Std Dev'] = np.std(data[key], axis=0)
+                    data[key]['Value'] = np.mean(data[key]['Value'], axis=0)
+                    data[key]['Distribution'] = 'normal'
+                    data[key + ' Std Dev']['Value'] = np.std(data[key]['Value'], axis=0)
+            elif key in ['Software Demod I', 'Software Demod Q']:
+                data[key]['Value'] = np.mean(data[key]['Value'], axis=0)
+                data[key]['Distribution'] = 'normal'
+                data[key + ' Std Dev']['Value'] = np.std(data[key]['Value'], axis=0)
         
         for key in data:      
             if key == 'ADC Amplitude':
-                avg_data['ADC Amplitude'] = np.sqrt(avg_data['I']**2 + avg_data['Q']**2)
-            if key == 'ADC Phase':
-                avg_data['ADC Phase'] = np.arctan2(avg_data['Q'], avg_data['I']) # numpy.arctan2(y, x) expects reversed arguments.
+                data['ADC Amplitude']['Value'] = np.sqrt(data['I']['Value']**2 + data['Q']['Value']**2)
+            elif key == 'ADC Phase':
+                data['ADC Phase']['Value'] = np.arctan2(data['Q']['Value'], data['I']['Value'])
             
-            if key == 'Software Demod ADC Amplitude':
-                avg_data['Software Demod ADC Amplitude'] = np.sqrt(avg_data['Software Demod I']**2 + avg_data['Software Demod Q']**2)
-            if key == 'Software Demod ADC Phase':
-                avg_data['Software Demod ADC Phase'] = np.arctan2(avg_data['Software Demod Q'], avg_data['Software Demod I']) # numpy.arctan2(y, x) expects reversed arguments.
+            elif key == 'Software Demod ADC Amplitude':
+                data['Software Demod ADC Amplitude']['Value'] = np.sqrt(data['Software Demod I']**2 + 
+                                                                        data['Software Demod Q']**2)
+            elif key == 'Software Demod ADC Phase':
+                data['Software Demod ADC Phase']['Value'] = np.arctan2(data['Software Demod Q'],
+                                                                       data['Software Demod I']) 
+        return data
+        
+    def single_shot_iqs(self, adc=None, save=False, plot_data=None):
+        """
+        Run a single experiment, saving individual I and Q points.
+        
+        Inputs:
+            adc: ADC board name. If the board is not specified
+                and there is only one board in experiment resource 
+                dictionary than it will be used by default.
+            save: if True save the data (default: False).
+            plot_data: if True plot the data (default: True).
+        Output:
+            None.
+        """
+        adc = self.ghz_fpga_boards.get_adc(adc)
+        previous_adc_mode = self.ghz_fpga_boards.get_adc_setting('RunMode', adc)
+        self.ghz_fpga_boards.set_adc_setting('RunMode', 'demodulate', adc)
+        
+        data = self._process_data(self.run_once())
+        
+        self.ghz_fpga_boards.set_adc_setting('RunMode', previous_adc_mode, adc)
+        
+        if plot_data is not None:
+            self._plot_iqs(data)
 
-        return avg_data, extra_data
+        # Save the data.
+        if save:
+            self._save_data(data)
+
+    def single_shot_osc(self, adc=None, save=False, plot_data=None):
+        """
+        Run a single shot experiment in average mode, and save the 
+        time-demodulated data to file.
+        
+        Inputs: 
+            adc: ADC board name. If the board is not specified
+                and there is only one board in experiment resource
+                dictionary than it will be used by default.
+            save: if True save the data if save is True (default: False).
+            plot_data: data variables to plot (default: None).
+        Output:
+            None.
+        """
+        self.avg_osc(adc_name, save, plot_data, runs=1)
+
+    def avg_osc(self, adc=None, save=False, plot_data=None, runs=100):
+        """
+        Run a single experiment in average mode Reps number of times 
+        and average the results together.
+        
+        Inputs:
+            adc: ADC board name.
+            save: if True save the data if save is True (default: False).
+            plot_data: data variables to plot.
+            runs: number of runs (default: 100).
+        Output:
+            None.
+        """
+        print('\nCollecting the ADC data...\n')
+              
+        self._run_status= ''
+        self._run_message = ''
+        
+        adc = self.ghz_fpga_boards.get_adc(adc)
+        previous_adc_mode = self.ghz_fpga_boards.get_adc_setting('RunMode', adc)
+        self.ghz_fpga_boards.set_adc_setting('RunMode', 'average', adc)
+            
+        run_data = self._process_data(self.run_once())
+        
+        # Make a list of data variables that should be plotted.
+        if plot_data is not None:
+            for var in self._combine_strs(plot_data):
+                if var not in data:
+                    print("Warning: variable '" + var + 
+                    "' is not found among the data dictionary keys: " + 
+                    str(data.keys()) + ".")
+            plot_data = [var for var in
+                    self._combine_strs(plot_data) if var in run_data]
+        if plot_data:
+            self._init_1d_plot('ADC Time', run_data['ADC Time']['Value'],
+                    run_data, plot_data)
+
+        if runs > 1:        # Run multiple measurement shots.
+            print('\t[ESC]:\tAbort the run.' + 
+                  '\n\t[S]:\tAbort the run but [s]ave the data.\n')
+            sys.stdout.write('Progress: 0%')
+            self.add_expt_var('Runs', runs)
+            stepsize = max(int(round(runs / 25)), 1)
+            for key in run_data:
+                plot_data[key] = run_data[key].copy()
+            for r in range(runs - 1):
+                self._listen_to_keyboard(recog_keys=[27, 83, 115], clear_buffer=False)  # Check if the specified keys are pressed.
+                if self._run_statusin ['abort', 'abort-and-save']:
+                    self._vars['Runs']['Value'] = r + 1
+                    sys.stdout.write(str(round(100 * self._vars['Runs']['Value'] / float(runs), 1)) + '%\n')
+                    print(self._run_message)
+                    break  
+                run_data = self.run_once()
+                for key in data:    # Accumulate the data values. These values should be divided by the actual number of Reps to get the average values.
+                    data[key]['Value'] = data[key]['Value'] + run_data[key]['Value']
+                if np.mod(r, stepsize) == 0:
+                    sys.stdout.write('.')
+                    if plot_data:
+                        for key in plot_data:
+                            plot_data[key]['Value'] = run_data[key]['Value'] / float(r + 1)
+                        self._update_1d_plot('ADC Time', run_data['ADC Time']['Value'], plot_data, plot_data)
+                if r == runs - 2:
+                    sys.stdout.write('100%\n')
+            for key in data:
+                if 'Value' in data[key]:
+                    data[key]['Value'] = data[key]['Value'] / float(runs)
+        
+        if plot_data:        # Save the data.
+            self._update_1d_plot(self._extra_data['Indep Values'][0][0], run_data, self._extra_data['Indep Names'][0][0], plot_data)
+        
+        self.ghz_fpga_boards.set_adc_setting('RunMode', previous_adc_mode, adc)
+        
+        # Save the data.
+        if ((save and self._run_status != 'abort') or
+            self._run_status == 'abort-and-save'):
+            self._save_data(data)
