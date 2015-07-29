@@ -28,6 +28,8 @@ if LABRAD_PATH not in sys.path:
 
 import numpy as np
 
+import matplotlib.pyplot as plt
+
 import labrad.units as units
 
 import LabRAD.Measurements.General.experiment as expt
@@ -39,7 +41,149 @@ import data_processing
 
 DAC_ZERO_PAD_LEN = 20
 
-class HEMTQubitReadout(expt.Experiment):
+
+class HEMTExperiment(expt.Experiment):        
+    def single_shot_iqs(self, adc=None, save=False, plot_data=None):
+        """
+        Run a single experiment, saving individual I and Q points.
+        
+        Inputs:
+            adc: ADC board name. If the board is not specified
+                and there is only one board in experiment resource 
+                dictionary than it will be used by default.
+            save: if True save the data (default: False).
+            plot_data: if True plot the data (default: True).
+        Output:
+            None.
+        """
+        adc = self.ghz_fpga_boards.get_adc(adc)
+        previous_adc_mode = self.ghz_fpga_boards.get_adc_setting('RunMode', adc)
+        self.ghz_fpga_boards.set_adc_setting('RunMode', 'demodulate', adc)
+        
+        data = self._process_data(self.run_once())
+        
+        self.ghz_fpga_boards.set_adc_setting('RunMode', previous_adc_mode, adc)
+        
+        if plot_data is not None:
+            self._plot_iqs(data)
+
+        # Save the data.
+        if save:
+            self._save_data(data)
+
+    def single_shot_osc(self, adc=None, save=False, plot_data=None):
+        """
+        Run a single shot experiment in average mode, and save the 
+        time-demodulated data to file.
+        
+        Inputs: 
+            adc: ADC board name. If the board is not specified
+                and there is only one board in experiment resource
+                dictionary than it will be used by default.
+            save: if True save the data if save is True (default: False).
+            plot_data: data variables to plot (default: None).
+        Output:
+            None.
+        """
+        self.avg_osc(adc, save, plot_data, runs=1)
+
+    def avg_osc(self, adc=None, save=False, plot_data=None, runs=100):
+        """
+        Run a single experiment in average mode Reps number of times 
+        and average the results together.
+        
+        Inputs:
+            adc: ADC board name.
+            save: if True save the data if save is True (default: False).
+            plot_data: data variables to plot.
+            runs: number of runs (default: 100).
+        Output:
+            None.
+        """
+        print('\nCollecting the ADC data...\n')
+              
+        self._run_status= ''
+        self._run_message = ''
+        
+        adc = self.ghz_fpga_boards.get_adc(adc)
+        previous_adc_mode = self.ghz_fpga_boards.get_adc_setting('RunMode', adc)
+        self.ghz_fpga_boards.set_adc_setting('RunMode', 'average', adc)
+            
+        data = self._process_data(self.run_once())
+
+        # Make a list of data variables that should be plotted.
+        if plot_data is not None:
+            for var in self._combine_strs(plot_data):
+                if var not in data:
+                    print("Warning: variable '" + var + 
+                    "' is not found among the data dictionary keys: " + 
+                    str(data.keys()) + ".")
+            plot_data = [var for var in
+                    self._combine_strs(plot_data) if var in data]
+        if plot_data:
+            self._init_1d_plot([['ADC Time']], [[data['ADC Time']['Value']]],
+                    data, plot_data)
+ 
+        if runs > 1:        # Run multiple measurement shots.
+            print('\t[ESC]:\tAbort the run.' + 
+                  '\n\t[S]:\tAbort the run but [s]ave the data.\n')
+            sys.stdout.write('Progress: 0%')
+            self.add_var('Runs', runs)
+            stepsize = max(int(round(runs / 25)), 1)
+            data_to_plot = {}
+            for key in data:
+                data_to_plot[key] = data[key].copy()
+            for r in range(runs - 1):
+                # Check if the specified keys are pressed.
+                self._listen_to_keyboard(recog_keys=[27, 83, 115], 
+                        clear_buffer=False)
+                if self._run_status in ['abort', 'abort-and-save']:
+                    self.value('Runs', r + 1, output=False)
+                    sys.stdout.write(str(round(100 * self.value('Runs') / float(runs), 1)) + '%\n')
+                    print(self._run_message)
+                    break  
+                run_data = self.run_once()
+                for key in data:
+                    if data[key]['Type'] == 'Dependent':
+                        # Accumulate the data values.
+                        # These values should be divided by the actual
+                        # number of Reps to get the average values.
+                        data[key]['Value'] = data[key]['Value'] + run_data[key]['Value']
+                if np.mod(r, stepsize) == 0:
+                    sys.stdout.write('.')
+                    if plot_data:
+                        for key in plot_data:
+                            data_to_plot[key]['Value'] = data[key]['Value'] / float(r + 1)
+                        self._update_1d_plot([['ADC Time']], [[data['ADC Time']['Value']]],
+                                data_to_plot, plot_data, np.size(data['ADC Time']['Value']) - 1)
+                if r == runs - 2:
+                    sys.stdout.write('100%\n')
+            for key in data:
+                if 'Value' in data[key] and data[key]['Type'] == 'Dependent':
+                    data[key]['Value'] = data[key]['Value'] / float(runs)
+        
+        if plot_data:        # Save the data.
+            self._update_1d_plot([['ADC Time']], [[data['ADC Time']['Value']]],
+                    data, plot_data, np.size(data['ADC Time']['Value']) - 1)
+        
+        self.ghz_fpga_boards.set_adc_setting('RunMode', previous_adc_mode, adc)
+        
+        # Save the data.
+        if ((save and self._run_status != 'abort') or
+            self._run_status == 'abort-and-save'):
+            self._save_data(data)
+        
+    def _plot_iqs(self, data):
+        plt.ion()
+        plt.figure(13)
+        plt.plot(data['Single Shot Is']['Value'], data['Single Shot Qs']['Value'], 'b.')
+        plt.xlabel('I [ADC units]')
+        plt.ylabel('Q [ADC units]')
+        plt.title('Single Shot Is and Qs')
+        plt.draw()
+
+
+class HEMTQubitReadout(HEMTExperiment):
     """
     Read out a qubit connected to a resonator.
     """
@@ -78,13 +222,13 @@ class HEMTQubitReadout(expt.Experiment):
         # Experiment variables that used by DC Rack, DAC and ADC boards should be defined here.
 
         #CAVITY DRIVE (READOUT) VARIABLES##########################################################
-        RO_SB_freq = self.value('Readout SB Frequency')['GHz']       # readout sideband frequency (RO_SB_freq in GHz)
+        RO_SB_freq = self.value('Readout SB Frequency')['GHz']       # readout sideband frequency
         RO_amp = self.value('Readout Amplitude')['DACUnits']         # amplitude of the sideband modulation
         RO_time = self.value('Readout Time')['ns']                   # length of the readout pulse
         
         #QUBIT DRIVE VARIABLES#####################################################################
-        QB_SB_freq = self.value('Qubit SB Frequency')['GHz']         # qubit sideband frequency (RO_SB_freq in GHz)
-        QB_amp = self.value('Qubit Amplitude')['DACUnits']          # amplitude of the sideband modulation
+        QB_SB_freq = self.value('Qubit SB Frequency')['GHz']         # qubit sideband frequency
+        QB_amp = self.value('Qubit Amplitude')['DACUnits']           # amplitude of the sideband modulation
         QB_time = self.value('Qubit Time')['ns']                     # length of the qubit pulse
       
         #TIMING VARIABLES##########################################################################
@@ -159,29 +303,29 @@ class HEMTQubitReadout(expt.Experiment):
         Is = np.array(Is)
         Qs = np.array(Qs)
 
-        if fpga.adc_settings[self.ADCs.index(adc)]['RunMode'] == 'demodulate':
+        if fpga.get_adc_setting('RunMode', adc) == 'demodulate':
             I = np.mean(Is)
             Q = np.mean(Qs)
             data = {
                     'Single Shot Is': { 
                         'Value': Is * units.ADCUnits,
                         'Dependencies': ['Rep Iteration'],
-                        'Preferances':  {
+                        'Preferences':  {
                             'linestyle': 'b.'}},
                     'Single Shot Qs': { 
                         'Value': Qs * units.ADCUnits,
                         'Dependencies': ['Rep Iteration'],
-                        'Preferances':  {
+                        'Preferences':  {
                             'linestyle': 'g.'}},
-                    'I': { 
+                    'I': {
                         'Value': I * units.ADCUnits,
                         'Distribution': 'normal',
-                        'Preferances':  {
+                        'Preferences':  {
                             'linestyle': 'b-'}},
                     'Q': { 
                         'Value': Q * units.ADCUnits,
                         'Distribution': 'normal',
-                        'Preferances':  {
+                        'Preferences':  {
                             'linestyle': 'g-'}}, 
                     'I Std Dev': { 
                         'Value': np.std(Is) * units.ADCUnits,
@@ -191,47 +335,47 @@ class HEMTQubitReadout(expt.Experiment):
                         'Distribution': 'normal'},
                     'ADC Ammplitude': { 
                         'Value': np.sqrt(I**2 + Q**2) * units.ADCUnits,
-                        'Preferances':  {
+                        'Preferences':  {
                             'linestyle': 'r-'}},
                     'ADC Phase': { # numpy.arctan2(y, x) expects reversed arguments.
-                        'Value': np.arctan2(Q, I) * rad,
-                        'Preferances':  {
+                        'Value': np.arctan2(Q, I) * units.rad,
+                        'Preferences':  {
                             'linestyle': 'k-'}},
                     'Rep Iteration': {
                         'Value': np.linspace(1, len(Is), len(Is)),
                         'Type': 'Independent'},
                    }
-        elif fpga.adc_settings[self.ADCs.index(adc)]['RunMode'] == 'average':
-            self.value('Reps', 1)
+        elif fpga.get_adc_setting('RunMode', adc) == 'average':
+            self.value('Reps', 1, output=False)
             time = np.linspace(0, 2 * (len(Is) - 1), len(Is))
-            I, Q = data_processing.soft_demod(time, demod_freq, Is, Qs)
+            I, Q = data_processing.software_demod(time, demod_freq, Is, Qs)
             data = {
                     'I': { 
                         'Value': Is * units.ADCUnits,
-                        'Dependencies': ['Rep Iteration'],
-                        'Preferances':  {
-                            'linestyle': 'b.'}},
+                        'Dependencies': ['ADC Time'],
+                        'Preferences':  {
+                            'linestyle': 'b-'}},
                     'Q': { 
                         'Value': Qs * units.ADCUnits,
-                        'Dependencies': ['Rep Iteration'],
-                        'Preferances':  {
-                            'linestyle': 'g.'}},
+                        'Dependencies': ['ADC Time'],
+                        'Preferences':  {
+                            'linestyle': 'g-'}},
                     'Software Demod I': { 
                         'Value': I * units.ADCUnits,
-                        'Preferances':  {
-                            'linestyle': 'b-'}},
+                        'Preferences':  {
+                            'linestyle': 'b.'}},
                     'Software Demod Q': { 
                         'Value': Q * units.ADCUnits,
-                        'Preferances':  {
-                            'linestyle': 'g-'}}, 
+                        'Preferences':  {
+                            'linestyle': 'g.'}}, 
                     'Software Demod ADC Amplitude': { 
                         'Value': np.sqrt(I**2 + Q**2) * units.ADCUnits,
-                        'Preferances':  {
-                            'linestyle': 'r-'}},
+                        'Preferences':  {
+                            'linestyle': 'r.'}},
                     'Software Demod ADC Phase': { 
-                        'Value': np.arctan2(Q, I) * rad,
-                        'Preferances':  {
-                            'linestyle': 'k-'}},
+                        'Value': np.arctan2(Q, I) * units.rad,
+                        'Preferences':  {
+                            'linestyle': 'k.'}},
                     'ADC Time': {
                         'Value': time * units.ns,
                         'Type': 'Independent'},
@@ -268,124 +412,3 @@ class HEMTQubitReadout(expt.Experiment):
                 data['Software Demod ADC Phase']['Value'] = np.arctan2(data['Software Demod Q'],
                                                                        data['Software Demod I']) 
         return data
-        
-    def single_shot_iqs(self, adc=None, save=False, plot_data=None):
-        """
-        Run a single experiment, saving individual I and Q points.
-        
-        Inputs:
-            adc: ADC board name. If the board is not specified
-                and there is only one board in experiment resource 
-                dictionary than it will be used by default.
-            save: if True save the data (default: False).
-            plot_data: if True plot the data (default: True).
-        Output:
-            None.
-        """
-        adc = self.ghz_fpga_boards.get_adc(adc)
-        previous_adc_mode = self.ghz_fpga_boards.get_adc_setting('RunMode', adc)
-        self.ghz_fpga_boards.set_adc_setting('RunMode', 'demodulate', adc)
-        
-        data = self._process_data(self.run_once())
-        
-        self.ghz_fpga_boards.set_adc_setting('RunMode', previous_adc_mode, adc)
-        
-        if plot_data is not None:
-            self._plot_iqs(data)
-
-        # Save the data.
-        if save:
-            self._save_data(data)
-
-    def single_shot_osc(self, adc=None, save=False, plot_data=None):
-        """
-        Run a single shot experiment in average mode, and save the 
-        time-demodulated data to file.
-        
-        Inputs: 
-            adc: ADC board name. If the board is not specified
-                and there is only one board in experiment resource
-                dictionary than it will be used by default.
-            save: if True save the data if save is True (default: False).
-            plot_data: data variables to plot (default: None).
-        Output:
-            None.
-        """
-        self.avg_osc(adc_name, save, plot_data, runs=1)
-
-    def avg_osc(self, adc=None, save=False, plot_data=None, runs=100):
-        """
-        Run a single experiment in average mode Reps number of times 
-        and average the results together.
-        
-        Inputs:
-            adc: ADC board name.
-            save: if True save the data if save is True (default: False).
-            plot_data: data variables to plot.
-            runs: number of runs (default: 100).
-        Output:
-            None.
-        """
-        print('\nCollecting the ADC data...\n')
-              
-        self._run_status= ''
-        self._run_message = ''
-        
-        adc = self.ghz_fpga_boards.get_adc(adc)
-        previous_adc_mode = self.ghz_fpga_boards.get_adc_setting('RunMode', adc)
-        self.ghz_fpga_boards.set_adc_setting('RunMode', 'average', adc)
-            
-        run_data = self._process_data(self.run_once())
-        
-        # Make a list of data variables that should be plotted.
-        if plot_data is not None:
-            for var in self._combine_strs(plot_data):
-                if var not in data:
-                    print("Warning: variable '" + var + 
-                    "' is not found among the data dictionary keys: " + 
-                    str(data.keys()) + ".")
-            plot_data = [var for var in
-                    self._combine_strs(plot_data) if var in run_data]
-        if plot_data:
-            self._init_1d_plot('ADC Time', run_data['ADC Time']['Value'],
-                    run_data, plot_data)
-
-        if runs > 1:        # Run multiple measurement shots.
-            print('\t[ESC]:\tAbort the run.' + 
-                  '\n\t[S]:\tAbort the run but [s]ave the data.\n')
-            sys.stdout.write('Progress: 0%')
-            self.add_expt_var('Runs', runs)
-            stepsize = max(int(round(runs / 25)), 1)
-            for key in run_data:
-                plot_data[key] = run_data[key].copy()
-            for r in range(runs - 1):
-                self._listen_to_keyboard(recog_keys=[27, 83, 115], clear_buffer=False)  # Check if the specified keys are pressed.
-                if self._run_statusin ['abort', 'abort-and-save']:
-                    self._vars['Runs']['Value'] = r + 1
-                    sys.stdout.write(str(round(100 * self._vars['Runs']['Value'] / float(runs), 1)) + '%\n')
-                    print(self._run_message)
-                    break  
-                run_data = self.run_once()
-                for key in data:    # Accumulate the data values. These values should be divided by the actual number of Reps to get the average values.
-                    data[key]['Value'] = data[key]['Value'] + run_data[key]['Value']
-                if np.mod(r, stepsize) == 0:
-                    sys.stdout.write('.')
-                    if plot_data:
-                        for key in plot_data:
-                            plot_data[key]['Value'] = run_data[key]['Value'] / float(r + 1)
-                        self._update_1d_plot('ADC Time', run_data['ADC Time']['Value'], plot_data, plot_data)
-                if r == runs - 2:
-                    sys.stdout.write('100%\n')
-            for key in data:
-                if 'Value' in data[key]:
-                    data[key]['Value'] = data[key]['Value'] / float(runs)
-        
-        if plot_data:        # Save the data.
-            self._update_1d_plot(self._extra_data['Indep Values'][0][0], run_data, self._extra_data['Indep Names'][0][0], plot_data)
-        
-        self.ghz_fpga_boards.set_adc_setting('RunMode', previous_adc_mode, adc)
-        
-        # Save the data.
-        if ((save and self._run_status != 'abort') or
-            self._run_status == 'abort-and-save'):
-            self._save_data(data)

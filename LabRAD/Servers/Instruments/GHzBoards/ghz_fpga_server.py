@@ -1185,23 +1185,22 @@ class FPGAServer(DeviceServer):
         d = c.setdefault(dev, {})   # if c[dev] exists, d = c[dev]. Otherwise d = {} and c[dev] = {} 
         d['runMode'] = mode         # d points to the same object as c[dev], which is MUTABLE. Mutating d mutates c[dev]!!!
 
-    # @setting(45, 'ADC Start Delay', delay='w', returns='')
-    # def adc_start_delay(self, c, delay):
-        # """Specify the time to delay before starting ADC acquisition.  (ADC only)
-        
-        # The delay is specified in nanoseconds from the start of SRAM.  Note that
-        # just as for DAC boards, the daisy-chain delays are compensated automatically,
-        # so this delay should be relative to the start of the programmed SRAM sequence.
-        # """
-        # dev = self.selectedADC(c)
-        # c.setdefault(dev, {})['startDelay'] = delay
-
+    
     @setting(45, 'Start Delay', delay='w', returns='')
     def start_delay(self, c, delay):
+        """Specify the time to delay before starting ADC acquisition.
+        (ADC only)
+        
+        The delay is specified in nanoseconds from the start of SRAM. 
+        Note that just as for DAC boards, the daisy-chain delays are
+        compensated automatically, so this delay should be relative to
+        the start of the programmed SRAM sequence.
+        """
         dev = self.selectedDevice(c)
         d = c.setdefault(dev, {})
         d['startDelay'] = delay
 
+    
     @setting(46, 'ADC Demod Range', returns='i{Imax}, i{Imin}, i{Qmax}, i{Qmin}')
     def adc_demod_range(self, c):
         """Get the demodulation ranges for the last sequence run in this context. (ADC only)

@@ -11,23 +11,22 @@ import HEMTQubitReadoutExpt as qr
 
 comp_name = os.environ['COMPUTERNAME'].lower()
 Resources = [ {
-                'Interface': 'GHzFPGABoards',
+                'Interface': 'GHz FPGA Boards',
                 'Boards': [
                             'Shasta Board DAC 9', 
                             'Shasta Board DAC 10',
-                            'Shasta Board ADC 6'
+                            'Shasta Board ADC 11'
                           ],
                 'Shasta Board DAC 9':  {
                                         'DAC A': 'Qubit Q',
                                         'DAC B': 'Qubit I',
                                         'FO1 FastBias Firmware Version': '2.1',
-                                        'Data': False
                                        },
                 'Shasta Board DAC 10': {   
                                         'DAC A': 'Readout Q',
                                         'DAC B': 'Readout I',
                                        },
-                'Shasta Board ADC 6':  {
+                'Shasta Board ADC 11':  {
                                         'RunMode': 'demodulate', #'average'
                                         'FilterType': 'square',
                                         'FilterWidth': 9500 * ns,
@@ -49,7 +48,8 @@ Resources = [ {
                                 'Readout SB Frequency',
                                 'Readout Amplitude',
                                 'Readout Time',
-                                'Qubit Drive to Readout Delay'
+                                'Qubit Drive to Readout Delay',
+                                'ADC Wait Time'
                              ]
                 },
                 # { # GPIB RF Generator
@@ -129,10 +129,10 @@ ExptVars = {
 with qr.HEMTQubitReadout() as run:
     
     run.set_experiment(ExptInfo, Resources, ExptVars)
-    
+
     run.single_shot_iqs(save=False, plot_data=True)
-    # run.SingleShotOsc(Save=False, PlotData=['I', 'Q'])
-    # run.AvgOsc(Save=True, PlotData=['I', 'Q'], Runs=250)
+    #run.single_shot_osc(save=False, plot_data=['I', 'Q'])
+    #run.avg_osc(save=True, plot_data=['I', 'Q'], runs=250)
 
     # run.sweep('Readout Frequency', np.linspace(3*G, 7*G, 501), PlotData=['I', 'Q', 'ADC Amplitude'], Save=True)
     # run.Sweep('Readout Attenuation', np.linspace(15, 63, 97), PlotData=['I', 'Q', 'ADC Amplitude'], Save=False, MaxDataDim=1)

@@ -688,6 +688,8 @@ class Experiment(object):
                 return ' [' + unit + ']'
             else:
                 return unit
+        if v is None:
+            return ''
         if isinstance(v, (int, long, float, complex)):
             return ''
         if isinstance(v, units.Value):
@@ -812,10 +814,11 @@ class Experiment(object):
         else:
             self._check_var(var, check_value=False, check_resource=False)
             if 'Value' in self._vars[var]:
-                if (isinstance(value, units.Value) !=
-                    isinstance(self._vars[var]['Value'], units.Value)
-                    or not
-                    value.isCompatible(units.Unit(self._vars[var]['Value']))):
+                if ((isinstance(value, units.Value) !=
+                     isinstance(self._vars[var]['Value'], units.Value))
+                     or
+                    (isinstance(value, units.Value) and not
+                     value.isCompatible(units.Unit(self._vars[var]['Value'])))):
                     raise Exception("An attempt to change the variable '" +
                             str(var) + "' type is detected. Check " +
                             "the variable units.")
@@ -1000,7 +1003,8 @@ class Experiment(object):
                 for dep in data[key]['Dependencies']:
                     if dep not in data:
                         raise DataError("Independent data variable '" +
-                        str(dep) + "' is not found in the data dictionary.")
+                        str(dep) + "' as an independent variable for '" +
+                        str(key) + "' is not found in the data dictionary.")
                     if 'Value' not in data[dep]:
                         raise DataError("Independent data variable '" + 
                         str(dep) + "' does not have 'Value' entry.")
@@ -1057,6 +1061,21 @@ class Experiment(object):
                 'Dependencies' not in data[key]):
                 raise DataError("Data variable '" + str(key) + 
                         "' does not have 'Dependencies' entry specified.")
+        
+        # Add independent variables to the list of experiment variables.
+        for key in data:
+            if 'Type' in data[key] and data[key]['Type'] == 'Independent':
+                if 'Value' in data[key]:
+                    if isinstance(data[key]['Value'], np.ndarray):
+                        value = data[key]['Value']
+                        for _ in np.shape(data[key]['Value']):
+                            value = value[-1]
+                    else:
+                        value = data[key]['Value']
+                else:
+                    value = None
+                self.add_var(key, value)
+        
         return data
             
     def _sweep(self, names, values, 
@@ -1630,8 +1649,8 @@ class Experiment(object):
                     if names[p_idx][0] != names[0][0]:
                         self._same_x_axis = False
                     if ((values[p_idx][0] != values[0][0]).any() or 
-                        self.get_units(names[p_idx][0]) != 
-                        self.get_units(names[0][0])):
+                        self.get_units(self.value(names[p_idx][0])) != 
+                        self.get_units(self.value(names[0][0]))):
                         self._similar_x_axis = False
                     if (self._same_x_axis == False and 
                             self._similar_x_axis == False):
@@ -1734,7 +1753,6 @@ class Experiment(object):
 
     def _update_1d_plot(self, independent_vars, values, data, 
             plot_data_vars, idx):
-
         # We need at least two points.
         if idx == 0:
             return
@@ -1791,37 +1809,4 @@ class Experiment(object):
         plt.legend()
         plt.xlabel('Time [ns]')
         plt.ylabel('DAC Waveforms [DAC units]')
-        plt.draw()
-        
-    def _plot_histogram(self, data, number_of_devices=1, 
-            pream_timeout=1253):
-        if number_of_devices == 0:
-            return
-        data = np.array(data)
-        plt.figure(3)
-        plt.ion()
-        plt.clf()
-        if number_of_devices == 1: 
-            plt.hist(data[0, :], bins=500, range=(0, pream_timeout),
-                color='b')
-        elif number_of_devices == 2:
-            plt.hist(data[0, :], bins=500, range=(0, pream_timeout),
-                color='b', label='JPM A')
-            plt.hist(data[1, :], bins=500, range=(0, pream_timeout),
-                color='r', label='JPM B')
-            plt.legend()
-        elif number_of_devices > 2:
-            raise Exception('Histogram plotting for more than two ' +
-            'devices is not implemented.')
-        plt.xlabel('Timing Information [counts]')
-        plt.ylabel('Counts')
-        plt.draw()
- 
-    def plot_iqs(self):
-        plt.ion()
-        plt.figure(13)
-        plt.plot(data['Single Shot Is']['Value'], data['Single Shot Qs']['Value'], 'b.')
-        plt.xlabel('I [ADC units]')
-        plt.ylabel('Q [ADC units]')
-        plt.title('Single Shot Is and Qs')
         plt.draw()

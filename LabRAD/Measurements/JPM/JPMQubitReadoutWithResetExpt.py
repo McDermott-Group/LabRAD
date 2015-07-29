@@ -39,7 +39,34 @@ import data_processing
 
 DAC_ZERO_PAD_LEN = 20
 
-class JPMQubitReadoutWithReset(expt.Experiment):
+
+class JPMExperiment(expt.Experiment):
+    def _plot_histogram(self, data, number_of_devices=1, 
+            pream_timeout=1253):
+        if number_of_devices == 0:
+            return
+        data = np.array(data)
+        plt.figure(3)
+        plt.ion()
+        plt.clf()
+        if number_of_devices == 1: 
+            plt.hist(data[0, :], bins=500, range=(0, pream_timeout),
+                color='b')
+        elif number_of_devices == 2:
+            plt.hist(data[0, :], bins=500, range=(0, pream_timeout),
+                color='b', label='JPM A')
+            plt.hist(data[1, :], bins=500, range=(0, pream_timeout),
+                color='r', label='JPM B')
+            plt.legend()
+        elif number_of_devices > 2:
+            raise Exception('Histogram plotting for more than two ' +
+            'devices is not implemented.')
+        plt.xlabel('Timing Information [counts]')
+        plt.ylabel('Counts')
+        plt.draw()
+
+
+class JPMQubitReadoutWithReset(JPMExperiment):
     """
     Read out a qubit connected to a resonator with a readout and a displacement (reset) pulse.
     """
@@ -91,7 +118,7 @@ class JPMQubitReadoutWithReset(expt.Experiment):
         # Experiment variables that used by DC Rack, DAC and ADC boards should be defined here.
            
         #CAVITY DRIVE (READOUT) VARIABLES##########################################################
-        RO_SB_freq = self.value('Readout SB Frequency')['GHz']          # readout sideband frequency (RO_SB_freq in GHz)
+        RO_SB_freq = self.value('Readout SB Frequency')['GHz']          # readout sideband frequency
         RO_amp = self.value('Readout Amplitude')['DACUnits']            # amplitude of the sideband modulation
         RO_time = self.value('Readout Time')['ns']                      # length of the readout pulse
         RO_phase = self.value('Readout Phase')['rad']                   # readout pulse phase
@@ -101,7 +128,7 @@ class JPMQubitReadoutWithReset(expt.Experiment):
         
         ROtoD_offset = self.value('Readout to Displacement Offset')['DACUnits'] # zero offset between readout and reset pulses
         #QUBIT DRIVE VARIABLES#####################################################################
-        QB_SB_freq = self.value('Qubit SB Frequency')['GHz']            # qubit sideband frequency (QB_SB_freq in GHz)
+        QB_SB_freq = self.value('Qubit SB Frequency')['GHz']            # qubit sideband frequency
         QB_amp = self.value('Qubit Amplitude')['DACUnits']              # amplitude of the sideband modulation
         QB_time = self.value('Qubit Time')['ns']                        # length of the qubit pulse
       
@@ -206,7 +233,7 @@ class JPMQubitReadoutWithReset(expt.Experiment):
         ###RUN#####################################################################################
         self.acknowledge_requests()
         P = fpga.load_and_run(dac_srams, [mems1, mems2], self.value('Reps'))
-        
+
         ###DATA POST-PROCESSING####################################################################
         if histogram:
             self._plot_histogram(P, 1)
@@ -219,14 +246,14 @@ class JPMQubitReadoutWithReset(expt.Experiment):
                 'Switching Probability': {
                     'Value': data_processing.prob_from_array(P, self.value('Threshold')),
                     'Distribution': 'binomial',
-                    'Preferances':  {
+                    'Preferences':  {
                         'linestyle': 'b-',
                         'ylim': [0, 1],
                         'legendlabel': 'Switch. Prob.'}},
                 'Detection Time': {
                     'Value': t_mean * units.PreAmpTimeCounts,
                     'Distribution': 'normal',
-                    'Preferances': {
+                    'Preferences': {
                         'linestyle': 'r-', 
                         'ylim': [0, preamp_timeout]}},
                 'Detection Time Std Dev': {

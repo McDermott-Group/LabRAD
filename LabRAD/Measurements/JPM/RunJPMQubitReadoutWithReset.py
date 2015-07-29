@@ -15,7 +15,7 @@ Resources = [ {
                 'Boards': [
                             'Shasta Board DAC 9', 
                             'Shasta Board DAC 10',
-                            # 'Shasta Board ADC 6'
+                            # 'Shasta Board ADC 11'
                           ],
                 'Shasta Board DAC 9':  {
                                         'DAC A': 'JPM Fast Pulse',
@@ -27,7 +27,7 @@ Resources = [ {
                                         'DAC A': 'Readout Q',
                                         'DAC B': 'Readout I',
                                        },
-                'Shasta Board ADC 6':  {
+                'Shasta Board ADC 11':  {
                                         'RunMode': 'demodulate', #'average'
                                         'FilterType': 'square',
                                         'FilterWidth': 9500 * ns,

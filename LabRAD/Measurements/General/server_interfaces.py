@@ -65,6 +65,7 @@ class GHzFPGABoards(object):
     @inlineCallbacks
     def _init_boards(self, cxn, resource):
         """Initialize GHz FPGA boards."""
+        # Check the boards specification.
         if 'Boards' in resource:
             boards = resource['Boards']
             if isinstance(boards, str):
@@ -80,6 +81,8 @@ class GHzFPGABoards(object):
             raise ResourceDefinitionError("'Boards' field is not found " +
                     " in the experiment resource: " + str(resource) + ".")
 
+        
+        # Get the board settings from the resource specifications.
         self.consts = {}
         self.dacs = []
         self.adcs = []
@@ -134,6 +137,7 @@ class GHzFPGABoards(object):
             " unique names in the resource dictionary. The following" +
             " ADC boards are given: ", + str(self.adcs) + ".")
 
+        # Check that the boards are listed on the GHz FPGA server.
         p = self.server.packet()
         listed_boards = (yield p.list_devices().send())['list_devices']
         listed_boards = [board for idx, board in listed_boards]
@@ -143,6 +147,7 @@ class GHzFPGABoards(object):
                         "' is not found on server '" + 
                         self.server_name + "'.")
 
+        # Get the board build constants from the LabRAD Registry.
         yield cxn.registry.cd(['', 'Servers', self.server_name])
         if self.dacs:
             consts = yield cxn.registry.get('dacBuild8')
@@ -282,8 +287,8 @@ class GHzFPGABoards(object):
                     self.adc_settings[idx]['CalibDelay'])
             p.adc_run_mode(self.adc_settings[idx]['RunMode'])
             p.adc_filter_func(self.filter_bytes(self.adc_settings[idx]), 
-                    self.adc_settings[idx]['FilterStretchLen']['ns'],
-                    self.adc_settings[idx]['FilterStretchAt']['ns'])
+                    int(self.adc_settings[idx]['FilterStretchLen']['ns']),
+                    int(self.adc_settings[idx]['FilterStretchAt']['ns']))
             dPhi = int(self.adc_settings[idx]['DemodFreq']['MHz'] / 7629)
             phi0 = int(self.adc_settings[idx]['DemodPhase']['rad'] * (2**16))
             for k in range(self.consts['DEMOD_CHANNELS']):
@@ -326,7 +331,6 @@ class GHzFPGABoards(object):
                     %filter_func)
         return filt.tostring()
 
-    
     def load_and_run(self, dac_srams, dac_mems, reps=1020):
         """
         Load FPGA boards with the required memory and settings, and 
@@ -359,29 +363,25 @@ class GHzFPGABoards(object):
             # Determine which set of boards to run, not the order.
             p.daisy_chain(list(itertools.chain(*[self.dacs, self.adcs])))
             timing_order_list = []
-            for idx, adc in enumerate(self._data_adcs):
-                if 'RunMode' in self.adc_settings[idx]:
-                    if (self.adc_settings[idx]['RunMode'].lower() ==
-                            'average'):
-                        timing_order_list.append(adc)
-                    elif (self.adc_settings[idx]['RunMode'].lower() ==
-                            'demodulate'):
-                        # Record channel 0.
-                        timing_order_list.append(adc + '::0')
-                    else:
-                        raise ResourceDefinitionError("ADC board '" +
-                                adc + "' 'RunMode' " +
-                                "should be either 'average'" +
-                                " or 'demodulate'.")
+            for adc in self._data_adcs:
+                if (self.get_adc_setting('RunMode', adc).lower() ==
+                        'average'):
+                    timing_order_list.append(adc)
+                elif (self.get_adc_setting('RunMode', adc).lower() ==
+                        'demodulate'):
+                    # Record channel 0.
+                    timing_order_list.append(adc + '::0')
                 else:
-                    raise ResourceDefinitionError("'RunMode' field " +
-                            " is not found in ADC board '" + adc + "'.")           
+                    raise ResourceDefinitionError("ADC board '" +
+                            adc + "' 'RunMode' " +
+                            "should be either 'average'" +
+                            " or 'demodulate'.")
             p.timing_order(timing_order_list)
             self._results.append(p.send(wait=False))
             self.load_adcs()
         elif self._data_dacs:
             p = self.server.packet()
-            p.daisy_chain(list(itertools.chain(*[self._data_dacs])))
+            p.daisy_chain(list(itertools.chain(*[self.dacs])))
             p.timing_order(self._data_dacs)
             self._results.append(p.send(wait=False))
         

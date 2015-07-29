@@ -18,6 +18,7 @@ pylabrad-0.92.5.win32-py2.7.exe
 WinPcap_4_1_3.exe (required by the DirectEthernet server)
 replace "C:\Python27\Lib\site-packages\labrad\types.py" with "types.py" from this folder
 replace "C:\Python27\Lib\site-packages\labrad\gpib.py" with "gpib.py" from this folder
+replace "C:\Python27\Lib\site-packages\labrad\gpib.py" with "units.py" from this folder
 make sure that "support.py" is present in "C:\Python27\Lib\site-packages\labrad\", if not, add it there from this folder
 
 ===================================================================================================
