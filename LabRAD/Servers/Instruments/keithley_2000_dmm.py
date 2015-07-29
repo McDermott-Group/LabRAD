@@ -58,8 +58,7 @@ class KeithleyWrapper(GPIBDeviceWrapper):
   
 class KeithleyServer(GPIBManagedServer):
     name = 'Keithley 2000 DMM' # Server name
-    deviceName = 'KEITHLEY INSTRUMENTS INC. MODEL 2000'
-    # deviceName = 'KEITHLEY INSTRUMENTS INC. MODEL 2100'# Model string returned from *IDN?
+    deviceName = ['KEITHLEY INSTRUMENTS INC. MODEL 2000', 'KEITHLEY INSTRUMENTS INC. MODEL 2100']
     deviceWrapper = KeithleyWrapper
   
     @setting(10, 'DC Voltage')
