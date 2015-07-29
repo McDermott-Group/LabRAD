@@ -95,7 +95,7 @@ class GPIBDeviceManager(LabradServer):
     def refreshDeviceLists(self):
         """Ask all GPIB bus servers for their available GPIB devices."""
         servers = [s for n, s in self.client.servers.items()
-                     if (('GPIB Bus' in n) or ('gpib_bus' in n)) and \
+                     if (('GPIB Bus' in n) or ('gpib_bus' in n) or ('sim900' in n) or ('SIM900' in n)) and \
                         (('List Addresses' in s.settings) or \
                          ('list_addresses' in s.settings))]
         names = [s.name for s in servers]
@@ -116,7 +116,7 @@ class GPIBDeviceManager(LabradServer):
         if (server, channel) in self.knownDevices:
             return
         device, idnResult = yield self.lookupDeviceName(server, channel)
-        if device == UNKNOWN or channel.split('::')[-2] == 'SIM900':
+        if device == UNKNOWN:
             device = yield self.identifyDevice(server, channel, idnResult)
         self.knownDevices[server, channel] = (device, idnResult)
         # forward message if someone cares about this device
