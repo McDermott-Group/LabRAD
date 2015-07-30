@@ -24,7 +24,7 @@ Resources = [ {
                                         'Data': True
                                        },
                 'Shasta Board DAC 10': {   
-                                        'DAC A': 'Readout Q',
+                                        'DAC A': 'JPM Fast Pulse',
                                         'DAC B': 'Readout I',
                                        },
                 'Shasta Board ADC 11':  {
@@ -39,7 +39,6 @@ Resources = [ {
                                         'DemodSinAmp': 255,
                                         'DemodFreq': -30 * MHz,
                                         'ADCDelay': 0 * ns,
-                                        'Data': False
                                        },
                 'Variables': [
                                 'Init Time',
@@ -130,7 +129,7 @@ ExptVars = {
             'Qubit Attenuation': 63 * dB, # should be in (0, 63] range
             'Qubit SB Frequency': 0 * MHz,
             'Qubit Amplitude': 0.5 * DACUnits,
-            'Qubit Time': 8000 * ns,
+            'Qubit Time': 60 * ns,
             
             'Qubit Drive to Readout': 0 * ns,
             
@@ -141,7 +140,7 @@ ExptVars = {
             'Readout Attenuation': 1 * dB, # should be in (0, 63] range
             'Readout SB Frequency': 0 * MHz, 
             'Readout Amplitude': 1 * DACUnits,
-            'Readout Time': 1000 * ns,
+            'Readout Time': 50 * ns,
             'Readout Phase': 0 * rad,
             
             'Readout to Displacement': 0 * ns,
@@ -159,7 +158,7 @@ ExptVars = {
           
             'Bias Voltage': 0.194 * V,
             'Fast Pulse Time': 10 * ns,
-            'Fast Pulse Amplitude': 0.2205 * DACUnits,
+            'Fast Pulse Amplitude': 1.0 * DACUnits,
             'Fast Pulse Width': 0 * ns,
           
             'Threshold': 100 * PreAmpTimeCounts,
@@ -171,8 +170,8 @@ with qr.JPMQubitReadoutWithReset() as run:
     
     run.set_experiment(ExptInfo, Resources, ExptVars) 
 
-    run.sweep('Fast Pulse Amplitude', np.linspace(0, .5, 501) * DACUnits,
-            save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
-    
-    # run.sweep('Qubit Flux Bias Voltage', np.linspace(0, 1, 1001) * V,
+    # run.sweep('Fast Pulse Amplitude', np.linspace(0, .5, 501) * DACUnits,
             # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
+    
+    run.sweep('Qubit Flux Bias Voltage', np.linspace(0, 1, 1001) * V,
+            save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])

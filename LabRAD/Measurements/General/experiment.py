@@ -1741,8 +1741,8 @@ class Experiment(object):
                         self.plot_ymin = np.min([self.plot_ymin,
                             data[var]['Preferences']['ylim'][0]])
                     else:
-                        self.plot_ymin = data[var]['ylim'][0]
-                if data[var]['ylim'][1] is not None:
+                        self.plot_ymin = data[var]['Preferences']['ylim'][0]
+                if data[var]['Preferences']['ylim'][1] is not None:
                     if self.plot_ymax is not None:    
                         self.plot_ymax = np.max([self.plot_ymax,
                             data[var]['Preferences']['ylim'][1]])
