@@ -76,6 +76,15 @@ class SIM900(GPIBManagedServer):
             # self.refresher.stop()
             # yield self.refresherDone
 
+    def handleDeviceMessage(self, *args):
+        """We override this function so that whenever a new SIM900 is added, and a message is sent out,
+        we refresh the devices.  This has the benefit of being able to start this server,  the 
+        GPIBDeviceManager, and the GPIB Bus Server, in any order."""
+        GPIBManagedServer.handleDeviceMessage(self,*args)
+        if args[0] == self.deviceName: 
+            print 'refreshing devices'
+            self.refreshDevices()
+    
     @inlineCallbacks
     def refreshDevices(self):
         """
