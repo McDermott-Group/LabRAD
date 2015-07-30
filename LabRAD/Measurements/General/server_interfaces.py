@@ -516,16 +516,16 @@ class LabBrickAttenuator(object):
         p = self.server.packet()
         devices = (yield p.list_devices().send())['list_devices']
         if 'Address' in resource:
-            if resource['Address'] in devices:
-                self.address = resource['Address']
+            if resource['Serial Number'] in devices:
+                self.address = resource['Serial Number']
             else:
-                raise ResourceDefinitionError("Device with address '" +
-                    str(resource['Address']) + "' is not found on server '" +
+                raise ResourceDefinitionError("Device with serial number " +
+                    str(resource['Serial Number']) + " is not found on server '" +
                     self.server_name + "'.")
         elif len(devices) == 1:
             self.address = devices[0][0]
         else:
-            raise ResourceDefinitionError("'Address' field is absent " +
+            raise ResourceDefinitionError("'Serial Number' field is absent " +
                     " in the experiment resource: " + str(resource) + ".")
         
         if len(devices) == 1:
@@ -584,17 +584,17 @@ class SIM928VoltageSource(object):
         """Initialize a voltage source."""
         p = self.server.packet()
         devices = (yield p.list_devices().send())['list_devices']
-        if 'Serial Number' in resource:
-            if resource['Serial Number'] in devices:
-                self.address = resource['Serial Number']
+        if 'Address' in resource:
+            if resource['Address'] in devices:
+                self.address = resource['Address']
             else:
-                raise ResourceDefinitionError("Device with Serial " +
-                    "Number " + str(resource['Serial Number']) +
-                    " is not found on server '" + self.server_name + "'.")
+                raise ResourceDefinitionError("Device with address '" +
+                    + str(resource['Address']) +
+                    "' is not found on server '" + self.server_name + "'.")
         elif len(devices) == 1:
             self.address = devices[0][0]
         else:
-            raise ResourceDefinitionError("'Serial Number' field is " +
+            raise ResourceDefinitionError("'Address' field is " +
                     "not found in the experiment resource: " +
                     str(resource) + ".")
         
