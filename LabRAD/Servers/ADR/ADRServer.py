@@ -102,11 +102,13 @@ class ADRServer(DeviceServer):
                             'Power Supply':['Agilent 6641A PS','addr'],
                             'Ruox Temperature Monitor':['SIM921 Server','addr'],
                             'Diode Temperature Monitor':['SIM922 Server','addr'],
-                            'Magnet Voltage Monitor':['SIM922 Server','addr']}
+                            'Magnet Voltage Monitor':['SIM922 Server','addr'],
+                            'Heat Switch':['Heat Switch','addr']}
         self.instruments = {'Power Supply':None,
                             'Ruox Temperature Monitor':None,
                             'Diode Temperature Monitor':None,
-                            'Magnet Voltage Monitor':None}
+                            'Magnet Voltage Monitor':None,
+                            'Heat Switch':None}
         dt = datetime.datetime.now()
         self.dateAppend = dt.strftime("_%y%m%d_%H%M")
         self.logMessages = []
@@ -168,7 +170,8 @@ class ADRServer(DeviceServer):
                 self.instruments[instrName] = instr
                 try: yield instr.set_adr_settings_path(self.ADRSettingsPath)
                 except: pass
-                yield instr.select_device( settings[1] )
+                try: yield instr.select_device( settings[1] )
+                except: pass
                 if hasattr(instr,'connected'):
                     if instr.connected == False:
                         self.logMessage(instrName+' Connected.')
@@ -470,6 +473,22 @@ class ADRServer(DeviceServer):
         """Add message to log."""
         if message is not None:
             self.logMessage(message)
+    @setting(126, 'Close Heat Switch')
+    def closeHeatSwitch(self,c):
+        """Close Heat Switch."""
+        try:
+            yield self.client.heat_switch.close()
+            self.logMessage('Closing Heat Switch.')
+        except Exception as e:
+            self.logMessage('Closing Heat Switch Failed.',alert=True)
+    @setting(127, 'Open Heat Switch')
+    def openHeatSwitch(self,c):
+        """Open Heat Switch."""
+        try:
+            yield self.client.heat_switch.open()
+            self.logMessage('Opening Heat Switch.')
+        except Exception as e:
+            self.logMessage('Opening Heat Switch Failed.',alert=True)
     
     @setting(130, 'Set PID KP')
     def setPIDKP(self,c,k=['v']):

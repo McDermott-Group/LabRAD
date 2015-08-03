@@ -227,6 +227,13 @@ class ADRController(object):#Tkinter.Tk):
         #frame for mag up and regulate controls
         magControlsFrame = Tkinter.Frame(root)
         magControlsFrame.pack(side=Tkinter.TOP)
+        #heat switch buttons
+        self.HSCloseButton = Tkinter.Button(master=magControlsFrame, text='Close HS', command=self.closeHeatSwitch)
+        self.HSCloseButton.pack(side=Tkinter.LEFT)
+        self.HSOpenButton = Tkinter.Button(master=magControlsFrame, text='Open HS', command=self.openHeatSwitch)
+        self.HSOpenButton.pack(side=Tkinter.LEFT)
+        #self.HSCloseButton.configure(state=Tkinter.DISABLED)
+        #self.HSOpenButton.configure(state=Tkinter.DISABLED)
         #mag up button
         self.magUpButton = Tkinter.Button(master=magControlsFrame, text='Mag Up', command=self.magUp)
         self.magUpButton.pack(side=Tkinter.LEFT)
@@ -266,6 +273,10 @@ class ADRController(object):#Tkinter.Tk):
         Tkinter.Label(monitorFrame, text="(V)").pack(side=Tkinter.LEFT)
         self.fig.tight_layout()
         root.protocol("WM_DELETE_WINDOW", self._quit) #X BUTTON
+    def closeHeatSwitch(self):
+        self.cxn[self.selectedADR].close_heat_switch()
+    def openHeatSwitch(self):
+        self.cxn[self.selectedADR].open_heat_switch()
     @inlineCallbacks
     def populateADRSelectMenu(self):
         """This should be called by listeners for servers (dis)connecting.
