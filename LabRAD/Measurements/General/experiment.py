@@ -58,18 +58,6 @@ with some_experiment.experiment() as expt:
 """
 
 import os
-if __file__ in [f for f in os.listdir('.') if os.path.isfile(f)]:
-    # This is executed when the script is loaded by the labradnode.
-    SCRIPT_PATH = os.path.dirname(os.getcwd())
-else:
-    # This is executed if the script is started by clicking or
-    # from a command line.
-    SCRIPT_PATH = os.path.dirname(__file__)
-LABRAD_PATH = os.path.join(SCRIPT_PATH.rsplit('LabRAD', 1)[0])
-import sys
-if LABRAD_PATH not in sys.path:
-    sys.path.append(LABRAD_PATH)
-
 import time
 import warnings
 from msvcrt import kbhit, getch

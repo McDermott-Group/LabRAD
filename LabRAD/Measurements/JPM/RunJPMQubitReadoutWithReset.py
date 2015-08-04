@@ -20,7 +20,7 @@ Resources = [ {
                 'Shasta Board DAC 9':  {
                                         'DAC A': 'JPM Fast Pulse',
                                         'DAC B': 'Qubit I',
-                                        'FO1 FastBias Firmware Version': '2.1',
+                                        'FO1 FastBias Firmware Version': '1.0',
                                         'Data': True
                                        },
                 'Shasta Board DAC 10': {   
@@ -170,8 +170,8 @@ with qr.JPMQubitReadoutWithReset() as run:
     
     run.set_experiment(ExptInfo, Resources, ExptVars) 
 
-    # run.sweep('Fast Pulse Amplitude', np.linspace(0, .5, 501) * DACUnits,
-            # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
-    
-    run.sweep('Qubit Flux Bias Voltage', np.linspace(0, 1, 1001) * V,
+    run.sweep('Fast Pulse Amplitude', np.linspace(0.5, 1, 501) * DACUnits,
             save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
+    
+    # run.sweep('Qubit Flux Bias Voltage', np.linspace(0, 1, 1001) * V,
+            # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
