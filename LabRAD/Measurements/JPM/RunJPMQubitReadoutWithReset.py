@@ -24,10 +24,10 @@ Resources = [ {
                                         'Data': True
                                        },
                 'Shasta Board DAC 10': {   
-                                        'DAC A': 'JPM Fast Pulse',
+                                        'DAC A': 'Readout Q',
                                         'DAC B': 'Readout I',
                                        },
-                'Shasta Board ADC 11':  {
+                'Shasta Board ADC 11': {
                                         'RunMode': 'demodulate', #'average'
                                         'FilterType': 'square',
                                         'FilterWidth': 9500 * ns,
@@ -170,8 +170,8 @@ with qr.JPMQubitReadoutWithReset() as run:
     
     run.set_experiment(ExptInfo, Resources, ExptVars) 
 
-    run.sweep('Fast Pulse Amplitude', np.linspace(0.5, 1, 501) * DACUnits,
-            save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
-    
-    # run.sweep('Qubit Flux Bias Voltage', np.linspace(0, 1, 1001) * V,
+    # run.sweep('Fast Pulse Amplitude', np.linspace(0.5, 1, 501) * DACUnits,
             # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
+    
+    run.sweep('Qubit Flux Bias Voltage', np.linspace(0, 1, 1001) * V,
+            save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])

@@ -32,12 +32,10 @@ import labrad.units as units
 
 import LabRAD.Measurements.General.experiment as expt
 import LabRAD.Measurements.General.pulse_shapes as pulse
-
 import LabRAD.Servers.Instruments.GHzBoards.command_sequences as seq
-
 import data_processing
 
-DAC_ZERO_PAD_LEN = 20
+DAC_ZERO_PAD_LEN = 10
 
 
 class JPMExperiment(expt.Experiment):
@@ -78,9 +76,9 @@ class JPMQubitReadoutWithReset(JPMExperiment):
             self.send_request('RF Power')                               # RF power
         if self.value('RF Frequency') is not None:
             if self.value('RF SB Frequency') is not None:               # RF frequency
-                self.send_request('RF Frequency', False,                
-                        self.value('RF Frequency') + 
-                        self.value('RF SB Frequency'))
+                self.send_request('RF Frequency', enforce=False,                
+                        value=self.value('RF Frequency') + 
+                              self.value('RF SB Frequency'))
             else:
                 self.send_request('RF Frequency')
 
@@ -91,9 +89,9 @@ class JPMQubitReadoutWithReset(JPMExperiment):
             self.send_request('Qubit Power')                            # Qubit power
         if self.value('Qubit Frequency') is not None:
             if self.value('Qubit SB Frequency') is not None:            # Qubit frequency
-                self.send_request('Qubit Frequency', False,
-                        self.value('Qubit Frequency') + 
-                        self.value('Qubit SB Frequency'))
+                self.send_request('Qubit Frequency', enforce=False,
+                        value=self.value('Qubit Frequency') + 
+                              self.value('Qubit SB Frequency'))
             else:
                 self.send_request('Qubit Frequency')
     
@@ -104,9 +102,9 @@ class JPMQubitReadoutWithReset(JPMExperiment):
             self.send_request('Readout Power')                          # Readout power
         if self.value('Readout Frequency') is not None:
             if self.value('Readout SB Frequency') is not None:          # Readout frequency
-                self.send_request('Readout Frequency', False,
-                        self.value('Readout Frequency') + 
-                        self.value('Readout SB Frequency'))
+                self.send_request('Readout Frequency', enforce=False,
+                        value=self.value('Readout Frequency') + 
+                              self.value('Readout SB Frequency'))
             else:
                 self.send_request('Readout Frequency')
 
@@ -151,7 +149,7 @@ class JPMQubitReadoutWithReset(JPMExperiment):
         JPM_smoothed_FP = pulse.GaussPulse(JPM_FPT, JPM_FPW, JPM_FPA)
         FPtoEnd = max(0, DtoFP + JPM_smoothed_FP.size) + DAC_ZERO_PAD_LEN
         
-        waveforms = {};
+        waveforms = {}
         if 'None' in requested_waveforms:
             waveforms['None'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN + QB_time + QBtoRO + RO_time + ROtoD + Disp_time + FPtoEnd, 0)])
         
@@ -183,25 +181,14 @@ class JPMQubitReadoutWithReset(JPMExperiment):
                                                 pulse.SinePulse(ROtoD, RO_SB_freq, ROtoD_offset, ROtoD * RO_SB_freq + RO_phase, 0),
                                                 pulse.SinePulse(Disp_time, RO_SB_freq, Disp_amp, (RO_time + ROtoD) * RO_SB_freq + Disp_phase, 0),
                                                 pulse.DC(FPtoEnd, 0)])
+                                              
 
-        for idx, settings in enumerate(fpga.dac_settings):
-            for channel in ['DAC A', 'DAC B']:
-                if fpga.dac_settings[idx][channel] not in waveforms:
-                    raise expt.ExperimentDefinitionError("'" + 
-                        str(fpga.dacs[idx]) +
-                        "' setting '" + str(channel) + "': '" +
-                        fpga.dac_settings[idx][channel] +
-                        "' could not be recognized. The allowed '" +
-                        str(channel) + "' values are 'JPM Fast Pulse'," + 
-                        "'Readout I', 'Readout Q', 'Qubit I', 'Qubit Q'," +
-                        " and 'None'.")
+        dac_srams, sram_length, sram_delay = fpga.process_waveforms(waveforms)
 
         if plot_waveforms:
             self._plot_waveforms([waveforms[wf] for wf in requested_waveforms],
                     ['r', 'g', 'b', 'k'], requested_waveforms)
-
-        sram_length = len(waveforms[fpga.dac_settings[0]['DAC A']])
-        sram_delay = np.ceil(sram_length / 1000)
+        
         # Create a memory command list.
         # The format is described in Servers.Instruments.GHzBoards.command_sequences.
         if 'FO1 FastBias Firmware Version' in fpga.dac_settings[0]:
@@ -223,16 +210,12 @@ class JPMQubitReadoutWithReset(JPMExperiment):
                                        self.value('Bias Time')['us'])},
             {'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay},
             {'Type': 'Timer', 'Time': self.value('Measure Time')['us']}]
-        
-        dac_srams = [seq.waves2sram(waveforms[fpga.dac_settings[k]['DAC A']], 
-                                    waveforms[fpga.dac_settings[k]['DAC B']])
-                                    for k, dac in enumerate(fpga.dacs)]
-        mems1 = seq.mem_from_list(mem_list1)
-        mems2 = seq.mem_from_list(mem_list2)
-        
+
         ###RUN#####################################################################################
         self.acknowledge_requests()
-        P = fpga.load_and_run(dac_srams, [mems1, mems2], self.value('Reps'))
+        P = fpga.load_and_run(dac_srams, [seq.mem_from_list(mem_list1),
+                                          seq.mem_from_list(mem_list2)],
+                                          self.value('Reps'))
 
         ###DATA POST-PROCESSING####################################################################
         if histogram:

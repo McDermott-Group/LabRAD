@@ -27,19 +27,16 @@ if LABRAD_PATH not in sys.path:
     sys.path.append(LABRAD_PATH)
 
 import numpy as np
-
 import matplotlib.pyplot as plt
 
 import labrad.units as units
 
 import LabRAD.Measurements.General.experiment as expt
 import LabRAD.Measurements.General.pulse_shapes as pulse
-
 import LabRAD.Servers.Instruments.GHzBoards.command_sequences as seq
-
 import data_processing
 
-DAC_ZERO_PAD_LEN = 20
+DAC_ZERO_PAD_LEN = 10
 
 
 class HEMTExperiment(expt.Experiment):        
@@ -195,9 +192,9 @@ class HEMTQubitReadout(HEMTExperiment):
             self.send_request('Qubit Power')                            # Qubit power
         if self.value('Qubit Frequency') is not None:
             if self.value('Qubit SB Frequency') is not None:            # Qubit frequency
-                self.send_request('Qubit Frequency', False,
-                        self.value('Qubit Frequency') + 
-                        self.value('Qubit SB Frequency'))
+                self.send_request('Qubit Frequency', enforce=False,
+                        value=self.value('Qubit Frequency') + 
+                              self.value('Qubit SB Frequency'))
             else:
                 self.send_request('Qubit Frequency')
     
@@ -208,9 +205,9 @@ class HEMTQubitReadout(HEMTExperiment):
             self.send_request('Readout Power')                          # Readout power
         if self.value('Readout Frequency') is not None:
             if self.value('Readout SB Frequency') is not None:          # Readout frequency
-                self.send_request('Readout Frequency', False,
-                        self.value('Readout Frequency') + 
-                        self.value('Readout SB Frequency'))
+                self.send_request('Readout Frequency', enforce=False,
+                        value=self.value('Readout Frequency') + 
+                              self.value('Readout SB Frequency'))
             else:
                 self.send_request('Readout Frequency')
 
@@ -264,16 +261,7 @@ class HEMTQubitReadout(HEMTExperiment):
                                               pulse.SinePulse(QB_time, QB_SB_freq, QB_amp, 0.0, 0.0),
                                               pulse.DC(QBtoRO + RO_time + DAC_ZERO_PAD_LEN, 0)])
  
-        for idx, settings in enumerate(fpga.dac_settings):
-            for channel in ['DAC A', 'DAC B']:
-                if fpga.dac_settings[idx][channel] not in waveforms:
-                    raise expt.ExperimentDefinitionError("'" + 
-                        str(fpga.dacs[idx]) + 
-                        "' setting '" + str(channel) + "': '" +
-                        fpga.dac_settings[idx][channel] +
-                        "' could not be recognized. The allowed '" +
-                        str(channel) + "' values are 'Readout I', '" +
-                        "Readout Q', 'Qubit I', 'Qubit Q', and 'None'.")
+        dac_srams, sram_length, sram_delay = fpga.process_waveforms(waveforms)
 
         if plot_waveforms:
             self._plot_waveforms([waveforms[wf] for wf in requested_waveforms],
@@ -286,11 +274,6 @@ class HEMTQubitReadout(HEMTExperiment):
         fpga.set_adc_setting('ADCDelay', (DAC_ZERO_PAD_LEN +
                 ADC_wait_time + QB_time + QBtoRO) * units.ns, adc)
 
-        sram_length = len(waveforms[fpga.dac_settings[0]['DAC A']])
-        sram_delay = np.ceil(sram_length / 1000)
-        dac_srams = [seq.waves2sram(waveforms[fpga.dac_settings[k]['DAC A']], 
-                                    waveforms[fpga.dac_settings[k]['DAC B']])
-                                    for k, dac in enumerate(fpga.dacs)]
         dac_mems = [seq.mem_simple(self.value('Init Time')['us'], sram_length, 0, sram_delay)
                     for k, dac in enumerate(fpga.dacs)]
         

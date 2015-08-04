@@ -1,4 +1,4 @@
-# Copyright (C) Ivan Pechenezhskiy
+# Copyright (C) 2015 Ivan Pechenezhskiy
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -37,6 +37,9 @@ import itertools
 
 from labrad.server import inlineCallbacks
 import labrad.units as units
+
+import LabRAD.Servers.Instruments.GHzBoards.command_sequences as seq
+
 
 class ResourceDefinitionError(Exception): pass
 
@@ -176,12 +179,41 @@ class GHzFPGABoards(object):
                 preamp_timeout = yield cxn.registry.get('PREAMP_TIMEOUT')
             except:
                 print("'PREAMP_TIMEOUT' key is not found in the " +
-                        "LabRAD Resitry. It will be set to 1253 " +
+                        "LabRAD Registry. It will be set to 1253 " +
                         "PreAmpTimeCounts.")
                 preamp_timeout = 1253
             self.consts['PREAMP_TIMEOUT'] = (preamp_timeout *
                     units.PreAmpTimeCounts)
 
+    def process_waveforms(self, waveforms):
+        """
+        Check whether the specified waveforms with the waveforms defined
+        in the run_once method. Get SRAMs from the waveforms.
+        
+        Input:
+            waveforms: dictionary with the waveforms.
+        Output:
+            dac_srams: list of DAC SRAMs.
+            sram_length: SRAM length.
+            sram_delay: SRAM delay.
+        """
+        for idx, settings in enumerate(self.dac_settings):
+            for channel in ['DAC A', 'DAC B']:
+                if self.dac_settings[idx][channel] not in waveforms:
+                    raise ResourceDefinitionError("'" + 
+                        str(self.dacs[idx]) +
+                        "' '" + str(channel) + "' waveform setting: '" +
+                        self.dac_settings[idx][channel] +
+                        "' is not recognized.")
+        
+        dac_srams = [seq.waves2sram(waveforms[self.dac_settings[k]['DAC A']], 
+                                    waveforms[self.dac_settings[k]['DAC B']])
+                                    for k, dac in enumerate(self.dacs)]
+        sram_length = len(waveforms[self.dac_settings[0]['DAC A']])
+        sram_delay = np.ceil(sram_length / 1000)
+        
+        return dac_srams, sram_length, sram_delay
+    
     def get_adc(self, adc=None):
         """
         If only a single ADC board is present, return its name. If more
