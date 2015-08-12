@@ -1,12 +1,38 @@
 TODO LIST
+- &&& means todo in code
 - figure out fridge settings
 - GGG temp monitoring
 - do we want to have a recording checkbox with a time interval?
 - try running some of this from dif computers
 - ADRClient should get settings path and limits from ADRServer
-- need to be able to open multiple ADR servers at the same time to control two ADRs simultaneously
-- mag up buttons when adr server is not active give error
 - mag up buttons should be updated with the updateState cycle so they get updated if client is opened later
+- switching fridges should load the past temp history
+- make the startup scripts check what is already open before opening again
+- make the startup scripts fully automated
+- when automated startup, add interface to see different windows to ADRClient (so we can check what is working)
+- Add open/close HS to mag up/reg buttons
+- compessor control
+
+BUGS
+- changing the regulation temp automatically starts regulation
+- sometimes starting regulation doesnt decrease properly
+- mag up buttons when adr server is not active give error
+- SIM900 sometimes needs to be restarted.  can this be fixed by sending *RST?
+
+
+TODO IN GENERAL
+Data - either write a new datavault server or (hopefully) just use the existing one and change Ivan's code to use it
+Sweep Server - Mark Ansman's thesis details one of these that sounds great, but I have not been able to find it on their github.  Probably have to rewrite one. 
+Optimization Server
+DC Rack Controller - Remake the crappy labview one we have now
+Noise Measurements - basically convert Pradeep's labview code to labrad
+IV Curve - Ed has started this, but it's not very good.  Make program that is easy to take IV curve with.
+Compressor Server - Maybe we can adapt this from the Martinis group, maybe he have to rewrite it
+Grapher - make an universal plotting tool that is detangled from the experiment (sweep) code or use existing Grapher whatever is best (the decision on project "Data" should me made with this in mind).
+Waveforms - write waveform generating module to ease the process of setting up new GHz FPGA experiments.
+Units - improve labrad.units module.
+PyLabRAD - transition to the newer version or fork from Martinis group, the main problem will probably be with the GHz FPGA code.
+Leiden DR Monitor - MaxiGuage server, pressure and temperature monitor client, somewhat similar to ADR controller bar the control functionality.
 
 
 QUESTIONS
@@ -14,13 +40,9 @@ QUESTIONS
 - why does the refreshing on a gpib added message not work?
 - is it possible to overwrite an existing @setting? ==> yes, but method name and id need to be same
 
+
 INSTRUCTIONS TO OPEN ADR PROGRAM
 open labrad, click run
 open node server in 'start' folder
 open adr server
 open adr client
-
-BUGS
-- Regulate seems to ignore temperature
-- Cannot regulate to higher temperatures
-- Regulation doesn't seem to really work at all outside of just dropping all the way to base temperature
