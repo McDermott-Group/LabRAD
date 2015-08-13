@@ -87,9 +87,9 @@ class ADRServer(DeviceServer):
                         'regulationTemp':0.1,
                         'PID_cumulativeError':0}
         self.lastState = self.state.copy()
-        self.ADRSettings ={ 'PID_KP':2,
+        self.ADRSettings ={ 'PID_KP':0.75,
                             'PID_KI':0,
-                            'PID_KD':70,
+                            'PID_KD':15,
                             'magup_dV': 0.003,               #[V/step] How much do we increase the voltage by every second when maggin up? HPD Manual uses 10mV=0.01V, 2.5V/30min=1.4mV/s ==> Let's use a middle rate of 3mV/step. (1 step is about 1s)
                             'magnet_voltage_limit': 0.1,      #Back EMF limit in Volts
                             'current_limit': 9,               #Max Current in Amps

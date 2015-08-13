@@ -11,13 +11,15 @@ TODO LIST
 - make the startup scripts fully automated
 - when automated startup, add interface to see different windows to ADRClient (so we can check what is working)
 - Add open/close HS to mag up/reg buttons
-- compessor control
+- compressor control
 
 BUGS
 - changing the regulation temp automatically starts regulation
-- sometimes starting regulation doesnt decrease properly
+- sometimes starting regulation doesnt decrease properly (I think due to dT=0)
 - mag up buttons when adr server is not active give error
 - SIM900 sometimes needs to be restarted.  can this be fixed by sending *RST?
+- changing the temperature does not seem to work
+- since current lags voltage, often will mag all the way down.  have to press regulate again to go back up
 
 
 TODO IN GENERAL
