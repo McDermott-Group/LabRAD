@@ -122,7 +122,7 @@ class StartAndBringUp:
             self._cxn.registry.cd([''] + self.args.registry_path)
         except:
             raise Exception('Could not read the LabRAD Registry. ' +
-                    'Please check that the Registry path ' + 
+                    'Please check that the AFS is on and the Registry path ' +
                     str([''] + self.args.registry_path) + ' is correct.')
     
     def _waitTillEnterKeyIsPressed(self):

@@ -6,39 +6,25 @@ import numpy as np
 from labrad.units import (us, ns, V, GHz, MHz, rad, mK, dB, dBm,
                           DACUnits, PreAmpTimeCounts)
 
-import JPMQubitReadoutWithResetExpt as qr
+import jpm_qubit_experiments as qr
 
 
 comp_name = os.environ['COMPUTERNAME'].lower()
 Resources = [ {
                 'Interface': 'GHz FPGA Boards',
                 'Boards': [
-                            'Shasta Board DAC 9', 
-                            'Shasta Board DAC 10',
-                            # 'Shasta Board ADC 11'
+                            'Leiden Board DAC 3', 
+                            'Leiden Board DAC 4',
                           ],
-                'Shasta Board DAC 9':  {
+                'Leiden Board DAC 3':  {
                                         'DAC A': 'JPM Fast Pulse',
                                         'DAC B': 'Qubit I',
-                                        'FO1 FastBias Firmware Version': '1.0',
+                                        'FO1 FastBias Firmware Version': '2.1',
                                         'Data': True
                                        },
-                'Shasta Board DAC 10': {   
+                'Leiden Board DAC 4': {   
                                         'DAC A': 'Readout Q',
                                         'DAC B': 'Readout I',
-                                       },
-                'Shasta Board ADC 11': {
-                                        'RunMode': 'demodulate', #'average'
-                                        'FilterType': 'square',
-                                        'FilterWidth': 9500 * ns,
-                                        'FilterLength': 10000 * ns,
-                                        'FilterStretchAt': 0 * ns,
-                                        'FilterStretchLen': 0 * ns,
-                                        'DemodPhase': 0 * rad,
-                                        'DemodCosAmp': 255,
-                                        'DemodSinAmp': 255,
-                                        'DemodFreq': -30 * MHz,
-                                        'ADCDelay': 0 * ns,
                                        },
                 'Variables': [
                                 'Init Time',
@@ -64,12 +50,12 @@ Resources = [ {
                                 'Readout to Displacement Offset'
                              ]
                 },
-                # { # GPIB RF Generator.
-                    # 'Interface': 'RF Generator',
-                    # 'Address': comp_name + ' GPIB Bus - GPIB0::19::INSTR',
-                    # 'Variables': {'Readout Power': 'Power', 
-                    #               'Readout Frequency': 'Frequency'}
-                # },
+                { # GPIB RF Generator.
+                    'Interface': 'RF Generator',
+                    'Address': comp_name + ' GPIB Bus - GPIB0::20::INSTR',
+                    'Variables': {'Readout Power': 'Power', 
+                                  'Readout Frequency': 'Frequency'}
+                },
                 # { # GPIB RF Generator.
                     # 'Interface': 'RF Generator',
                     # 'Address': comp_name + ' GPIB Bus - GPIB0::19::INSTR',
@@ -80,26 +66,22 @@ Resources = [ {
                     # 'Interface': 'RF Generator',
                     # 'Address': comp_name + ' GPIB Bus - GPIB0::20::INSTR',
                     # 'Variables': {'RF Power': 'Power', 
-                    #               'RF Frequency': 'Frequency'}
+                                  # 'RF Frequency': 'Frequency'}
                 # },
-                # { # Lab Brick Attenuator.
-                    # 'Interface': 'Lab Brick Attenuator'
-                    # 'Server': 'LabBrickAttenuator',
-                    # 'Address': 7032,
-                    # 'Variables': ['Readout Attenuation']
-                # },
-                # { # Lab Brick Attenuator.
-                    # 'Interface': 'Lab Brick Attenuator',
-                    # 'Serial Number': 7032,
-                    # 'Variables': ['Readout Attenuation']
-                # },
-                # { # Lab Brick Attenuator.
-                    # 'Interface': 'Lab Brick Attenuator',
-                    # 'Serial Number': 7033,
-                    # 'Variables': ['Qubit Attenuation']
-                # },
+                { # Lab Brick Attenuator.
+                    'Interface': 'Lab Brick Attenuator',
+                    'Serial Number': 7032,
+                    'Variables': ['Readout Attenuation']
+                },
+                { # Lab Brick Attenuator.
+                    'Interface': 'Lab Brick Attenuator',
+                    'Serial Number': 7033,
+                    'Variables': ['Qubit Attenuation']
+                },
                 { # SIM Voltage Source.
                     'Interface': 'SIM928 Voltage Source',
+                    'Address': ('SIM900 - ' + comp_name + 
+                                ' GPIB Bus - GPIB0::26::INSTR::SIM900::3'),
                     'Variables': 'Qubit Flux Bias Voltage'
                 },
                 { # Readings entered manually, software parameters.
@@ -124,8 +106,8 @@ ExptInfo = {
 ExptVars = {
             'Reps': 3000, # should not exceed ~50,000
           
-            'Qubit Frequency': 20 * GHz,
-            'Qubit Power': -110 * dBm, 
+            # 'Qubit Frequency': 20 * GHz,
+            # 'Qubit Power': -110 * dBm, 
             'Qubit Attenuation': 63 * dB, # should be in (0, 63] range
             'Qubit SB Frequency': 0 * MHz,
             'Qubit Amplitude': 0.5 * DACUnits,

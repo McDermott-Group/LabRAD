@@ -445,19 +445,20 @@ class RFGenerator(object):
             self.server_name = 'GPIB RF Generators'
         self.server = cxn[self.server_name]
         
-        self._init_device(resource)
+        self._init_device(resource, var)
     
     @inlineCallbacks
     def __exit__(self, type, value, traceback):
-        """Deselect the RG generator and turn it off."""
+        """Turn the RF generator off and deselect it."""
         p = self.server.packet()
-        yield p.deselect_device().output(False).send()
+        yield p.select_device(self.address).output(False).deselect_device().send()
     
     @inlineCallbacks
-    def _init_device(self, resource):
+    def _init_device(self, resource, var):
         """Initialize an RF generator."""
         p = self.server.packet()
         devices = (yield p.list_devices().send())['list_devices']
+        devices = [dev for id, dev in devices]
         if 'Address' in resource:
             if resource['Address'] in devices:
                 self.address = resource['Address']
@@ -540,14 +541,14 @@ class LabBrickAttenuator(object):
     def __exit__(self, type, value, traceback):
         """Deselect the attenuator."""
         p = self.server.packet()
-        yield p.deselect_device().send()
+        yield p.deselect_attenuator().send()
     
     @inlineCallbacks
     def _init_device(self, resource):
         """Initialize a Lab Brick attenuator."""
         p = self.server.packet()
         devices = (yield p.list_devices().send())['list_devices']
-        if 'Address' in resource:
+        if 'Serial Number' in resource:
             if resource['Serial Number'] in devices:
                 self.address = resource['Serial Number']
             else:
@@ -557,7 +558,7 @@ class LabBrickAttenuator(object):
         elif len(devices) == 1:
             self.address = devices[0][0]
         else:
-            raise ResourceDefinitionError("'Serial Number' field is absent " +
+            raise ResourceDefinitionError("'Serial Number' field is absent" +
                     " in the experiment resource: " + str(resource) + ".")
         
         if len(devices) == 1:
@@ -607,15 +608,16 @@ class SIM928VoltageSource(object):
     
     @inlineCallbacks
     def __exit__(self, type, value, traceback):
-        """Deselect the voltage source and turn it off."""
+        """Turn the voltage source off and deselect it."""
         p = self.server.packet()
-        yield p.deselect_device().output(False).send()
+        yield p.select_device(self.address).output(False).deselect_device().send()
     
     @inlineCallbacks
     def _init_device(self, resource):
         """Initialize a voltage source."""
         p = self.server.packet()
         devices = (yield p.list_devices().send())['list_devices']
+        devices = [dev for id, dev in devices]
         if 'Address' in resource:
             if resource['Address'] in devices:
                 self.address = resource['Address']

@@ -110,9 +110,13 @@ class Experiment(object):
     
     def __exit__(self, type, value, traceback):
         """
-        Safely close all connections, close plots, and disconnect from 
-        LabRAD. Catch exceptions if needed.
+        Safely disconnect from the LabRAD manager.
+        Catch exceptions if needed.
         """
+        for var in self._vars:
+            if ('Interface' in self._vars[var] and
+                    hasattr(self._vars[var]['Interface'], '__exit__')):
+                self._vars[var]['Interface'].__exit__(type, value, traceback)
         if hasattr(self, 'cxn'):
             self.cxn.disconnect()
         print('The instrument resources have been safely terminated! ' + 
@@ -285,9 +289,9 @@ class Experiment(object):
             for var in resource['Variables']:
                 self._vars[var] = res.copy()
         elif isinstance(resource['Variables'], dict):
-            for var in resournce['Varibales']:
+            for var in resource['Variables']:
                 res['Setting'] = resource['Variables'][var]
-                self._vars[vars] = res.copy()
+                self._vars[var] = res.copy()
         else:
             raise ExperimentDefinitionError("Variables in the resource" + 
                 " dictionary " + str(resource) +
@@ -340,7 +344,7 @@ class Experiment(object):
             elif res['Interface'].replace(' ', '') == 'GHzFPGABoards':
                 self.ghz_fpga_boards = getattr(server_interfaces,
                         res['Interface'].replace(' ', ''))(self.cxn, res)
-            # Resources specified in the resources module: Lab Bricks
+            # Resources specified in module sever_interfaces: Lab Brick
             # attenuators, RF generators, voltage sources, etc.
             elif hasattr(server_interfaces, res['Interface'].replace(' ', '')):
                 for var in res['Variables']:

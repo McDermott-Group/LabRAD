@@ -17,7 +17,7 @@
 ### BEGIN NODE INFO
 [info]
 name = GPIB RF Generators
-version = 0.2.0
+version = 0.2.1
 description = This server provides basic control for microwave generators.
 
 [startup]
@@ -154,7 +154,7 @@ class HP8341BWrapper(GPIBDeviceWrapper):
 class RFGeneratorServer(GPIBManagedServer):
     """This server provides basic control for microwave generators."""
     name = 'GPIB RF Generators'
-    deviceWrappers={'HEWLETT-PACKARD 83620A': HP83620AWrapper,      # HP83620A hasn't yet been tested.
+    deviceWrappers={'HEWLETT-PACKARD 83620A': HP83620AWrapper,
                     'HEWLETT-PACKARD 83712B': HP83712BWrapper,
                     'HEWLETT-PACKARD 8341B':  HP8341BWrapper}
 
@@ -187,6 +187,7 @@ class RFGeneratorServer(GPIBManagedServer):
             yield dev.setOutput(on)
         returnValue(dev.output)
         
+
 __server__ = RFGeneratorServer()
 
 if __name__ == '__main__':

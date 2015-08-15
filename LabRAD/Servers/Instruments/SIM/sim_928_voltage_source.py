@@ -17,8 +17,8 @@
 ### BEGIN NODE INFO
 [info]
 name = SIM928
-version = 2.3.3
-description = This serves as an interface for the SIM928 Voltage Source.
+version = 2.4.0
+description = Server interface for the SIM928 Isolated Voltage Source.
 instancename = SIM928
 
 [startup]
@@ -56,7 +56,7 @@ class SIM928Wrapper(GPIBDeviceWrapper):
     
     @inlineCallbacks
     def getOutput(self):
-        self.output = yield self.query('EXON?').addCallback(bool)
+        self.output = yield self.query('EXON?').addCallback(int).addCallback(bool)
         returnValue(self.output)
 
     @inlineCallbacks
