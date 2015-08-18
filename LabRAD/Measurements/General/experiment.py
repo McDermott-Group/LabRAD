@@ -911,9 +911,7 @@ class Experiment(object):
             raise ExperimentDefinitionError("Server interface is not " +
                 "specified for variable '" + str(var) + "'.")
 
-        print('x = ' + str(value))
         value = self.value(var, value, output=False)
-        print('y = ' + str(value))
         self._vars[var]['Interface'].send_request(value)
         
     def acknowledge_request(self, var, enforce=True):

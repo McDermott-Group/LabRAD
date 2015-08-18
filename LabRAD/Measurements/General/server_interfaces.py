@@ -500,7 +500,6 @@ class RFGenerator(object):
         if not self._single_device:
             p.select_device(self.address)
         p[self._setting](value)
-        print('value = ' + str(value))
         if not self._output_set:
             p.output(True)
             self._output_set = True

@@ -94,14 +94,11 @@ ExptInfo = {
  
 # Experiment Variables
 ExptVars = {
-            'Reps': 120, # should not exceed ~50,000
+            'Reps': 300, # should not exceed ~50,000
 
             'RF Frequency': 5 * GHz,
             'RF Power': 13 * dBm,
             'RF Attenuation': 63 * dB, # should be in (0, 63] range
-            'RF SB Frequency': 0 * MHz, 
-            'RF Amplitude': 1 * DACUnits,
-            'RF Time': 50 * ns,
    
             'Init Time': 500 * us,
             'Bias Time': 100 * us,
