@@ -474,7 +474,7 @@ class RFGenerator(object):
         
         if ('Variables' in resource and var in resource and 
                 isinstance(resource[var], dict)):
-            self._setting = resource['Variables'][var]
+            self._setting = resource['Variables'][var]['Setting']
         elif var.lower().find('freq') != -1:
             self._setting = 'Frequency'
         elif var.lower().find('power') != -1:
@@ -484,6 +484,8 @@ class RFGenerator(object):
                     "variable '" + var + "' is not specified in the " +
                     "experiment resource: " + str(resource) + ".")
         
+        p = self.server.packet()
+        yield p.select_device(self.address).reset().send()
         if len(devices) == 1:
             self._single_device = True
         else:
@@ -491,19 +493,18 @@ class RFGenerator(object):
         
         self._request_sent = False
         self._output_set = False
-        
-        p = self.server.packet()
-        yield p.select_device(self.address).reset().send()
 
     def send_request(self, value):
         """Send a request to set a setting."""
         p = self.server.packet()
         if not self._single_device:
             p.select_device(self.address)
+        p[self._setting](value)
+        print('value = ' + str(value))
         if not self._output_set:
             p.output(True)
             self._output_set = True
-        self._result = p[self._setting](value).send(wait=False)
+        self._result = p.send(wait=False)
         self._request_sent = True
         
     def acknowledge_request(self):
@@ -563,6 +564,8 @@ class LabBrickAttenuator(object):
         
         if len(devices) == 1:
             self._single_device = True
+            p = self.server.packet()
+            yield p.select_attenuator(self.address).send()
         else:
             self._single_device = False
         
@@ -632,6 +635,8 @@ class SIM928VoltageSource(object):
                     "not found in the experiment resource: " +
                     str(resource) + ".")
         
+        p = self.server.packet()
+        yield p.select_device(self.address).reset().send()
         if len(devices) == 1:
             self._single_device = True
         else:
@@ -640,18 +645,16 @@ class SIM928VoltageSource(object):
         self._request_sent = False
         self._output_set = False
         
-        p = self.server.packet()
-        yield p.select_device(self.address).reset().send()
-        
     def send_request(self, voltage):
         """Send a request to set the output voltage."""
         p = self.server.packet()
         if not self._single_device:
             p.select_device(self.address)
+        p.voltage(voltage)
         if not self._output_set:
             p.output(True)
             self._output_set = True
-        self._result = p.voltage(voltage).send(wait=False)
+        self._result = p.send(wait=False)
         self._request_sent = True
         
     def acknowledge_request(self):

@@ -64,7 +64,7 @@ class JPMExperiment(expt.Experiment):
         plt.draw()
 
 
-class JPMQubitReadoutWithReset(JPMExperiment):
+class JPMQubitReadout(JPMExperiment):
     """
     Read out a qubit connected to a resonator with a readout and a displacement (reset) pulse.
     """
@@ -76,7 +76,7 @@ class JPMQubitReadoutWithReset(JPMExperiment):
             self.send_request('RF Power')                               # RF power
         if self.value('RF Frequency') is not None:
             if self.value('RF SB Frequency') is not None:               # RF frequency
-                self.send_request('RF Frequency', enforce=False,                
+                self.send_request('RF Frequency',                
                         value=self.value('RF Frequency') + 
                               self.value('RF SB Frequency'))
             else:
@@ -89,7 +89,7 @@ class JPMQubitReadoutWithReset(JPMExperiment):
             self.send_request('Qubit Power')                            # Qubit power
         if self.value('Qubit Frequency') is not None:
             if self.value('Qubit SB Frequency') is not None:            # Qubit frequency
-                self.send_request('Qubit Frequency', enforce=False,
+                self.send_request('Qubit Frequency',
                         value=self.value('Qubit Frequency') + 
                               self.value('Qubit SB Frequency'))
             else:
@@ -102,7 +102,7 @@ class JPMQubitReadoutWithReset(JPMExperiment):
             self.send_request('Readout Power')                          # Readout power
         if self.value('Readout Frequency') is not None:
             if self.value('Readout SB Frequency') is not None:          # Readout frequency
-                self.send_request('Readout Frequency', enforce=False,
+                self.send_request('Readout Frequency',
                         value=self.value('Readout Frequency') + 
                               self.value('Readout SB Frequency'))
             else:
@@ -130,8 +130,7 @@ class JPMQubitReadoutWithReset(JPMExperiment):
         QB_amp = self.value('Qubit Amplitude')['DACUnits']              # amplitude of the sideband modulation
         QB_time = self.value('Qubit Time')['ns']                        # length of the qubit pulse
       
-        #JPM A VARIABLES########################################################################### 
-        JPM_bias = self.value('Bias Voltage')['V']                      # height of the FastBias pulse   
+        #JPM VARIABLES#############################################################################
         JPM_FPT = self.value('Fast Pulse Time')['ns']                   # length of the DAC pulse
         JPM_FPA = self.value('Fast Pulse Amplitude')['DACUnits']        # amplitude of the DAC pulse
         JPM_FPW = self.value('Fast Pulse Width')['ns']                  # DAC pulse rise time 
@@ -191,19 +190,24 @@ class JPMQubitReadoutWithReset(JPMExperiment):
         
         # Create a memory command list.
         # The format is described in Servers.Instruments.GHzBoards.command_sequences.
+        mem_list1 = []
         if 'FO1 FastBias Firmware Version' in fpga.dac_settings[0]:
-            mem_list1 = [{'Type': 'Firmware', 'Channel': 1, 
-                          'Version': fpga.dac_settings[0]['FO1 FastBias Firmware Version']}]
-        else:
-            mem_list1 = []
+            mem_list1.append({'Type': 'Firmware', 'Channel': 1, 
+                          'Version': fpga.dac_settings[0]['FO1 FastBias Firmware Version']})
+        if 'FO2 FastBias Firmware Version' in fpga.dac_settings[0]:
+            mem_list1.append({'Type': 'Firmware', 'Channel': 2, 
+                          'Version': fpga.dac_settings[0]['FO2 FastBias Firmware Version']})
         mem_list1 = mem_list1 + [
             {'Type': 'Bias', 'Channel': 1, 'Voltage': 0},
+            {'Type': 'Bias', 'Channel': 2, 'Voltage': 0},
             {'Type': 'Delay', 'Time': self.value('Init Time')['us']},
             {'Type': 'Bias', 'Channel': 1, 'Voltage': self.value('Bias Voltage')['V']},
+            {'Type': 'Bias', 'Channel': 2, 'Voltage': self.value('Input Bias Voltage')['V']},
             {'Type': 'Delay', 'Time': self.value('Bias Time')['us']},
             {'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay},
             {'Type': 'Timer', 'Time': self.value('Measure Time')['us']},
-            {'Type': 'Bias', 'Channel': 1, 'Voltage': 0}]
+            {'Type': 'Bias', 'Channel': 1, 'Voltage': 0},
+            {'Type': 'Bias', 'Channel': 2, 'Voltage': 0}]
 
         mem_list2 = [
             {'Type': 'Delay', 'Time': (self.value('Init Time')['us'] + 
@@ -211,11 +215,11 @@ class JPMQubitReadoutWithReset(JPMExperiment):
             {'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay},
             {'Type': 'Timer', 'Time': self.value('Measure Time')['us']}]
 
+        mems = [seq.mem_from_list(mem_list1), seq.mem_from_list(mem_list2)]
+        
         ###RUN#####################################################################################
         self.acknowledge_requests()
-        P = fpga.load_and_run(dac_srams, [seq.mem_from_list(mem_list1),
-                                          seq.mem_from_list(mem_list2)],
-                                          self.value('Reps'))
+        P = fpga.load_and_run(dac_srams, mems, self.value('Reps'))
 
         ###DATA POST-PROCESSING####################################################################
         if histogram:

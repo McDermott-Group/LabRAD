@@ -72,7 +72,9 @@ def startServers(args):
     # Go through and start all the servers that are not already running.
     print('Starting the servers...')
     for server in server_list:
-        if server not in running_servers:
+        if (server not in running_servers and
+                (os.environ['COMPUTERNAME'].lower() + ' ' + server) 
+                not in running_servers):
             try:
                 yield cxn.servers[args.node_name].start(server)
             except Exception as e:

@@ -141,18 +141,21 @@ class StartAndBringUp:
                 raise QuitException('The user chose to quit.')
     
     def startLabRAD(self):
-        print('Starting LabRAD...')
-        labrad_filename = os.path.join(LABRAD_PATH, LABRAD_FILENAME)
-        if not os.path.isfile(labrad_filename):
-            raise Exception('Cannot locate the LabRAD sys.executable' +
-                    'file ' + labrad_filename + '.')
         try:
-            self.processes['LabRAD'] = sp.Popen(labrad_filename)
-        except OSError:
-            raise Exception('Failed to start LabRAD.')
-        print('Please press [Run server] button in the LabRAD window ' +
-                'if it has not started automatically.')
-        self._waitTillEnterKeyIsPressed()
+            self._cxn = labrad.connect()
+        except:
+            print('Starting LabRAD...')
+            labrad_filename = os.path.join(LABRAD_PATH, LABRAD_FILENAME)
+            if not os.path.isfile(labrad_filename):
+                raise Exception('Cannot locate the LabRAD sys.executable' +
+                        'file ' + labrad_filename + '.')
+            try:
+                self.processes['LabRAD'] = sp.Popen(labrad_filename)
+            except OSError:
+                raise Exception('Failed to start LabRAD.')
+            print('Please press [Run server] button in the LabRAD window ' +
+                    'if it has not started automatically.')
+            self._waitTillEnterKeyIsPressed()
 
     def readRegistry(self):
         print('Getting the list of programs and servers to run from' +

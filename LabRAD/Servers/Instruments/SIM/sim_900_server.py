@@ -18,7 +18,7 @@
 ### BEGIN NODE INFO
 [info]
 name = SIM900
-version = 1.4.0
+version = 1.4.1
 description = Gives access to GPIB devices in the SIM900 mainframe.
 instancename = SIM900
 
@@ -34,7 +34,6 @@ timeout = 20
 
 from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.reactor import callLater
-# from twisted.internet.task import LoopingCall
 
 from labrad.server import LabradServer, setting
 from labrad.errors import DeviceNotSelectedError
@@ -56,33 +55,16 @@ class SIM900(GPIBManagedServer):
         # start refreshing only after we have started serving
         # this ensures that we are added to the list of available
         # servers before we start sending messages
-        callLater(0.1, self.startRefreshing)
+        callLater(0.1, self.refreshDevices)
 
-    def startRefreshing(self):
-        """Start periodically refreshing the list of devices.
-
-        The start call returns a deferred which we save for later.
-        When the refresh loop is shutdown, we will wait for this
-        deferred to fire to indicate that it has terminated.
-        """
-        # self.refresher = LoopingCall(self.refreshDevices)
-        # self.refresherDone = self.refresher.start(self.refreshInterval, now=True)
-        self.refreshDevices()
-
-    # @inlineCallbacks
-    # def stopServer(self):
-        # """Kill the device refresh loop and wait for it to terminate."""
-        # if hasattr(self, 'refresher'):
-            # self.refresher.stop()
-            # yield self.refresherDone
-
+    @inlineCallbacks
     def handleDeviceMessage(self, *args):
-        """We override this function so that whenever a new SIM900 is added, and a message is sent out,
-        we refresh the devices.  This has the benefit of being able to start this server,  the 
-        GPIBDeviceManager, and the GPIB Bus Server, in any order."""
-        GPIBManagedServer.handleDeviceMessage(self,*args)
+        """We override this function so that whenever a new SIM900 is
+        added, and a message is sent out, we refresh the devices. This
+        has the benefit of being able to start this server, the 
+        GPIB Device Manager, and the GPIB Bus Server, in any order."""
+        yield GPIBManagedServer.handleDeviceMessage(self, *args)
         if args[0] == self.deviceName: 
-            print 'refreshing devices'
             self.refreshDevices()
     
     @inlineCallbacks
@@ -91,8 +73,7 @@ class SIM900(GPIBManagedServer):
         Refresh the list of known devices (modules) in the SIM900
         mainframe.
         """
-        # To avoid calling before the server name was added to the client dictionary.
-        yield self.client.refresh()
+        print('Refreshing devices...')
         addresses = []
         IDs, names = self.deviceLists()
         for SIM900addr in names:
@@ -125,8 +106,8 @@ class SIM900(GPIBManagedServer):
         """Get a list of all connected devices.
 
         Return value:
-        A list of strings with the names of all connected devices, ready for being
-        used to open each of them.
+        A list of strings with the names of all connected devices, ready
+        for being used to open each of them.
         """
         return self.rm.list_resources()
 

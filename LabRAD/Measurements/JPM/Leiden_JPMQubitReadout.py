@@ -22,7 +22,7 @@ Resources = [ {
                                         'FO1 FastBias Firmware Version': '2.1',
                                         'Data': True
                                        },
-                'Leiden Board DAC 4': {   
+                'Leiden Board DAC 4': {
                                         'DAC A': 'Readout Q',
                                         'DAC B': 'Readout I',
                                        },

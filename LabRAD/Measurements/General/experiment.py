@@ -271,33 +271,7 @@ class Experiment(object):
             except:
                 raise IOError('Could not create experiment save path!' + 
                               ' Is AFS on?')
-    
-    def _add_vars(self, resource):
-        """
-        Add experiment variables to self._vars from a resource. Specify 
-        some extra information that is may be required by other methods.
-        
-        Input:
-            resource: a resource dictionary from a list of experiment 
-            resources.
-        Output:
-            None.
-        """
-        res = resource.copy()
-        res.pop('Variables', None)
-        if isinstance(resource['Variables'], list):
-            for var in resource['Variables']:
-                self._vars[var] = res.copy()
-        elif isinstance(resource['Variables'], dict):
-            for var in resource['Variables']:
-                res['Setting'] = resource['Variables'][var]
-                self._vars[var] = res.copy()
-        else:
-            raise ExperimentDefinitionError("Variables in the resource" + 
-                " dictionary " + str(resource) +
-                " should be specified as a list of strings, a dictionary," + 
-                " or just as a simple string for a single variable.")
-    
+
     def _set_resources(self, resources):
         """
         Set electronics information (what dacs, adcs, and RF generators,
@@ -323,6 +297,7 @@ class Experiment(object):
         for res in resources:
             if 'Interface' not in res:
                 raise ExperimentDefinitionError(_msg('Interface', res))
+            
             if 'Variables' not in res:
                 raise ExperimentDefinitionError(_msg('Variables', res))
             elif (not isinstance(res['Variables'], str) and 
@@ -332,10 +307,31 @@ class Experiment(object):
                 " in the resource dictionary: " + str(res) +
                 " should be defined as a list of experiment" + 
                 " variables or as a simple string for a single variable.")
-            
             if isinstance(res['Variables'], str):
                 res['Variables'] = [res['Variables']]
-            self._add_vars(res)
+            
+            var_res = res.copy()
+            var_res.pop('Variables', None)
+            if isinstance(res['Variables'], list):
+                for var in res['Variables']:
+                    self._vars[var] = var_res.copy()
+            elif isinstance(res['Variables'], dict):
+                for var, var_dict in res['Variables'].items():
+                    if isinstance(var_dict, dict):
+                        for property in var_dict:
+                            var_res[property] = res['Variables'][var][property]
+                        self._vars[var] = var_res.copy()
+                    else:
+                        raise ExperimentDefinitionError("Variable " +
+                                " properties in the resource dictionary " +
+                                str(res) + " should be specified in " + 
+                                "a dictionary format.")
+            else:
+                raise ExperimentDefinitionError("Variables in the " +
+                    "resource dictionary " + str(res) +
+                    " should be specified as a list of strings, " + 
+                    "a dictionary, " + 
+                    "or as a string for a single variable.")
 
             # Readings entered manually, software parameters.
             if res['Interface'] is None:
@@ -820,6 +816,7 @@ class Experiment(object):
             if output:
                 print("Experiment variable '" + var + 
                 "' is set to " + self.val2str(value) + ".")
+            return value
 
     ###EXPERIMENT RUN FUNCTIONS####################################################################
     def run_once(self):
@@ -899,7 +896,7 @@ class Experiment(object):
 
         return avg_data
         
-    def send_request(self, var, enforce=False, value=None):
+    def send_request(self, var, value=None):
         """
         Send a non-blocking request to a server to set an experiment
         variable.
@@ -907,31 +904,17 @@ class Experiment(object):
         Inputs: 
             var: variable name.
             value (optional): new variable value.
-            enforce (optional): if True check that the variable is
-                properly defined (default: True).
         Output: 
             None.
         """
-        try:
-            if value is not None:
-                self._check_var(var, check_value=False)
-            else:
-                self._check_var(var, check_value=True)
-            if 'Interface' not in self._vars[var]:
-                raise ExperimentDefinitionError("Variable '" + str(var) + 
-                    " is not set to be used with the send_request method.")
-        except ExperimentDefinitionError:
-            if enforce:
-                raise
-            else:
-                if var in self._vars:
-                    self._vars[var]['Save'] = False
-                return
+        if 'Interface' not in self._vars[var]:
+            raise ExperimentDefinitionError("Server interface is not " +
+                "specified for variable '" + str(var) + "'.")
 
-        if value is not None:
-            self._vars[var]['Value'] = value
-        self._vars[var]['Interface'].send_request(self._vars[var]['Value'])
-        self._vars[var]['Save'] = True
+        print('x = ' + str(value))
+        value = self.value(var, value, output=False)
+        print('y = ' + str(value))
+        self._vars[var]['Interface'].send_request(value)
         
     def acknowledge_request(self, var, enforce=True):
         """
