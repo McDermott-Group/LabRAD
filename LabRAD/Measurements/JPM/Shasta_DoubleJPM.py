@@ -97,13 +97,13 @@ ExptInfo = {
             'Device Name': '080415A-G4',
             'User': 'Ivan Pechenezhskiy',
             'Base Path': 'Z:\mcdermott-group\Data\Matched JPM Photon Counting\ADR3 2015-08-17 - Double JPM 080415A-G4',
-            'Experiment Name': 'FPA1D',
+            'Experiment Name': 'InputBVOutputBV2D',
             'Comments': 'Sweep with asymmetry.' 
            }
  
 # Experiment Variables
 ExptVars = {
-            'Reps': 2500, # should not exceed ~50,000
+            'Reps': 120, # should not exceed ~50,000
 
             'RF Frequency': 20 * GHz,
             'RF Power': 13 * dBm,
@@ -113,11 +113,11 @@ ExptVars = {
             'Bias Time': 100 * us,
             'Measure Time': 50 * us,
           
-            'Input Bias Voltage': 0.4 * V,
+            'Input Bias Voltage': -0.1 * V,
             
-            'Bias Voltage': -.42 * V,
+            'Bias Voltage': .28 * V,
             'Fast Pulse Time': 10 * ns,
-            'Fast Pulse Amplitude': 0.236 * DACUnits,
+            'Fast Pulse Amplitude': 0.5 * DACUnits,
 
             'Threshold': 500 * PreAmpTimeCounts,
            }
@@ -126,11 +126,11 @@ with qr.JPMQubitReadout() as run:
     
     run.set_experiment(ExptInfo, Resources, ExptVars)
     
-    # run.sweep('Bias Voltage', np.linspace(-.5, 0, 501) * V,
+    # run.sweep('Bias Voltage', np.linspace(.15, 0.35, 501) * V,
             # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
 
-    run.sweep('Fast Pulse Amplitude', np.linspace(0., 0.5, 101) * DACUnits,
-           save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
+    # run.sweep('Fast Pulse Amplitude', np.linspace(0.45, 0.49, 101) * DACUnits,
+           # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
     
     # run.sweep('RF Frequency', np.linspace(2, 7, 251) * GHz,
             # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
@@ -138,6 +138,6 @@ with qr.JPMQubitReadout() as run:
     # run.sweep('Qubit Flux Bias Voltage', np.linspace(0, 1, 1001) * V,
             # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
 
-    # run.sweep(['Bias Voltage', 'Input Bias Voltage'], 
-              # [np.linspace(-0.5, 0.5, 101) * V, np.linspace(-0.5, 0.5, 101) * V],
-              # save=True, print_data=['Switching Probability'])
+    run.sweep(['Bias Voltage', 'Input Bias Voltage'], 
+              [np.linspace(-0.75, 0.75, 301) * V, np.linspace(-0.75, 0.75, 101) * V],
+              save=True, print_data=['Switching Probability'])

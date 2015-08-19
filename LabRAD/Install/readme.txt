@@ -44,13 +44,17 @@ scipy==0.15.1
 six==1.9.0
 zope.interface==4.1.2
 
-[mcdermott5125-1]
+[mcdermott5125]
 PyVISA==1.7
-Twisted==15.2.1
+Twisted==15.3.0
+decorator==4.0.2
 enum34==1.0.4
-ipython==3.2.0
+ipython==4.0.0
+ipython-genutils==0.1.0
 matplotlib==1.4.3
-numpy==1.9.1
+numpy==1.9.2
+path.py==7.6
+pickleshare==0.5
 pylabrad==0.92.5
 pyparsing==2.0.2
 pyreadline==2.0
@@ -59,7 +63,9 @@ python-dateutil==2.4.2
 pytz==2015.4
 pywin32==219
 scipy==0.14.0
+simplegeneric==0.8.1
 six==1.9.0
+traitlets==4.0.0
 zope.interface==4.1.2
 
 [mcdermott5125-2]
