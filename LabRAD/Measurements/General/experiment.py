@@ -437,6 +437,18 @@ class Experiment(object):
                 self._vars[var]['Save'] = False
 
         return self._vars[var]['Value']
+        
+    def get_interface(self, var):
+        """
+        Get the name of an interface responsible for a variable.
+        
+        Input:
+            var: name of the experiment variable.
+        Output:
+            interface: interface responsible for the variable.
+        """
+        self._check_var(var, check_value=False)
+        return self._vars[var]['Interface']
 
     ###DATA SAVING METHODS#########################################################################
     def _text_save(self, data):
@@ -914,14 +926,14 @@ class Experiment(object):
         value = self.value(var, value, output=False)
         self._vars[var]['Interface'].send_request(value)
         
-    def acknowledge_request(self, var, enforce=True):
+    def acknowledge_request(self, var, enforce=False):
         """
         Wait for the result of a non-blocking request to set a variable.
         
         Inputs: 
             var: variable name.
             enforce (optional): if True check that the variable is
-                properly defined (default: True).
+                properly defined (default: False).
         Output: 
             result: result of a request obtained from a server.
         """
@@ -929,7 +941,7 @@ class Experiment(object):
             self._check_var(var)
         if ('Interface' in self._vars[var] and
             hasattr(self._vars[var]['Interface'], 'acknowledge_request')):
-            self._vars[var]['Interface'].acknowledge_request()
+            return self._vars[var]['Interface'].acknowledge_request()
     
     def acknowledge_requests(self):
         """
@@ -942,7 +954,7 @@ class Experiment(object):
             None.
         """
         for var in self._vars:
-            self.acknowledge_request(var, False)
+            self.acknowledge_request(var)
 
     def _process_data(self, raw_data):
         """

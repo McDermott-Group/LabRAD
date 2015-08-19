@@ -20,14 +20,15 @@ Resources = [ {
                                         'DAC A': 'JPM Fast Pulse',
                                         'DAC B': 'None',
                                         'FO1 FastBias Firmware Version': '1.0',
-                                        'FO2 FastBias Firmware Version': '1.0',
+                                        'FO2 FastBias Firmware Version': '2.1',
                                         'Data': True
                                        },
                 'Shasta Board DAC 10': {   
                                         'DAC A': 'None',
                                         'DAC B': 'None',
+                                        'FO1 FastBias Firmware Version': '2.1',
                                        },
-                'Variables': {
+                'Variables': {  # Default values.
                                 'Init Time': {},
                                 'Bias Time': {},
                                 'Measure Time': {},
@@ -74,12 +75,20 @@ Resources = [ {
                                 # ' GPIB Bus - GPIB0::26::INSTR::SIM900::3'),
                     # 'Variables': 'Qubit Flux Bias Voltage'
                 # },
+                { # ADR3
+                    'Interface': 'ADR3',
+                    'Variables': {
+                                    'Temperature': {'Setting': 'Temperatures',
+                                                    'Stage': 'FAA'}
+                                 }
+                },
                 { # Readings entered manually, software parameters.
                     'Interface': None,
-                    'Variables': ['Temperature', 
+                    'Variables': [
                                   'Reps',
                                   'Actual Reps',
-                                  'Threshold'],
+                                  'Threshold'
+                                 ],
                 }
             ]
 
@@ -88,40 +97,47 @@ ExptInfo = {
             'Device Name': '080415A-G4',
             'User': 'Ivan Pechenezhskiy',
             'Base Path': 'Z:\mcdermott-group\Data\Matched JPM Photon Counting\ADR3 2015-08-17 - Double JPM 080415A-G4',
-            'Experiment Name': 'BV1D',
-            'Comments': 'Electronics test.' 
+            'Experiment Name': 'FPA1D',
+            'Comments': 'Sweep with asymmetry.' 
            }
  
 # Experiment Variables
 ExptVars = {
-            'Reps': 300, # should not exceed ~50,000
+            'Reps': 2500, # should not exceed ~50,000
 
-            'RF Frequency': 5 * GHz,
+            'RF Frequency': 20 * GHz,
             'RF Power': 13 * dBm,
-            'RF Attenuation': 63 * dB, # should be in (0, 63] range
+            'RF Attenuation': 56 * dB, # should be in (0, 63] range
    
             'Init Time': 500 * us,
             'Bias Time': 100 * us,
             'Measure Time': 50 * us,
           
-            'Input Bias Voltage': 0 * V,
-            'Bias Voltage': 0.05 * V,
+            'Input Bias Voltage': 0.4 * V,
+            
+            'Bias Voltage': -.42 * V,
             'Fast Pulse Time': 10 * ns,
-            'Fast Pulse Amplitude': 1.0 * DACUnits,
-          
+            'Fast Pulse Amplitude': 0.236 * DACUnits,
+
             'Threshold': 500 * PreAmpTimeCounts,
-            'Temperature': 136 * mK
            }
 
 with qr.JPMQubitReadout() as run:
     
     run.set_experiment(ExptInfo, Resources, ExptVars)
     
-    run.sweep('Bias Voltage', np.linspace(0., .25, 251) * V,
-            save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
+    # run.sweep('Bias Voltage', np.linspace(-.5, 0, 501) * V,
+            # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
 
-    # run.sweep('Fast Pulse Amplitude', np.linspace(0.5, 1, 501) * DACUnits,
+    run.sweep('Fast Pulse Amplitude', np.linspace(0., 0.5, 101) * DACUnits,
+           save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
+    
+    # run.sweep('RF Frequency', np.linspace(2, 7, 251) * GHz,
             # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
     
     # run.sweep('Qubit Flux Bias Voltage', np.linspace(0, 1, 1001) * V,
             # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
+
+    # run.sweep(['Bias Voltage', 'Input Bias Voltage'], 
+              # [np.linspace(-0.5, 0.5, 101) * V, np.linspace(-0.5, 0.5, 101) * V],
+              # save=True, print_data=['Switching Probability'])

@@ -190,14 +190,16 @@ class JPMQubitReadout(JPMExperiment):
         
         # Create a memory command list.
         # The format is described in Servers.Instruments.GHzBoards.command_sequences.
-        mem_list1 = []
-        if 'FO1 FastBias Firmware Version' in fpga.dac_settings[0]:
-            mem_list1.append({'Type': 'Firmware', 'Channel': 1, 
-                          'Version': fpga.dac_settings[0]['FO1 FastBias Firmware Version']})
-        if 'FO2 FastBias Firmware Version' in fpga.dac_settings[0]:
-            mem_list1.append({'Type': 'Firmware', 'Channel': 2, 
-                          'Version': fpga.dac_settings[0]['FO2 FastBias Firmware Version']})
-        mem_list1 = mem_list1 + [
+        mem_lists = [[] for dac in fpga.dacs]
+        for idx, settings in enumerate(fpga.dac_settings):
+            if 'FO1 FastBias Firmware Version' in settings:
+                mem_lists[idx].append({'Type': 'Firmware', 'Channel': 1, 
+                              'Version': settings['FO1 FastBias Firmware Version']})
+            if 'FO2 FastBias Firmware Version' in settings:
+                mem_lists[idx].append({'Type': 'Firmware', 'Channel': 2, 
+                              'Version': settings['FO2 FastBias Firmware Version']})
+       
+        mem_lists[0] = mem_lists[0] + [
             {'Type': 'Bias', 'Channel': 1, 'Voltage': 0},
             {'Type': 'Bias', 'Channel': 2, 'Voltage': 0},
             {'Type': 'Delay', 'Time': self.value('Init Time')['us']},
@@ -209,25 +211,30 @@ class JPMQubitReadout(JPMExperiment):
             {'Type': 'Bias', 'Channel': 1, 'Voltage': 0},
             {'Type': 'Bias', 'Channel': 2, 'Voltage': 0}]
 
-        mem_list2 = [
-            {'Type': 'Delay', 'Time': (self.value('Init Time')['us'] + 
-                                       self.value('Bias Time')['us'])},
+        mem_lists[1] = mem_lists[1] + [
+            {'Type': 'Delay', 'Time': self.value('Init Time')['us'] +
+                                      self.value('Bias Time')['us']},
             {'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay},
             {'Type': 'Timer', 'Time': self.value('Measure Time')['us']}]
 
-        mems = [seq.mem_from_list(mem_list1), seq.mem_from_list(mem_list2)]
+        mems = [seq.mem_from_list(mem_list) for mem_list in mem_lists]
         
         ###RUN#####################################################################################
         self.acknowledge_requests()
+        if self.get_interface('Temperature') is not None:
+            self.send_request('Temperature')
         P = fpga.load_and_run(dac_srams, mems, self.value('Reps'))
 
+        ###EXTRA EXPERIMENT PARAMETERS TO SAVE#####################################################
+        self.add_var('Actual Reps', len(P[0]))
+        
         ###DATA POST-PROCESSING####################################################################
         if histogram:
             self._plot_histogram(P, 1)
 
         preamp_timeout = fpga.consts['PREAMP_TIMEOUT']
         t_mean, t_std = data_processing.mean_time_from_array(P, preamp_timeout)
-        
+
         ###DATA STRUCTURE##########################################################################
         data = {
                 'Switching Probability': {
@@ -247,7 +254,7 @@ class JPMQubitReadout(JPMExperiment):
                     'Value': t_std * units.PreAmpTimeCounts}
                } 
         
-        ###EXTRA EXPERIMENT PARAMETERS TO SAVE#####################################################
-        self.add_var('Actual Reps', len(P[0]))
+        if self.get_interface('Temperature') is not None:
+            data['Temperature'] = {'Value': self.acknowledge_request('Temperature')}
         
         return data
