@@ -78,7 +78,7 @@ class SIM900(GPIBManagedServer):
         IDs, names = self.deviceLists()
         for SIM900addr in names:
             p = self.client[self.name].packet()
-            res = yield p.select_device(SIM900addr).gpib_write('*CLS').gpib_query('CTCR?').send()
+            res = yield p.select_device(SIM900addr).gpib_write('*RST').gpib_write('*CLS').gpib_query('CTCR?').send()
             statusStr = res['gpib_query']
             # Ask the SIM900 which slots have an active module, and only deal with those.
             statusCodes = [bool(int(x)) for x in "{0:016b}".format(int(statusStr))]
@@ -194,7 +194,7 @@ class SIM900(GPIBManagedServer):
             raise DeviceNotSelectedError("No GPIB address selected")
         if c['addr'] not in self.mydevices:
             raise Exception('Could not find device ' + c['addr'])
-        # Ex: mcdermott5125 GPIB Bus - GPIB0::2::SIM900::4
+        # Ex: mcdermott5125 GPIB Bus - GPIB0::2::INSTR::SIM900::4
         gpibBusServName = c['addr'].split(' - ')[0]
         slot = c['addr'][-1]
         p = self.client[gpibBusServName].packet()
