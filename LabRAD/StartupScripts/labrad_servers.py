@@ -194,21 +194,25 @@ class StartAndBringUp:
             return []
 
     def startLabRADNode(self):
-        if 'LabRADNode' in os.environ:
-            print("Removing %LabRADNode% from the environment variables...")
-            os.environ.pop('LabRADNode', None)
-        print('Starting the LabRAD node...')
-        node_filename = os.path.join(LABRAD_PATH, LABRAD_NODE_PATH,
-                LABRAD_NODE_FILENAME)
-        try:
-            self.processes['LabRAD Node'] = sp.Popen([sys.executable,
-                    node_filename], creationflags=sp.CREATE_NEW_CONSOLE)
-        except OSError:
-            raise Exception('Failed to start the LabRAD node.')
-        print('Please enter the password in the LabRAD node window ' +
-                'that poped up.')
-        print('Do not close the window when you are done.')
-        self._waitTillEnterKeyIsPressed()
+        self._LabRADConnect()
+        node_name = 'node ' + os.environ['COMPUTERNAME'].lower()
+        running_servers = [name for id, name in self._cxn.manager.servers()]
+        if node_name not in running_servers:
+            if 'LabRADNode' in os.environ:
+                print("Removing %LabRADNode% from the environment variables...")
+                os.environ.pop('LabRADNode', None)
+            print('Starting the LabRAD node...')
+            node_filename = os.path.join(LABRAD_PATH, LABRAD_NODE_PATH,
+                    LABRAD_NODE_FILENAME)
+            try:
+                self.processes['LabRAD Node'] = sp.Popen([sys.executable,
+                        node_filename], creationflags=sp.CREATE_NEW_CONSOLE)
+            except OSError:
+                raise Exception('Failed to start the LabRAD node.')
+            print('Please enter the password in the LabRAD node window ' +
+                    'that poped up.')
+            print('Do not close the window when you are done.')
+            self._waitTillEnterKeyIsPressed()
         
     def startLabRADNodeServers(self):
         print('Starting the servers with the LabRAD node...')
@@ -224,19 +228,23 @@ class StartAndBringUp:
         print('The servers have been started.\n')
         
     def startDirectEthernetServer(self):
-        print('Starting Direct Ethernet server...')
-        direct_ethernet = os.path.join(LABRAD_PATH,
-                DIRECT_ETHERNET_SERVER_PATH, DIRECT_ETHERNET_SERVER_FILENAME)
-        if not os.path.isfile(direct_ethernet):
-            raise Exception('Cannot locate the Direct Ethernet Server' +
-            ' sys.executable file ' + direct_ethernet + '.')
-        try:
-            self.processes['Direct Ethernet Server'] = sp.Popen(direct_ethernet)
-        except OSError:
-            raise Exception('Failed to start Direct Ethernet Server.') 
-        print('If prompted, in the Direct Ethernet window specify ' +
-              'LabRAD host name, port, password, and/or node name.')
-        self._waitTillEnterKeyIsPressed()
+        self._LabRADConnect()
+        server_name = os.environ['LabRADNode'] + ' Direct Ethernet'
+        running_servers = [name for id, name in self._cxn.manager.servers()]
+        if server_name not in running_servers:
+            print('Starting Direct Ethernet server...')
+            direct_ethernet = os.path.join(LABRAD_PATH,
+                    DIRECT_ETHERNET_SERVER_PATH, DIRECT_ETHERNET_SERVER_FILENAME)
+            if not os.path.isfile(direct_ethernet):
+                raise Exception('Cannot locate the Direct Ethernet Server' +
+                ' sys.executable file ' + direct_ethernet + '.')
+            try:
+                self.processes['Direct Ethernet Server'] = sp.Popen(direct_ethernet)
+            except OSError:
+                raise Exception('Failed to start Direct Ethernet Server.') 
+            print('If prompted, in the Direct Ethernet window specify ' +
+                  'LabRAD host name, port, password, and/or node name.')
+            self._waitTillEnterKeyIsPressed()
         
     def bringUpGHzFPGAs(self):
         print('Starting the GHz FPGA bring-up script...')
@@ -285,11 +293,14 @@ def main():
     with StartAndBringUp() as inst:
         inst.startLabRAD()
         inst.readRegistry()
-        for prog in inst.getProgramList():
-            prog = prog.lower()
-            if prog in ['directethernet', 'direct ethernet']:
+        progs = inst.getProgramList()
+        for prog in progs:
+            if prog.lower() in ['directethernet', 'direct ethernet']:
                 inst.startDirectEthernetServer()
-            elif prog in ['labradnode', 'labrad node']:
+                break
+        for prog in progs:
+            prog = prog.lower()
+            if prog in ['labradnode', 'labrad node']:
                 inst.startLabRADNode()
             elif prog in ['labradnodeservers', 'labradnode servers',
                     'labrad node servers']:

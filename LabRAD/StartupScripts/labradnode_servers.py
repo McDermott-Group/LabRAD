@@ -53,7 +53,7 @@ def startServers(args):
         raise Exception('Could not connect to LabRAD. The LabRAD ' +
                 'program does not appear to be running.')
 
-    running_servers = [name for _, name in cxn.manager.servers()]
+    running_servers = [name for id, name in cxn.manager.servers()]
     if args.node_name not in running_servers:
         raise Exception("Cannot connect to the LabRAD node server '" +
                 args.node_name + "'. " + 
