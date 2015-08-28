@@ -130,9 +130,17 @@ class JPMQubitReadout(JPMExperiment):
         QB_amp = self.value('Qubit Amplitude')['DACUnits']              # amplitude of the sideband modulation
         QB_time = self.value('Qubit Time')['ns']                        # length of the qubit pulse
       
+        #BIAS VOLTAGES#############################################################################
+        BV_in = self.value('Bias Voltage')['V']                         # output bias voltage
+        BV_out = self.value('Input Bias Voltage')['V']                  # input bias voltage
+        BV_step = abs(self.value('Bias Voltage Step')['V'])             # bias voltage step
+        BV_step_time = self.value('Bias Voltage Step Time')['us']       # bias voltage step time 
+
         #JPM VARIABLES#############################################################################
         JPM_FPT = self.value('Fast Pulse Time')['ns']                   # length of the DAC pulse
         JPM_FPA = self.value('Fast Pulse Amplitude')['DACUnits']        # amplitude of the DAC pulse
+        if BV_in + BV_out < 0:
+            JPM_FPA = -JPM_FPA
         JPM_FPW = self.value('Fast Pulse Width')['ns']                  # DAC pulse rise time 
         
         #TIMING VARIABLES##########################################################################
@@ -202,9 +210,22 @@ class JPMQubitReadout(JPMExperiment):
         mem_lists[0] = mem_lists[0] + [
             {'Type': 'Bias', 'Channel': 1, 'Voltage': 0},
             {'Type': 'Bias', 'Channel': 2, 'Voltage': 0},
-            {'Type': 'Delay', 'Time': self.value('Init Time')['us']},
-            {'Type': 'Bias', 'Channel': 1, 'Voltage': self.value('Bias Voltage')['V']},
-            {'Type': 'Bias', 'Channel': 2, 'Voltage': self.value('Input Bias Voltage')['V']},
+            {'Type': 'Delay', 'Time': self.value('Init Time')['us']}]
+        
+        if BV_in * BV_out < 0:
+            n_in = int(np.floor(abs(BV_in / BV_step)))
+            n_out = int(np.floor(abs(BV_out / BV_step)))
+            step_in = np.sign(BV_in) * BV_step
+            step_out = np.sign(BV_out) * BV_step
+            for k in np.linspace(1, min(n_in, n_out), min(n_in, n_out)):
+                mem_lists[0] = mem_lists[0] + [
+                    {'Type': 'Bias', 'Channel': 1, 'Voltage': k * step_in},
+                    {'Type': 'Bias', 'Channel': 2, 'Voltage': k * step_out},
+                    {'Type': 'Delay', 'Time': BV_step_time}]
+        
+        mem_lists[0] = mem_lists[0] + [
+            {'Type': 'Bias', 'Channel': 1, 'Voltage': BV_in},
+            {'Type': 'Bias', 'Channel': 2, 'Voltage': BV_out},
             {'Type': 'Delay', 'Time': self.value('Bias Time')['us']},
             {'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay},
             {'Type': 'Timer', 'Time': self.value('Measure Time')['us']},
