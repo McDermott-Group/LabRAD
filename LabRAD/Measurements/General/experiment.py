@@ -1090,6 +1090,15 @@ class Experiment(object):
         Output:
             None.
         """
+        def _init_entry(entry_shape, entry_val):
+            if isinstance(entry_val, units.Value):
+                return np.empty(entry_shape) * units.Unit(entry_val)
+            elif (isinstance(entry_val, np.ndarray) and
+                  isinstance(entry_val.flatten()[0], units.Value)):
+                return np.empty(entry_shape) * units.Unit(entry_val.flatten()[0])
+            else:
+                return np.empty(entry_shape)
+        
         if len(names[0]) == 1:      # Run a 1D sweep.
             for idx in range(values[0][0].size):
                 for p_idx in range(len(names)):
@@ -1115,7 +1124,7 @@ class Experiment(object):
                             entry_shape = (np.shape(values[0][0]) + 
                                     np.shape(data[key]['Value']))
                             if len(entry_shape) <= max_data_dim:
-                                data[key]['Value'] = np.empty(entry_shape)
+                                data[key]['Value'] = _init_entry(entry_shape, data[key]['Value'])
                             else:
                                 data[key].pop('Value')
 
@@ -1220,7 +1229,7 @@ class Experiment(object):
                             entry_shape = (np.shape(values[0][0]) + 
                                     np.shape(data[key]['Value']))
                             if len(entry_shape) <= max_data_dim:
-                                data[key]['Value'] = np.empty(entry_shape)
+                                data[key]['Value'] = _init_entry(entry_shape, data[key]['Value'])
                             else:
                                 data[key].pop('Value')
 

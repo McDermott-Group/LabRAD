@@ -69,6 +69,35 @@ class JPMQubitReadout(JPMExperiment):
     Read out a qubit connected to a resonator with a readout and a displacement (reset) pulse.
     """
     def run_once(self, histogram=False, plot_waveforms=False):
+        #BIAS VOLTAGES#############################################################################
+        BV_in = self.value('Bias Voltage')['V']                         # output bias voltage
+        BV_out = self.value('Input Bias Voltage')['V']                  # input bias voltage
+        
+        if (BV_in + BV_out <= 0 or 
+                BV_in + BV_out >= self.value('Max Bias Voltage')['V']):
+            return {
+                    'Switching Probability': {
+                        'Value': 0,
+                        'Distribution': 'binomial',
+                        'Preferences':  {
+                            'linestyle': 'b-',
+                            'ylim': [0, 1],
+                            'legendlabel': 'Switch. Prob.'}},
+                    'Detection Time': {
+                        'Value': -1 * units.PreAmpTimeCounts,
+                        'Distribution': 'normal',
+                        'Preferences': {
+                            'linestyle': 'r-', 
+                            'ylim': [0, self.ghz_fpga_boards.consts['PREAMP_TIMEOUT']]}},
+                    'Detection Time Std Dev': {
+                        'Value': 0 * units.PreAmpTimeCounts},
+                    'Temperature': {
+                        'Value': -1 * units.mK}
+                   }
+        
+        BV_step = abs(self.value('Bias Voltage Step')['V'])             # bias voltage step
+        BV_step_time = self.value('Bias Voltage Step Time')['us']       # bias voltage step time 
+    
         #RF VARIABLES##############################################################################
         if self.value('RF Attenuation') is not None:
             self.send_request('RF Attenuation')                         # RF attenuation
@@ -129,12 +158,6 @@ class JPMQubitReadout(JPMExperiment):
         QB_SB_freq = self.value('Qubit SB Frequency')['GHz']            # qubit sideband frequency
         QB_amp = self.value('Qubit Amplitude')['DACUnits']              # amplitude of the sideband modulation
         QB_time = self.value('Qubit Time')['ns']                        # length of the qubit pulse
-      
-        #BIAS VOLTAGES#############################################################################
-        BV_in = self.value('Bias Voltage')['V']                         # output bias voltage
-        BV_out = self.value('Input Bias Voltage')['V']                  # input bias voltage
-        BV_step = abs(self.value('Bias Voltage Step')['V'])             # bias voltage step
-        BV_step_time = self.value('Bias Voltage Step Time')['us']       # bias voltage step time 
 
         #JPM VARIABLES#############################################################################
         JPM_FPT = self.value('Fast Pulse Time')['ns']                   # length of the DAC pulse
@@ -207,10 +230,9 @@ class JPMQubitReadout(JPMExperiment):
                 mem_lists[idx].append({'Type': 'Firmware', 'Channel': 2, 
                               'Version': settings['FO2 FastBias Firmware Version']})
        
-        mem_lists[0] = mem_lists[0] + [
-            {'Type': 'Bias', 'Channel': 1, 'Voltage': 0},
-            {'Type': 'Bias', 'Channel': 2, 'Voltage': 0},
-            {'Type': 'Delay', 'Time': self.value('Init Time')['us']}]
+        mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
+        mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0})
+        mem_lists[0].append({'Type': 'Delay', 'Time': self.value('Init Time')['us']})
         
         if BV_in * BV_out < 0:
             n_in = int(np.floor(abs(BV_in / BV_step)))
@@ -218,25 +240,27 @@ class JPMQubitReadout(JPMExperiment):
             step_in = np.sign(BV_in) * BV_step
             step_out = np.sign(BV_out) * BV_step
             for k in np.linspace(1, min(n_in, n_out), min(n_in, n_out)):
-                mem_lists[0] = mem_lists[0] + [
-                    {'Type': 'Bias', 'Channel': 1, 'Voltage': k * step_in},
-                    {'Type': 'Bias', 'Channel': 2, 'Voltage': k * step_out},
-                    {'Type': 'Delay', 'Time': BV_step_time}]
+                mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': k * step_in})
+                mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': k * step_out})
+                mem_lists[0].append({'Type': 'Delay', 'Time': BV_step_time})
         
-        mem_lists[0] = mem_lists[0] + [
-            {'Type': 'Bias', 'Channel': 1, 'Voltage': BV_in},
-            {'Type': 'Bias', 'Channel': 2, 'Voltage': BV_out},
-            {'Type': 'Delay', 'Time': self.value('Bias Time')['us']},
-            {'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay},
-            {'Type': 'Timer', 'Time': self.value('Measure Time')['us']},
-            {'Type': 'Bias', 'Channel': 1, 'Voltage': 0},
-            {'Type': 'Bias', 'Channel': 2, 'Voltage': 0}]
+        if abs(BV_in) < abs(BV_out):
+            mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': BV_in})
+            mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': BV_out})
+        else:
+            mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': BV_out})
+            mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': BV_in})
+ 
+        mem_lists[0].append({'Type': 'Delay', 'Time': self.value('Bias Time')['us']})
+        mem_lists[0].append({'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay})
+        mem_lists[0].append({'Type': 'Timer', 'Time': self.value('Measure Time')['us']})
+        mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
+        mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0})
 
-        mem_lists[1] = mem_lists[1] + [
-            {'Type': 'Delay', 'Time': self.value('Init Time')['us'] +
-                                      self.value('Bias Time')['us']},
-            {'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay},
-            {'Type': 'Timer', 'Time': self.value('Measure Time')['us']}]
+        mem_lists[1].append({'Type': 'Delay', 'Time': self.value('Init Time')['us'] +
+                                      self.value('Bias Time')['us']})
+        mem_lists[1].append({'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay})
+        mem_lists[1].append({'Type': 'Timer', 'Time': self.value('Measure Time')['us']})
 
         mems = [seq.mem_from_list(mem_list) for mem_list in mem_lists]
         

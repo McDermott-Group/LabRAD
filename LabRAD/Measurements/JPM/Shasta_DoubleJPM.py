@@ -3,7 +3,7 @@
 import os
 import numpy as np
 
-from labrad.units import (us, ns, V, GHz, MHz, rad, mK, dB, dBm,
+from labrad.units import (us, ns, V, GHz, MHz, rad, dB, dBm,
                           DACUnits, PreAmpTimeCounts)
 
 import jpm_qubit_experiments as qr
@@ -36,6 +36,7 @@ Resources = [ {
                                 'Input Bias Voltage': {'Value': 0 * V},
                                 'Bias Voltage Step': {'Value': .2 * V},
                                 'Bias Voltage Step Time': {'Value': 4 * us},
+                                'Max Bias Voltage': {'Value': 1 * V},
                                 'Fast Pulse Time': {},
                                 'Fast Pulse Amplitude': {},
                                 'Fast Pulse Width': {'Value': 0 * ns},
@@ -100,7 +101,7 @@ ExptInfo = {
             'User': 'Ivan Pechenezhskiy',
             'Base Path': 'Z:\mcdermott-group\Data\Matched JPM Photon Counting\ADR3 2015-08-26 - Double JPM 080415A-G4',
             'Experiment Name': 'BV2D',
-            'Comments': 'FP sweep with large flux' 
+            'Comments': 'Extra 10 dB on top of the fridge(?)' 
            }
  
 # Experiment Variables
@@ -113,13 +114,13 @@ ExptVars = {
    
             'Init Time': 500 * us,
             'Bias Time': 100 * us,
-            'Measure Time': 50 * us,
+            'Measure Time': 30 * us,
           
-            'Input Bias Voltage': 0 * V,
+            'Input Bias Voltage': 0.45 * V,
             
-            'Bias Voltage': 1.22 * V,
+            'Bias Voltage': -.435 * V,
             'Fast Pulse Time': 10 * ns,
-            'Fast Pulse Amplitude': 0.5 * DACUnits,
+            'Fast Pulse Amplitude': .5 * DACUnits,
 
             'Threshold': 500 * PreAmpTimeCounts,
            }
@@ -128,23 +129,33 @@ with qr.JPMQubitReadout() as run:
     
     run.set_experiment(ExptInfo, Resources, ExptVars)
     
-    # run.sweep('Bias Voltage', np.linspace(-1, 1, 201) * V,
+    # run.sweep('Bias Voltage', np.linspace(-.45, -.3, 101) * V,
         # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])   
         
-    # run.sweep('Fast Pulse Amplitude', np.linspace(0., 1, 251) * DACUnits,
+    # run.sweep('Fast Pulse Amplitude', np.linspace(0.35, .55, 101) * DACUnits,
           # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
+
     # run.variable('RF Attenuation', 63);
     # run.sweep('Fast Pulse Amplitude', np.linspace(0.46, 0.5, 201) * DACUnits,
            # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
     
-    # run.sweep('RF Frequency', np.linspace(2,6,201)*GHz,
+    # run.sweep('RF Frequency', np.linspace(2, 6, 201) * GHz,
         # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
+
     # run.sweep(['Fast Pulse Amplitude', 'RF Frequency'], [np.linspace(0.47, 0.485, 51)*DACUnits, np.linspace(3, 6., 151) * GHz],
-           # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
+       # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
     
     # run.sweep('Qubit Flux Bias Voltage', np.linspace(0, 1, 1001) * V,
             # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
 
-    run.sweep(['Input Bias Voltage', 'Bias Voltage'], 
-              [np.linspace(-1, 1, 201) * V, np.linspace(-1, 1, 201) * V],
-              save=True, print_data=['Switching Probability'])
+    # run.sweep(['Input Bias Voltage', 'Bias Voltage'], 
+              # [np.linspace(-1, 0, 201) * V, np.linspace(0, 1, 201) * V],
+              # save=True, print_data=['Switching Probability'])
+                  
+    # run.sweep(['Input Bias Voltage', 'Bias Voltage'], 
+              # [np.linspace(0, 1, 201) * V, np.linspace(0, -1, 201) * V],
+              # save=True, print_data=['Switching Probability'])
+              
+    # run.sweep(['Input Bias Voltage', 'Bias Voltage'], 
+          # [np.linspace(-1, 1, 201) * V, np.linspace(-1, 1, 201) * V],
+          # save=True, print_data=['Switching Probability'])
