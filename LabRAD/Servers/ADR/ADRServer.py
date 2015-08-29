@@ -284,7 +284,7 @@ class ADRServer(DeviceServer):
     def _cancelMagUp(self):
         """Cancels the mag up loop."""
         self.state['maggingUp'] = False
-        self.logMessage( 'Magging up stopped at a current of '+str(self.state['PSCurrent'])+' Amps.' )
+        self.logMessage( 'Magging up stopped at a current of '+str(self.state['PSCurrent'])+'.' )
         #self.magUpStopped('cancel') #signal
         self.client.manager.send_named_message('MagUp Stopped', 'cancel')
     @inlineCallbacks
@@ -310,7 +310,7 @@ class ADRServer(DeviceServer):
             self.logMessage(message, alert=True)
             return
         self.client.manager.send_named_message('MagUp Started', 'start')
-        self.logMessage('Beginning to mag up to '+str(self.ADRSettings['current_limit'])+' Amps.')
+        self.logMessage('Beginning to mag up to '+str(self.ADRSettings['current_limit'])+'.')
         self.state['maggingUp'] = True
         while self.state['maggingUp']:
             startTime = datetime.datetime.now()
@@ -328,13 +328,13 @@ class ADRServer(DeviceServer):
                 cycleLength = deltaT(datetime.datetime.now() - startTime)
                 yield util.wakeupCall( max(0,self.ADRSettings['step_length']-cycleLength) )
             else:
-                self.logMessage( 'Finished magging up. '+str(self.state['PSCurrent'])+' Amps reached.' )
+                self.logMessage( 'Finished magging up. '+str(self.state['PSCurrent'])+' reached.' )
                 self.state['maggingUp'] = False
                 self.client.manager.send_named_message('MagUp Stopped', 'done')
     def _cancelRegulate(self):
         """Cancels the PID regulation loop."""
         self.state['regulating'] = False
-        self.logMessage( 'PID Control stopped at a current of '+str(self.state['PSCurrent'])+' Amps.' )
+        self.logMessage( 'PID Control stopped at a current of '+str(self.state['PSCurrent'])+'.' )
         #self.regulationStopped('cancel')
         self.client.manager.send_named_message('Regulation Stopped', 'cancel')
     @inlineCallbacks
@@ -347,16 +347,16 @@ class ADRServer(DeviceServer):
             return
         if self.state['regulating'] == True:
             self.state['regulationTemp'] = temp
-            self.logMessage('Setting regulation temperature to %dK.'%temp)
+            self.logMessage('Setting regulation temperature to %d K.'%temp)
             return
         deviceNames = ['Power Supply','Diode Temperature Monitor','Ruox Temperature Monitor','Magnet Voltage Monitor']
         deviceStatus = [self.instruments[name].connected for name in deviceNames]
         if False in deviceStatus:
-            message = 'Cannot regulate: At least one of the essential devices is not connected.  Connections: %s'%str([deviceNames[i]+':'+str(deviceStatus[i]) for i in range(len(deviceNames))])
+            message = 'Cannot regulate: At least one of the essential devices is not connected. Connections: %s'%str([deviceNames[i]+':'+str(deviceStatus[i]) for i in range(len(deviceNames))])
             self.logMessage(message, alert=True)
             return
         self.client.manager.send_named_message('Regulation Started', 'start')
-        self.logMessage( 'Starting regulation to '+str(self.state['regulationTemp'])+'K from '+str(self.state['PSCurrent'])+' Amps.' )
+        self.logMessage( 'Starting regulation to '+str(self.state['regulationTemp'])+' K from '+str(self.state['PSCurrent'])+'.' )
         self.state['regulating'] = True
         print 'beginning regulation'
         print 'V\tbackEMF\tdV/dT\tdV'
@@ -364,7 +364,7 @@ class ADRServer(DeviceServer):
             startTime = datetime.datetime.now()
             dI = self.state['PSCurrent'] - self.lastState['PSCurrent']
             if numpy.isnan(self.state['T_FAA']['K']): 
-                self.logMessage( 'FAA temp is not valid.  Regulation cannot continue.' )
+                self.logMessage( 'FAA temperature is not valid. Regulation cannot continue.' )
                 self._cancelRegulate()
             print str(self.state['PSVoltage'])+'\t'+str(self.state['magnetV'])+'\t',
             #propose new voltage
@@ -478,17 +478,17 @@ class ADRServer(DeviceServer):
         """Close Heat Switch."""
         try:
             yield self.client.heat_switch.close()
-            self.logMessage('Closing Heat Switch.')
+            self.logMessage('Closing heat switch.')
         except Exception as e:
-            self.logMessage('Closing Heat Switch Failed.',alert=True)
+            self.logMessage('Closing heat switch failed.',alert=True)
     @setting(127, 'Open Heat Switch')
     def openHeatSwitch(self,c):
         """Open Heat Switch."""
         try:
             yield self.client.heat_switch.open()
-            self.logMessage('Opening Heat Switch.')
+            self.logMessage('Opening heat switch.')
         except Exception as e:
-            self.logMessage('Opening Heat Switch Failed.',alert=True)
+            self.logMessage('Opening heat switch failed.',alert=True)
     
     @setting(130, 'Set PID KP')
     def setPIDKP(self,c,k=['v']):
