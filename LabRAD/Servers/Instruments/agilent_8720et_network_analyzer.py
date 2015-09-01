@@ -161,8 +161,8 @@ class Agilent8720ETServer(GPIBManagedServer):
             resp = yield dev.query('POWE?')
             pow = float(resp) * units.dBm
         else:
-            if pow['dBm'] < -10:
-                print('Minimum power level for Agilent 8720ET is -10 dBm.')
+            if pow['dBm'] < -100:
+                print('Minimum power level for Agilent 8720ET is -100 dBm.')
                 pow = -10 * units.dBm;
             if pow['dBm'] > 10:
                 print('Maximum power level for Agilent 8720ER is 10 dBm.')
@@ -184,10 +184,10 @@ class Agilent8720ETServer(GPIBManagedServer):
         waitTime = yield dev.query('SWET?')
         if avgOn:
             numAvg = yield self.average_points(c)
-            sweepWait = numAvg * float(waitTime) + 0.05
+            sweepWait = numAvg * float(waitTime) + 0.2
             yield self.restart_averaging(c)
         else:
-            sweepWait = float(waitTime) + 0.05 
+            sweepWait = float(waitTime) + 0.2
         yield sleep(sweepWait)
         yield dev.write('OUTPFORM')
         dataBuffer = yield dev.read_raw()
