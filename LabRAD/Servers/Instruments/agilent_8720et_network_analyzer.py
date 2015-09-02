@@ -181,14 +181,15 @@ class Agilent8720ETServer(GPIBManagedServer):
         dev = self.selectedDevice(c)
         yield dev.write('FORM5')
         avgOn = yield self.average_mode(c)
-        waitTime = yield dev.query('SWET?')
+        
         if avgOn:
             numAvg = yield self.average_points(c)
-            sweepWait = numAvg * float(waitTime) + 0.2
-            yield self.restart_averaging(c)
+            yield dev.query('OPC;NUMG%i'%numAvg)
         else:
-            sweepWait = float(waitTime) + 0.2
-        yield sleep(sweepWait)
+            sweepWait = float(waitTime)
+            yield dev.query('OPC;SING')
+            
+        
         yield dev.write('OUTPFORM')
         dataBuffer = yield dev.read_raw()
         rawData = numpy.fromstring(dataBuffer,dtype=numpy.float32)
