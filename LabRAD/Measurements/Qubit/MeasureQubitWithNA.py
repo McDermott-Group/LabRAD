@@ -12,7 +12,8 @@ import labrad
 from labrad.units import (us, ns, V, GHz, MHz, rad, dB, dBm,
                           DACUnits, PreAmpTimeCounts)
 
-NA_TYPE = '8730ET'
+#NA_TYPE = '8720ET'
+NA_TYPE = 'N5230A'
     
 def matSave(path, name, frequency, power, data):
 
@@ -39,11 +40,38 @@ def matSave(path, name, frequency, power, data):
     sio.savemat(filePath, saveDict)
     
     
+def Setup8720ET(cxn):
+
+    na_server = cxn.agilent_8720et_network_analyzer()
+    dev = na_server.list_devices()
+    na_server.select_device(dev[0][0])
     
+    #reduce output power out of caution
+    na_server.source_power(-80*dBm)
+    
+    #set to transmission measurement
+    na_server.measurement_setup('T')
+    na_server.display_trace('LOGMAG')
+    
+    return na_server
+    
+def SetupN5230A(cxn):
+
+    na_server = cxn.agilent_5230a_network_analyzer()
+    dev = na_server.list_devices()
+    na_server.select_device(dev[0][0])
+    
+    na_server.source_power(-80*dBm)
+    #na_server.measurement_setup('S43')
+    #na_server.sweep_type('LIN')
+    #na_server.if_bandwidth(0.05*MHz)
+    
+    return na_server
+        
     
 def run(cxn):
     
-    data_folder = "Z:\mcdermott-group\Data\Syracuse Qubits\ADR Cooldown 070715\MH034"
+    data_folder = "Z:\mcdermott-group\Data\Syracuse Qubits\ADR Cooldown 090115\MH048B"
     
     if not os.path.exists(data_folder):
             try:
@@ -58,34 +86,33 @@ def run(cxn):
     
     nF = 801
     
-    startF = 4.5 * GHz
-    stopF = 5. * GHz
+    centerF = 4.862*GHz
+    span = 0.03*GHz
     
-    freq = np.linspace(startF, stopF, nF)
+    freq = np.linspace(centerF['Hz']-span['Hz']/2., centerF['Hz']+span['Hz']/2., nF)
     
     #power
     nP = 41
     
-    power = np.linspace(-60, -20, nP)*dBm; 
+    power = np.linspace(-50, -10, nP); 
     
     data = np.zeros((nF, nP))
     
     #averaging
-    nAvg = 150
+    nAvg = 200
     
-    na_server = cxn.agilent_8720et_network_analyzer()
-    dev = na_server.list_devices()
-    na_server.select_device(dev[0][0])
+    if NA_TYPE == '8720ET':
+        na_server = Setup8720ET(cxn)
     
-    #reduce output power out of caution
-    na_server.power(-80*dBm)
-    
-    #set to transmission measurement
-    na_server.measurement_setup('T')
-    na_server.display_trace('LOGMAG')
-    #na_server.
-    na_server.start_frequency(startF)
-    na_server.stop_frequency(stopF)
+    elif NA_TYPE == 'N5230A':
+        na_server = SetupN5230A(cxn)
+        
+    else:
+        print 'Unknown NA type'
+        return
+        
+    na_server.start_frequency(centerF-span/2.)
+    na_server.stop_frequency(centerF+span/2)
     na_server.sweep_points(nF)
     na_server.average_points(nAvg)
     na_server.average_mode(True)
@@ -95,9 +122,10 @@ def run(cxn):
     data = np.empty((nP,nF))
     
     for idx in xrange(nP):
-        na_server.power(power[idx])
+        na_server.source_power(power[idx]*dBm)
+        time.sleep(3)
         data[idx,:] = na_server.get_trace()
-        time.sleep(0.1)
+
         print power[idx]
         
     matSave(data_folder, filename, freq, power, data)
