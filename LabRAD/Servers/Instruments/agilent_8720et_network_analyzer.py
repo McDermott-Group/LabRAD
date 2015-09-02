@@ -153,8 +153,8 @@ class Agilent8720ETServer(GPIBManagedServer):
         dev = self.selectedDevice(c)
         yield dev.write('AVERREST')
 
-    @setting(445, 'Power', pow=['v[dBm]'], returns=['v[dBm]'])
-    def power(self, c, pow=None):
+    @setting(445, 'Source Power', pow=['v[dBm]'], returns=['v[dBm]'])
+    def source_power(self, c, pow=None):
         """Set or get the sweep power level."""
         dev = self.selectedDevice(c)
         if pow is None:
