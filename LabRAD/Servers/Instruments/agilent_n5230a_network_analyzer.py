@@ -226,13 +226,29 @@ class Agilent5230AServer(GPIBManagedServer):
     def get_trace(self,c):
     	"""Get the active trace from the network analyzer."""
     	dev = self.selectedDevice(c)    	
+        
     	meas = yield dev.query('SYST:ACT:MEAS?')
     	yield dev.write('CALC:PAR:SEL %s'% meas)   
     	yield dev.write('FORM ASCii,0')	
-    	yield dev.write('ABORT;:INITIATE:IMMEDIATE')
-        yield dev.query('*OPC?')        #wait for measurement to finish
-    	yield dev.write('CALC1:DATA? FDATA')
-    	ascii_data = yield dev.read()
+        
+        avgMode = yield self.average_mode(c)
+        if avgMode:
+            
+            avgCount = yield self.average_points(c)
+            yield self.restart_averaging(c)
+            yield dev.write('SENS:SWE:GRO:COUN %i'%avgCount)
+            yield dev.write('SENS:SWE:MODE GRO')
+            yield dev.query('*OPC?')
+            yield dev.write('CALC1:DATA? FDATA')
+            ascii_data = yield dev.read()
+        
+        else:
+            yield dev.write('ABORT;:INITIATE:IMMEDIATE')
+            yield dev.query('*OPC?')        #wait for measurement to finish
+            yield dev.write('CALC1:DATA? FDATA')
+            ascii_data = yield dev.read()
+            
+        #ascii_data = yield dev.query('CALC1:DATA? FDATA');
         
     	data = numpy.array([x for x in ascii_data.split(',')], dtype=float)
     	returnValue(data)
