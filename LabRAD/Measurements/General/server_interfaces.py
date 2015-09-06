@@ -622,7 +622,8 @@ class SIM928VoltageSource(object):
     def __exit__(self, type, value, traceback):
         """Turn the voltage source off and deselect it."""
         p = self.server.packet()
-        yield p.select_device(self.address).output(False).deselect_device().send()
+        if hasattr(self, 'address'):
+            yield p.select_device(self.address).output(False).deselect_device().send()
     
     @inlineCallbacks
     def _init_device(self, resource):
