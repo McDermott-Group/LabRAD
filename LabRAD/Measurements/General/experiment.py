@@ -323,9 +323,9 @@ class Experiment(object):
                         self._vars[var] = var_res.copy()
                     else:
                         raise ExperimentDefinitionError("Variable " +
-                                " properties in the resource dictionary " +
-                                str(res) + " should be specified in " + 
-                                "a dictionary format.")
+                                "properties in the resource dictionary " +
+                                str(res) + " should be specified " + 
+                                "as a dictionary.")
             else:
                 raise ExperimentDefinitionError("Variables in the " +
                     "resource dictionary " + str(res) +

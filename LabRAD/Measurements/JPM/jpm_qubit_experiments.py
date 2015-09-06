@@ -73,9 +73,9 @@ class JPMQubitReadout(JPMExperiment):
         BV_in = self.value('Bias Voltage')['V']                         # output bias voltage
         BV_out = self.value('Input Bias Voltage')['V']                  # input bias voltage
         
-        if (BV_in + BV_out <= 0 or 
+        if (BV_in + BV_out < 0 or 
                 BV_in + BV_out >= self.value('Max Bias Voltage')['V']):
-            return {
+            data = {
                     'Switching Probability': {
                         'Value': 0,
                         'Distribution': 'binomial',
@@ -90,10 +90,11 @@ class JPMQubitReadout(JPMExperiment):
                             'linestyle': 'r-', 
                             'ylim': [0, self.ghz_fpga_boards.consts['PREAMP_TIMEOUT']]}},
                     'Detection Time Std Dev': {
-                        'Value': 0 * units.PreAmpTimeCounts},
-                    'Temperature': {
-                        'Value': -1 * units.mK}
+                        'Value': 0 * units.PreAmpTimeCounts}
                    }
+            if self.get_interface('Temperature') is not None:
+                data['Temperature'] = {'Value': -1 * units.mK}
+            return data
         
         BV_step = abs(self.value('Bias Voltage Step')['V'])             # bias voltage step
         BV_step_time = self.value('Bias Voltage Step Time')['us']       # bias voltage step time 
@@ -139,7 +140,7 @@ class JPMQubitReadout(JPMExperiment):
 
         #DC BIAS VARIABLES#########################################################################
         if self.value('Qubit Flux Bias Voltage') is not None:
-            self.send_request('Qubit Flux Bias Voltage', False)
+            self.send_request('Qubit Flux Bias Voltage')
         
         ###EXPERIMENT VARIABLES USED BY PERMANENTLY PRESENT DEVICES################################
         # Experiment variables that used by DC Rack, DAC and ADC boards should be defined here.

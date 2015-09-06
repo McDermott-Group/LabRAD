@@ -451,11 +451,15 @@ class RFGenerator(object):
     def __exit__(self, type, value, traceback):
         """Turn the RF generator off and deselect it."""
         p = self.server.packet()
-        yield p.select_device(self.address).output(False).deselect_device().send()
+        if hasattr(self, 'address'):
+            yield p.select_device(self.address).output(False).deselect_device().send()
     
     @inlineCallbacks
     def _init_device(self, resource, var):
         """Initialize an RF generator."""
+        self._initialized = False
+        self._resource = resource
+        
         p = self.server.packet()
         devices = (yield p.list_devices().send())['list_devices']
         devices = [dev for id, dev in devices]
@@ -494,22 +498,27 @@ class RFGenerator(object):
         
         self._request_sent = False
         self._output_set = False
+        self._initialized = True
 
     def send_request(self, value):
         """Send a request to set a setting."""
-        p = self.server.packet()
-        if not self._single_device:
-            p.select_device(self.address)
-        p[self._setting](value)
-        if not self._output_set:
-            p.output(True)
-            self._output_set = True
-        self._result = p.send(wait=False)
-        self._request_sent = True
-        
+        if self._initialized:
+            p = self.server.packet()
+            if not self._single_device:
+                p.select_device(self.address)
+            p[self._setting](value)
+            if not self._output_set:
+                p.output(True)
+                self._output_set = True
+            self._result = p.send(wait=False)
+            self._request_sent = True
+        else:
+            raise ResourceDefinitionError("Resource " +
+                    str(self._resource) + " is not properly initialized.")
+
     def acknowledge_request(self):
         """Wait for the result of a non-blocking request."""
-        if self._request_sent:
+        if self._initialized and self._request_sent:
             self._request_sent = False
             return self._result.wait()
 
@@ -600,7 +609,7 @@ class SIM928VoltageSource(object):
             var: name of the variable.
         Output:
             None.
-        """ 
+        """
         if 'Server' in resource:
             self.server_name = resource['Server']
         else:
@@ -618,6 +627,8 @@ class SIM928VoltageSource(object):
     @inlineCallbacks
     def _init_device(self, resource):
         """Initialize a voltage source."""
+        self._initialized = False
+        self._resource = resource
         p = self.server.packet()
         devices = (yield p.list_devices().send())['list_devices']
         devices = [dev for id, dev in devices]
@@ -644,22 +655,27 @@ class SIM928VoltageSource(object):
         
         self._request_sent = False
         self._output_set = False
+        self._initialized = True
         
     def send_request(self, voltage):
         """Send a request to set the output voltage."""
-        p = self.server.packet()
-        if not self._single_device:
-            p.select_device(self.address)
-        p.voltage(voltage)
-        if not self._output_set:
-            p.output(True)
-            self._output_set = True
-        self._result = p.send(wait=False)
-        self._request_sent = True
+        if self._initialized:
+            p = self.server.packet()
+            if not self._single_device:
+                p.select_device(self.address)
+            p.voltage(voltage)
+            if not self._output_set:
+                p.output(True)
+                self._output_set = True
+            self._result = p.send(wait=False)
+            self._request_sent = True
+        else:
+            raise ResourceDefinitionError("Resource " +
+                    str(self._resource) + " is not properly initialized.")
         
     def acknowledge_request(self):
         """Wait for the result of a non-blocking request."""
-        if self._request_sent:
+        if self._initialized and self._request_sent:
             self._request_sent = False
             return self._result.wait()
             

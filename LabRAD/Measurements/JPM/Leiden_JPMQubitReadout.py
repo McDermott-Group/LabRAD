@@ -6,11 +6,11 @@ import numpy as np
 from labrad.units import (us, ns, V, GHz, MHz, rad, mK, dB, dBm,
                           DACUnits, PreAmpTimeCounts)
 
-import jpm_qubit_experiments as qr
+import jpm_qubit_experiments
 
 
 comp_name = os.environ['COMPUTERNAME'].lower()
-Resources = [ {
+Resources = [   {
                 'Interface': 'GHz FPGA Boards',
                 'Boards': [
                             'Leiden Board DAC 3', 
@@ -26,56 +26,74 @@ Resources = [ {
                                         'DAC A': 'Readout Q',
                                         'DAC B': 'Readout I',
                                        },
-                'Variables': [
-                                'Init Time',
-                                'Bias Time', 
-                                'Measure Time',
-                                'Bias Voltage', 
-                                'Fast Pulse Time', 
-                                'Fast Pulse Amplitude', 
-                                'Fast Pulse Width',
-                                'Qubit SB Frequency', 
-                                'Qubit Amplitude',
-                                'Qubit Time',
-                                'Readout SB Frequency',
-                                'Readout Amplitude',
-                                'Readout Time',
-                                'Readout Phase',
-                                'Displacement Amplitude',
-                                'Displacement Time',
-                                'Displacement Phase',
-                                'Qubit Drive to Readout',
-                                'Readout to Displacement',
-                                'Displacement to Fast Pulse',
-                                'Readout to Displacement Offset'
-                             ]
+                'Variables': {  # Default values.
+                                'Init Time': {},
+                                'Bias Time': {},
+                                'Measure Time': {},
+                                'Bias Voltage': {},
+                                'Input Bias Voltage': {'Value': 0 * V},
+                                'Bias Voltage Step': {'Value': 1 * V},
+                                'Bias Voltage Step Time': {'Value': 4 * us},
+                                'Max Bias Voltage': {'Value': 1 * V},
+                                'Fast Pulse Time': {},
+                                'Fast Pulse Amplitude': {},
+                                'Fast Pulse Width': {'Value': 0 * ns},
+                                'Qubit SB Frequency': {'Value': 0 * MHz},
+                                'Qubit Amplitude': {'Value': 0 * DACUnits},
+                                'Qubit Time': {'Value': 0 * ns},
+                                'Readout SB Frequency': {'Value': 0 * MHz},
+                                'Readout Amplitude': {'Value': 0 * DACUnits},
+                                'Readout Time': {'Value': 0 * ns},
+                                'Readout Phase': {'Value': 0 * rad},
+                                'Displacement Amplitude': {'Value': 0 * DACUnits},
+                                'Displacement Time': {'Value': 0 * ns},
+                                'Displacement Phase': {'Value': 0 * rad},
+                                'Qubit Drive to Readout': {'Value': 0 * ns},
+                                'Readout to Displacement': {'Value': 0 * ns},
+                                'Displacement to Fast Pulse': {'Value': 0 * ns},
+                                'Readout to Displacement Offset': {'Value': 0 * DACUnits},
+                                'RF SB Frequency': {'Value': 0 * MHz},
+                                'RF Amplitude': {'Value': 0 * DACUnits},
+                                'RF Time': {'Value': 0 * ns}
+                             }
                 },
-                { # GPIB RF Generator.
-                    'Interface': 'RF Generator',
-                    'Address': comp_name + ' GPIB Bus - GPIB0::20::INSTR',
-                    'Variables': {'Readout Power': 'Power', 
-                                  'Readout Frequency': 'Frequency'}
-                },
-                # { # GPIB RF Generator.
-                    # 'Interface': 'RF Generator',
-                    # 'Address': comp_name + ' GPIB Bus - GPIB0::19::INSTR',
-                    # 'Variables': {'Qubit Power': 'Power', 
-                    #               'Qubit Frequency': 'Frequency'}
-                # },
                 # { # GPIB RF Generator.
                     # 'Interface': 'RF Generator',
                     # 'Address': comp_name + ' GPIB Bus - GPIB0::20::INSTR',
-                    # 'Variables': {'RF Power': 'Power', 
-                                  # 'RF Frequency': 'Frequency'}
+                    # 'Variables': {
+                                    # 'RF Power': {'Setting': 'Power'}, 
+                                    # 'RF Frequency': {'Setting': 'Frequency'}
+                                 # }
+                # },
+                { # GPIB RF Generator.
+                    'Interface': 'RF Generator',
+                    'Address': comp_name + ' GPIB Bus - GPIB0::20::INSTR',
+                    'Variables': {
+                                    'Readout Power': {'Setting': 'Power'}, 
+                                    'Readout Frequency': {'Setting': 'Frequency'}
+                                 }
+                },
+                { # GPIB RF Generator.
+                    'Interface': 'RF Generator',
+                    'Address': comp_name + ' GPIB Bus - GPIB0::19::INSTR',
+                    'Variables': {
+                                    'Qubit Power': {'Setting': 'Power'}, 
+                                    'Qubit Frequency': {'Setting': 'Frequency'}
+                                 }
+                },
+                # { # Lab Brick Attenuator.
+                    # 'Interface': 'Lab Brick Attenuator',
+                    # 'Serial Number': 7033,
+                    # 'Variables': ['RF Attenuation']
                 # },
                 { # Lab Brick Attenuator.
                     'Interface': 'Lab Brick Attenuator',
-                    'Serial Number': 7032,
+                    'Serial Number': 7033,
                     'Variables': ['Readout Attenuation']
                 },
                 { # Lab Brick Attenuator.
                     'Interface': 'Lab Brick Attenuator',
-                    'Serial Number': 7033,
+                    'Serial Number': 7032,
                     'Variables': ['Qubit Attenuation']
                 },
                 { # SIM Voltage Source.
@@ -95,19 +113,19 @@ Resources = [ {
 
 # Experiment Information
 ExptInfo = {
-            'Device Name': 'Test Device',
-            'User': 'Test User',
-            'Base Path': 'Z:\mcdermott-group\Data\Test',
-            'Experiment Name': 'SimpleExperiment',
-            'Comments': '' 
+            'Device Name': 'MH048B-051215A-D10',
+            'User': 'Ivan Pechenezhskiy',
+            'Base Path': 'Z:\mcdermott-group\Data\Matched JPM Photon Counting\Leiden DR 2015-09-03 - Qubits and JPMs',
+            'Experiment Name': 'ROAttnFreq2D',
+            'Comments': 'MH048B Qubit and 051215A-D10 JPM in a single box.' 
            }
  
 # Experiment Variables
 ExptVars = {
             'Reps': 3000, # should not exceed ~50,000
           
-            # 'Qubit Frequency': 20 * GHz,
-            # 'Qubit Power': -110 * dBm, 
+            'Qubit Frequency': 20 * GHz,
+            'Qubit Power': -110 * dBm, 
             'Qubit Attenuation': 63 * dB, # should be in (0, 63] range
             'Qubit SB Frequency': 0 * MHz,
             'Qubit Amplitude': 0.5 * DACUnits,
@@ -115,14 +133,14 @@ ExptVars = {
             
             'Qubit Drive to Readout': 0 * ns,
             
-            'Qubit Flux Bias Voltage': 0.28 * V,
+            'Qubit Flux Bias Voltage': 0 * V,
 
             'Readout Frequency': 20 * GHz,
             'Readout Power': 13 * dBm,
-            'Readout Attenuation': 1 * dB, # should be in (0, 63] range
+            'Readout Attenuation': 15 * dB, # should be in (0, 63] range
             'Readout SB Frequency': 0 * MHz, 
-            'Readout Amplitude': 1 * DACUnits,
-            'Readout Time': 50 * ns,
+            'Readout Amplitude': 0.5 * DACUnits,
+            'Readout Time': 600 * ns,
             'Readout Phase': 0 * rad,
             
             'Readout to Displacement': 0 * ns,
@@ -138,22 +156,32 @@ ExptVars = {
             'Bias Time': 100 * us,
             'Measure Time': 50 * us,
           
-            'Bias Voltage': 0.194 * V,
+            'Bias Voltage': 0.195 * V,
             'Fast Pulse Time': 10 * ns,
-            'Fast Pulse Amplitude': 1.0 * DACUnits,
+            'Fast Pulse Amplitude': .0954 * DACUnits,
             'Fast Pulse Width': 0 * ns,
           
             'Threshold': 100 * PreAmpTimeCounts,
-            'Temperature': 14.2 * mK
+            'Temperature': 14.0 * mK
            }
 
-with qr.JPMQubitReadoutWithReset() as run:
+with jpm_qubit_experiments.JPMQubitReadout() as run:
     # run = qr.JPMQubitReadoutWithReset()
     
     run.set_experiment(ExptInfo, Resources, ExptVars) 
 
-    # run.sweep('Fast Pulse Amplitude', np.linspace(0.5, 1, 501) * DACUnits,
-            # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
+    # run.sweep('Bias Voltage', np.linspace(0.15, .25, 201) * V,
+        # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])   
+        
+    # run.sweep('Fast Pulse Amplitude', np.linspace(0.08, .12, 201) * DACUnits,
+          # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
+          
+    # run.sweep('Readout Frequency', np.linspace(4.72, 4.92, 501) * GHz,
+          # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
+          
+    run.sweep(['Readout Attenuation', 'Readout Frequency'], 
+            [np.linspace(5, 45, 21) * dB, np.linspace(4.78, 4.86, 401) * GHz],
+            save=True, print_data=['Switching Probability'])
     
-    run.sweep('Qubit Flux Bias Voltage', np.linspace(0, 1, 1001) * V,
-            save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
+    # run.sweep('Qubit Flux Bias Voltage', np.linspace(0, 1, 1001) * V,
+            # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])

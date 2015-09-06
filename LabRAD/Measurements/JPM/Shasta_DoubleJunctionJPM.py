@@ -6,11 +6,11 @@ import numpy as np
 from labrad.units import (us, ns, V, GHz, MHz, rad, dB, dBm,
                           DACUnits, PreAmpTimeCounts)
 
-import jpm_qubit_experiments as qr
+import jpm_qubit_experiments
 
 
 comp_name = os.environ['COMPUTERNAME'].lower()
-Resources = [ {
+Resources = [   {
                 'Interface': 'GHz FPGA Boards',
                 'Boards': [
                             'Shasta Board DAC 9', 
@@ -125,7 +125,7 @@ ExptVars = {
             'Threshold': 500 * PreAmpTimeCounts,
            }
 
-with qr.JPMQubitReadout() as run:
+with jpm_qubit_experiments.JPMQubitReadout() as run:
     
     run.set_experiment(ExptInfo, Resources, ExptVars)
     
