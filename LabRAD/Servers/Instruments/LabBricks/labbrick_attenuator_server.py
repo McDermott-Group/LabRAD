@@ -165,7 +165,7 @@ class LBAttenuatorServer(LabradServer):
     @setting(1, 'Refresh Device List')
     def refresh_device_list(self, c):
         '''Manually refresh attenuator list.'''
-        yield self.refreshAttenuators
+        yield self.refreshAttenuators()
         
     @setting(2, 'List Devices', returns='*w')
     def list_devices(self, c):
