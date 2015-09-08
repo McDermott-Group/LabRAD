@@ -770,11 +770,11 @@ class Leiden(object):
             self._setting = resource['Variables'][var]['Setting']
         elif 'Chamber' in resource:
             if resource['Chamber'].lower().find('exch') != -1:
-                self._setting = 'Exhange Temperatures'
+                self._setting = 'Exhange Temperature'
             elif resource['Chamber'].lower().find('still') != -1:
-                self._setting = 'Still Temperatures'
+                self._setting = 'Still Temperature'
         if self._setting is None:
-            self._setting = 'Mix Temperatures'
+            self._setting = 'Mix Temperature'
                 
         self._request_sent = False
         
@@ -788,5 +788,5 @@ class Leiden(object):
         """Wait for the result of a non-blocking request."""
         if self._request_sent:
             self._request_sent = False
-            temperatures = self._result.wait()[self._setting]
-            return temperatures[self._temp_idx]
+            temp = self._result.wait()[self._setting]
+            return temp

@@ -299,7 +299,7 @@ class JPMQubitReadout(JPMExperiment):
                 'Detection Time Std Dev': {
                     'Value': t_std * units.PreAmpTimeCounts}
                } 
-        
+
         if self.get_interface('Temperature') is not None:
             data['Temperature'] = {'Value': self.acknowledge_request('Temperature')}
         
