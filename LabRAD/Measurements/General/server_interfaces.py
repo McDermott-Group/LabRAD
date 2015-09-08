@@ -686,7 +686,7 @@ class ADR3(object):
     """
     def __init__(self, cxn, resource, var):
         """
-        Initialize a Lab Brick attenuator.
+        Initialize the access to the temperatures.
         
         Input:
             cxn: LabRAD connection object.
@@ -722,6 +722,59 @@ class ADR3(object):
                 self._temp_idx = 3
             else:
                 self._temp_idx = 3
+                
+        self._request_sent = False
+        
+    def send_request(self, value=None):
+        """Send a request to obtain the temperature."""
+        p = self.server.packet()
+        self._result = p[self._setting]().send(wait=False)
+        self._request_sent = True
+        
+    def acknowledge_request(self):
+        """Wait for the result of a non-blocking request."""
+        if self._request_sent:
+            self._request_sent = False
+            temperatures = self._result.wait()[self._setting]
+            return temperatures[self._temp_idx]
+            
+class Leiden(object):
+    """
+    Leiden simplified interface for temperature monitoring.
+    """
+    def __init__(self, cxn, resource, var):
+        """
+        Initialize the access to the temperatures.
+        
+        Input:
+            cxn: LabRAD connection object.
+            resource: resource dictionary.
+            var: name of the variable.
+        Output:
+            None.
+        """ 
+        if 'Server' in resource:
+            self.server_name = resource['Server']
+        else:
+            self.server_name = 'Leiden DR Temperature'
+        self.server = cxn[self.server_name]
+        
+        if ('Variables' in resource and var in resource['Variables'] and 
+                isinstance(resource['Variables'], dict)):
+            var_dict = True
+        else:
+            var_dict = False
+        
+        self._setting = None
+        if var_dict and 'Setting' in resource['Variables'][var]:
+            self._setting = resource['Variables'][var]['Setting']
+        elif 'Chamber' in resource:
+            if resource['Chamber'].lower().find('exch') != -1:
+                self._setting = 'Exhange Temperatures'
+            elif resource['Chamber'].lower().find('still') != -1:
+                self._setting = 'Still Temperatures'
+        if self._setting is None:
+            self._setting = 'Mix Temperatures'
                 
         self._request_sent = False
         

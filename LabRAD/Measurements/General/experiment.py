@@ -92,7 +92,10 @@ class Experiment(object):
         Output:
             None.
         """ 
-        self.cxn = labrad.connect()
+        try:
+            self.cxn = labrad.connect()
+        except:
+            raise Exception('Could not connect to LabRAD.')
         # This flag controls the standard output upon pressing [O]
         # during a experiment sweep.
         self._standard_output = True
