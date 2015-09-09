@@ -450,8 +450,8 @@ class RFGenerator(object):
     @inlineCallbacks
     def __exit__(self, type, value, traceback):
         """Turn the RF generator off and deselect it."""
-        p = self.server.packet()
         if hasattr(self, 'address'):
+            p = self.server.packet()
             yield p.select_device(self.address).output(False).deselect_device().send()
     
     @inlineCallbacks
@@ -459,7 +459,6 @@ class RFGenerator(object):
         """Initialize an RF generator."""
         self._initialized = False
         self._resource = resource
-        
         p = self.server.packet()
         devices = (yield p.list_devices().send())['list_devices']
         devices = [dev for id, dev in devices]
@@ -523,78 +522,6 @@ class RFGenerator(object):
             return self._result.wait()
 
 
-class LabBrickAttenuator(object):
-    """
-    Lab Brick attenuator simplified interface.
-    """
-    def __init__(self, cxn, resource, var):
-        """
-        Initialize a Lab Brick attenuator.
-        
-        Input:
-            cxn: LabRAD connection object.
-            resource: resource dictionary.
-            var: name of the variable.
-        Output:
-            None.
-        """ 
-        if 'Server' in resource:
-            self.server_name = resource['Server']
-        else:
-            self.server_name = (os.environ['COMPUTERNAME'].lower() +
-                                ' Lab Brick Attenuators')
-        self.server = cxn[self.server_name]
-        
-        self._init_device(resource)
-    
-    @inlineCallbacks
-    def __exit__(self, type, value, traceback):
-        """Deselect the attenuator."""
-        p = self.server.packet()
-        yield p.deselect_attenuator().send()
-    
-    @inlineCallbacks
-    def _init_device(self, resource):
-        """Initialize a Lab Brick attenuator."""
-        p = self.server.packet()
-        devices = (yield p.list_devices().send())['list_devices']
-        if 'Serial Number' in resource:
-            if resource['Serial Number'] in devices:
-                self.address = resource['Serial Number']
-            else:
-                raise ResourceDefinitionError("Device with serial number " +
-                    str(resource['Serial Number']) + " is not found on server '" +
-                    self.server_name + "'.")
-        elif len(devices) == 1:
-            self.address = devices[0][0]
-        else:
-            raise ResourceDefinitionError("'Serial Number' field is absent" +
-                    " in the experiment resource: " + str(resource) + ".")
-        
-        if len(devices) == 1:
-            self._single_device = True
-            p = self.server.packet()
-            yield p.select_attenuator(self.address).send()
-        else:
-            self._single_device = False
-        
-        self._request_sent = False
-        
-    def send_request(self, attenuation):
-        """Send a request to set the attenuation."""
-        p = self.server.packet()
-        if not self._single_device:
-            p.select_attenuator(self.address)
-        self._result = p.attenuation(attenuation).send(wait=False)
-        self._request_sent = True
-        
-    def acknowledge_request(self):
-        """Wait for the result of a non-blocking request."""
-        if self._request_sent:
-            self._request_sent = False
-            return self._result.wait()
-            
-
 class SIM928VoltageSource(object):
     """
     SRS SIM928 voltage source simplified interface.
@@ -621,8 +548,8 @@ class SIM928VoltageSource(object):
     @inlineCallbacks
     def __exit__(self, type, value, traceback):
         """Turn the voltage source off and deselect it."""
-        p = self.server.packet()
         if hasattr(self, 'address'):
+            p = self.server.packet()
             yield p.select_device(self.address).output(False).deselect_device().send()
     
     @inlineCallbacks
@@ -679,6 +606,87 @@ class SIM928VoltageSource(object):
         if self._initialized and self._request_sent:
             self._request_sent = False
             return self._result.wait()
+
+
+class LabBrickAttenuator(object):
+    """
+    Lab Brick attenuator simplified interface.
+    """
+    def __init__(self, cxn, resource, var):
+        """
+        Initialize a Lab Brick attenuator.
+        
+        Input:
+            cxn: LabRAD connection object.
+            resource: resource dictionary.
+            var: name of the variable.
+        Output:
+            None.
+        """ 
+        if 'Server' in resource:
+            self.server_name = resource['Server']
+        else:
+            self.server_name = (os.environ['COMPUTERNAME'].lower() +
+                                ' Lab Brick Attenuators')
+        self.server = cxn[self.server_name]
+        
+        self._init_device(resource)
+    
+    @inlineCallbacks
+    def __exit__(self, type, value, traceback):
+        """Deselect the attenuator."""
+        if self._initialized:
+            p = self.server.packet()
+            yield p.deselect_attenuator().send()
+    
+    @inlineCallbacks
+    def _init_device(self, resource):
+        """Initialize a Lab Brick attenuator."""
+        self._initialized = False
+        self._resource = resource
+        p = self.server.packet()
+        devices = (yield p.list_devices().send())['list_devices']
+        if 'Serial Number' in resource:
+            if resource['Serial Number'] in devices:
+                self.address = resource['Serial Number']
+            else:
+                raise ResourceDefinitionError("Device with serial number " +
+                    str(resource['Serial Number']) + " is not found on server '" +
+                    self.server_name + "'.")
+        elif len(devices) == 1:
+            self.address = devices[0][0]
+        else:
+            raise ResourceDefinitionError("'Serial Number' field is absent" +
+                    " in the experiment resource: " + str(resource) + ".")
+        
+        if len(devices) == 1:
+            self._single_device = True
+            p = self.server.packet()
+            yield p.select_attenuator(self.address).send()
+        else:
+            self._single_device = False
+        
+        self._request_sent = False
+        self._initialized = True
+        
+    def send_request(self, attenuation):
+        """Send a request to set the attenuation."""
+        if self._initialized:
+            p = self.server.packet()
+            if not self._single_device:
+                p.select_attenuator(self.address)
+            self._result = p.attenuation(attenuation).send(wait=False)
+            self._request_sent = True
+        else:
+            raise ResourceDefinitionError("Resource " +
+                    str(self._resource) + " is not properly initialized.")
+        
+    def acknowledge_request(self):
+        """Wait for the result of a non-blocking request."""
+        if self._initialized and self._request_sent:
+            self._request_sent = False
+            return self._result.wait()
+
             
 class ADR3(object):
     """

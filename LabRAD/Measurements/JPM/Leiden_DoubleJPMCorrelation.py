@@ -89,7 +89,7 @@ ExptInfo = {
  
 # Experiment Variables
 ExptVars = {
-            'Reps': 1000, # should not exceed ~50,000
+            'Reps': 120, # should not exceed ~50,000
 
             'RF Frequency': 4.836 * GHz,
             'RF Power': 13 * dBm,
@@ -129,7 +129,7 @@ with double_jpm_experiments.DoubleJPMCorrelation() as run:
 
     run.sweep([['JPM A Bias Voltage'], ['JPM B Bias Voltage']],
              [[np.linspace(0, .3, 151) * V], [np.linspace(0, .3, 151) * V]], 
-             save=False, print_data=['Pa', 'Pb'], plot_data=['Pa', 'Pb'],
+             save=True, print_data=['Pa', 'Pb'], plot_data=['Pa', 'Pb'],
              dependencies=[['Pa', 'JPM A Detection Time'], ['Pb', 'JPM B Detection Time']])
     
     # run.sweep('JPM A Bias Voltage', np.linspace(0.15, .25, 201) * V,

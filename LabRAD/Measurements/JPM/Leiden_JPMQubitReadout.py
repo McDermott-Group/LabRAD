@@ -88,7 +88,7 @@ Resources = [   {
                 # },
                 { # Lab Brick Attenuator.
                     'Interface': 'Lab Brick Attenuator',
-                    'Serial Number': 7032,
+                    'Serial Number': 7033,
                     'Variables': ['Readout Attenuation']
                 },
                 { # Lab Brick Attenuator.

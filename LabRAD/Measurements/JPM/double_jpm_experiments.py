@@ -165,31 +165,32 @@ class DoubleJPMCorrelation(JPMExperiment):
             self._plot_histogram(P, 2)
 
         preamp_timeout = fpga.consts['PREAMP_TIMEOUT']
+        threshold = self.value('Threshold')['PreAmpTimeCounts']
 
         ta_mean, ta_std = dp.mean_time_from_array(P[0], preamp_timeout)
         tb_mean, tb_std = dp.mean_time_from_array(P[0], preamp_timeout)
         dt_mean, dt_std = dp.mean_time_diff_from_array(P, preamp_timeout)
         
-        outcomes = self.outcomes_from_array(P, self.value('Threshold'))
+        outcomes = dp.outcomes_from_array(P, threshold)
         outcomes_a = outcomes[0, :]
         outcomes_b = outcomes[1, :]
-        n = float(len(outcomes_a))
+        n = float(np.shape(outcomes)[1])
 
         data = {
                 'Pa': {
-                    'Value': dp.prob_from_array(P[0], self.value('Threshold')),
+                    'Value': dp.prob_from_array(P[0], threshold),
                     'Distribution': 'binomial',
                     'Preferences':  {
                         'linestyle': 'r-',
                         'ylim': [0, 1],
                         'legendlabel': 'JPM A Switch. Prob.'}},
                 'Pb': {
-                    'Value': dp.prob_from_array(P[1], self.value('Threshold')),
+                    'Value': dp.prob_from_array(P[1], threshold),
                     'Distribution': 'binomial',
                     'Preferences':  {
                         'linestyle': 'b-',
                         'ylim': [0, 1],
-                        'legendlabel': 'JPM A Switch. Prob.'}},
+                        'legendlabel': 'JPM B Switch. Prob.'}},
                 'JPM A Detection Time': {
                     'Value': ta_mean * units.PreAmpTimeCounts,
                     'Distribution': 'normal',

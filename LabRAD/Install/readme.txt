@@ -28,12 +28,16 @@ To update a package run "pip2.7 install --upgrade package_name" in the command l
 Below are some of the tested configurations. You can get this list by running "pip2.7 freeze" in the command line.
 
 [dr2]
-PyVISA==1.7
-Twisted==15.2.0
+PyVISA==1.8
+Twisted==15.4.0
+decorator==4.0.2
 enum34==1.0.4
-ipython==3.1.0
+ipython==4.0.0
+ipython-genutils==0.1.0
 matplotlib==1.4.3
 numpy==1.9.2
+path.py==8.1
+pickleshare==0.5
 pylabrad==0.92.5
 pyparsing==2.0.3
 pyserial==2.7
@@ -41,7 +45,9 @@ python-dateutil==2.4.2
 pytz==2015.4
 pywin32==219
 scipy==0.15.1
+simplegeneric==0.8.1
 six==1.9.0
+traitlets==4.0.0
 zope.interface==4.1.2
 
 [mcdermott5125]
