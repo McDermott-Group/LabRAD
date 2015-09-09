@@ -788,5 +788,4 @@ class Leiden(object):
         """Wait for the result of a non-blocking request."""
         if self._request_sent:
             self._request_sent = False
-            temp = self._result.wait()[self._setting]
-            return temp
+            return self._result.wait()[self._setting]

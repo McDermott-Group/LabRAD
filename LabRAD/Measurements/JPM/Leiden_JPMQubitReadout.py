@@ -88,7 +88,7 @@ Resources = [   {
                 # },
                 { # Lab Brick Attenuator.
                     'Interface': 'Lab Brick Attenuator',
-                    'Serial Number': 7033,
+                    'Serial Number': 7032,
                     'Variables': ['Readout Attenuation']
                 },
                 { # Lab Brick Attenuator.
@@ -168,12 +168,10 @@ ExptVars = {
            }
 
 with jpm_qubit_experiments.JPMQubitReadout() as run:
-    # run = qr.JPMQubitReadoutWithReset()
-    
     run.set_experiment(ExptInfo, Resources, ExptVars) 
 
-    # run.sweep('Bias Voltage', np.linspace(0.15, .25, 201) * V,
-        # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])   
+    run.sweep('Bias Voltage', np.linspace(0.15, .25, 201) * V,
+        save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])   
     
     # run.value('Readout Attenuation', 63*dB)
     # run.sweep('Fast Pulse Amplitude', np.linspace(0.12, .16, 101) * DACUnits,
@@ -191,9 +189,9 @@ with jpm_qubit_experiments.JPMQubitReadout() as run:
     # run.sweep('Fast Pulse Amplitude', np.linspace(0.12, .16, 101) * DACUnits,
           # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
     
-    run.value('Readout Attenuation', 20*dB)    
-    run.sweep('Readout Frequency', np.linspace(4.81, 4.85, 201) * GHz,
-          save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
+    # run.value('Readout Attenuation', 20*dB)    
+    # run.sweep('Readout Frequency', np.linspace(4.81, 4.85, 201) * GHz,
+          # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
     
     # run.value('Readout Attenuation', 18*dB)    
     # run.sweep('Readout Frequency', np.linspace(4.81, 4.85, 201) * GHz,

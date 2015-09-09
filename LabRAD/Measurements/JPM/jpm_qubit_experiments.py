@@ -33,7 +33,7 @@ import labrad.units as units
 import LabRAD.Measurements.General.experiment as expt
 import LabRAD.Measurements.General.pulse_shapes as pulse
 import LabRAD.Servers.Instruments.GHzBoards.command_sequences as seq
-import data_processing
+import data_processing as dp
 
 DAC_ZERO_PAD_LEN = 10
 
@@ -279,12 +279,12 @@ class JPMQubitReadout(JPMExperiment):
             self._plot_histogram(P, 1)
 
         preamp_timeout = fpga.consts['PREAMP_TIMEOUT']
-        t_mean, t_std = data_processing.mean_time_from_array(P, preamp_timeout)
+        t_mean, t_std = dp.mean_time_from_array(P, preamp_timeout)
 
         ###DATA STRUCTURE##########################################################################
         data = {
                 'Switching Probability': {
-                    'Value': data_processing.prob_from_array(P, self.value('Threshold')),
+                    'Value': dp.prob_from_array(P, self.value('Threshold')),
                     'Distribution': 'binomial',
                     'Preferences':  {
                         'linestyle': 'b-',

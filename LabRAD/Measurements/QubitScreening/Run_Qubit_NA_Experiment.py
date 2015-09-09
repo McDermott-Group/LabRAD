@@ -32,7 +32,7 @@ Resources = [
 
 # Experiment Information
 ExptInfo = {
-            'Device Name': 'MH048C',
+            'Device Name': 'MH048A',
             'User': 'Guilhem Ribeill',
             'Base Path': 'Z:\mcdermott-group\Data\Syracuse Qubits\Leiden DR 2015-09-03 - Qubits and JPMs',
             'Experiment Name': 'FrequencyFluxBiasScan',
@@ -41,10 +41,10 @@ ExptInfo = {
  
 # Experiment Variables
 ExptVars = {
-            'NA Center Frequency': 4.914 * GHz,
+            'NA Center Frequency': 4.881 * GHz,
             'NA Frequency Span': 20 * MHz,
             
-            'NA Source Power': -56 * dBm,
+            'NA Source Power': -53 * dBm,
             
             'NA Frequency Points': 801,
             'NA Average Points': 250,

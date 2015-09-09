@@ -126,7 +126,6 @@ ExptVars = {
            }
 
 with jpm_qubit_experiments.JPMQubitReadout() as run:
-    
     run.set_experiment(ExptInfo, Resources, ExptVars)
     
     # run.sweep('Bias Voltage', np.linspace(-.45, -.3, 101) * V,
