@@ -735,6 +735,8 @@ class Experiment(object):
             return v[units.Unit(v)]
         if isinstance(v, np.ndarray):
             return np.vectorize(self.strip_units)(v)
+        if isinstance(v, list):
+            return np.vectorize(self.strip_units)(np.array(v))
         if isinstance(v, str):
             self._check_var(v, check_resource=False)
             if isinstance(self._vars[v]['Value'], units.Value):

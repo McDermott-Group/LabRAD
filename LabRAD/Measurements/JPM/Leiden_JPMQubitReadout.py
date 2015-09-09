@@ -119,13 +119,13 @@ ExptInfo = {
             'Device Name': 'MH048B-051215A-D10',
             'User': 'Ivan Pechenezhskiy',
             'Base Path': 'Z:\mcdermott-group\Data\Matched JPM Photon Counting\Leiden DR 2015-09-03 - Qubits and JPMs',
-            'Experiment Name': 'ROAttnFreq2D',
+            'Experiment Name': 'ROFreqFluxBias2D',
             'Comments': 'MH048B Qubit and 051215A-D10 JPM in a single box. CW RF drive' 
            }
  
 # Experiment Variables
 ExptVars = {
-            'Reps': 3000, # should not exceed ~50,000
+            'Reps': 4000, # should not exceed ~50,000
           
             'Qubit Frequency': 20 * GHz,
             'Qubit Power': -110 * dBm, 
@@ -136,11 +136,11 @@ ExptVars = {
             
             'Qubit Drive to Readout': 0 * ns,
             
-            'Qubit Flux Bias Voltage': -1.5 * V,
+            'Qubit Flux Bias Voltage': 0 * V,
 
-            'Readout Frequency': 4.8365 * GHz,
+            'Readout Frequency': 4.836 * GHz,
             'Readout Power': 13 * dBm,
-            'Readout Attenuation': 20 * dB, # should be in (0, 63] range
+            'Readout Attenuation': 16 * dB, # should be in (0, 63] range
             'Readout SB Frequency': 0 * MHz, 
             'Readout Amplitude': 0.5 * DACUnits,
             'Readout Time': 1000 * ns,
@@ -161,7 +161,7 @@ ExptVars = {
           
             'Bias Voltage': 0.195 * V,
             'Fast Pulse Time': 10 * ns,
-            'Fast Pulse Amplitude': .144 * DACUnits,
+            'Fast Pulse Amplitude': .1492 * DACUnits,
             'Fast Pulse Width': 0 * ns,
           
             'Threshold': 100 * PreAmpTimeCounts,
@@ -174,22 +174,40 @@ with jpm_qubit_experiments.JPMQubitReadout() as run:
 
     # run.sweep('Bias Voltage', np.linspace(0.15, .25, 201) * V,
         # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])   
-        
+    
+    # run.value('Readout Attenuation', 63*dB)
+    # run.sweep('Fast Pulse Amplitude', np.linspace(0.12, .16, 101) * DACUnits,
+          # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
+    
+    #run.value('Readout Attenuation', 20*dB)
     # run.sweep('Fast Pulse Amplitude', np.linspace(0.12, .16, 101) * DACUnits,
           # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
           
+    # run.value('Readout Attenuation', 15*dB)
+    # run.sweep('Fast Pulse Amplitude', np.linspace(0.12, .16, 101) * DACUnits,
+          # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
+          
+    # run.value('Readout Attenuation', 10*dB)
+    # run.sweep('Fast Pulse Amplitude', np.linspace(0.12, .16, 101) * DACUnits,
+          # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
+    
+    run.value('Readout Attenuation', 20*dB)    
+    run.sweep('Readout Frequency', np.linspace(4.81, 4.85, 201) * GHz,
+          save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
+    
+    # run.value('Readout Attenuation', 18*dB)    
     # run.sweep('Readout Frequency', np.linspace(4.81, 4.85, 201) * GHz,
           # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
   
     # run.sweep('Readout Attenuation', np.linspace(0, 63, 64) * dB,
           # save=False, print_data=['Switching Probability'], plot_data=['Switching Probability'])
     
-    run.sweep(['Readout Attenuation', 'Readout Frequency'], 
-            [np.linspace(10, 35, 26) * dB, np.linspace(4.81, 4.85, 201) * GHz],
-            save=True, print_data=['Switching Probability'])
+    # run.sweep(['Readout Attenuation', 'Readout Frequency'], 
+            # [np.linspace(10, 35, 26) * dB, np.linspace(4.81, 4.85, 201) * GHz],
+            # save=True, print_data=['Switching Probability'])
             
     # run.sweep(['Qubit Flux Bias Voltage', 'Readout Frequency'], 
-        # [np.linspace(-1.5, 1.5, 31) * V, np.linspace(4.81, 4.86, 201) * GHz],
+        # [np.linspace(-3, 3, 15) * V, np.linspace(4.81, 4.86, 101) * GHz],
         # save=True, print_data=['Switching Probability'])
     
     # run.sweep('Qubit Flux Bias Voltage', np.linspace(0, 1, 1001) * V,
