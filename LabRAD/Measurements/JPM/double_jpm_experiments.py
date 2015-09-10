@@ -155,7 +155,8 @@ class DoubleJPMCorrelation(JPMExperiment):
         self.acknowledge_requests()
         if self.get_interface('Temperature') is not None:
             self.send_request('Temperature')
-        P = fpga.load_and_run(dac_srams, mems, self.value('Reps'))
+
+        P = fpga.load_and_run(dac_srams, mems, int(self.value('Reps')))
 
         ###EXTRA EXPERIMENT PARAMETERS TO SAVE#####################################################
         self.add_var('Actual Reps', len(P[0]))
@@ -213,7 +214,7 @@ class DoubleJPMCorrelation(JPMExperiment):
                     'Preferences': {
                         'linestyle': 'k-', 
                         'ylim': [-preamp_timeout, preamp_timeout]}},
-                'JPM B Detection Time Std Dev': {
+                'Detection Time Diff Std Dev': {
                     'Value': dt_std * units.PreAmpTimeCounts},
                 'P00': {
                     'Value': float(((1 - outcomes_a) * (1 - outcomes_b)).sum()) / n,
@@ -221,28 +222,28 @@ class DoubleJPMCorrelation(JPMExperiment):
                     'Preferences':  {
                         'linestyle': 'k-',
                         'ylim': [0, 1],
-                        'legendlabel': 'P_{00}'}},
+                        'legendlabel': 'P00'}},
                 'P01': {
                     'Value': float(((1 - outcomes_a) * outcomes_b).sum()) / n,
                     'Distribution': 'binomial',
                     'Preferences':  {
                         'linestyle': 'g-',
                         'ylim': [0, 1],
-                        'legendlabel': 'P_{01}'}},
+                        'legendlabel': 'P01'}},
                 'P10': {
                     'Value': float((outcomes_a * (1 - outcomes_b)).sum()) / n,
                     'Distribution': 'binomial',
                     'Preferences':  {
                         'linestyle': 'c-',
                         'ylim': [0, 1],
-                        'legendlabel': 'P_{10}'}},
+                        'legendlabel': 'P10'}},
                 'P11': {
                     'Value': float((outcomes_a * outcomes_b).sum()) / n,
                     'Distribution': 'binomial',
                     'Preferences':  {
                         'linestyle': 'm-',
                         'ylim': [0, 1],
-                        'legendlabel': 'P_{10}'}}
+                        'legendlabel': 'P11'}}
                } 
 
         if self.get_interface('Temperature') is not None:

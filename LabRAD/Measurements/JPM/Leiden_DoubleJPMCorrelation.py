@@ -83,17 +83,17 @@ ExptInfo = {
             'Device Name': '051215A-D6 and 051215A-E10',
             'User': 'Ivan Pechenezhskiy',
             'Base Path': 'Z:\mcdermott-group\Data\Matched JPM Photon Counting\Leiden DR 2015-09-03 - Qubits and JPMs',
-            'Experiment Name': 'BV1D',
+            'Experiment Name': 'RFFreq1D',
             'Comments': '051215A-D6 = JPM A, 051215A-E10 = JPM B. JPM A input is connected to the calibration line via the codl relays. JPM B input is open.' 
            }
  
 # Experiment Variables
 ExptVars = {
-            'Reps': 120, # should not exceed ~50,000
+            'Reps': 2000, # should not exceed ~50,000
 
-            'RF Frequency': 4.836 * GHz,
+            'RF Frequency': 20 * GHz,
             'RF Power': 13 * dBm,
-            'RF Attenuation': 16 * dB, # should be in (0, 63] range
+            'RF Attenuation': 45 * dB, # should be in (0, 63] range
             'RF SB Frequency': 0 * MHz, 
             'RF Amplitude': 0.5 * DACUnits,
             'RF Time': 1000 * ns,
@@ -104,21 +104,21 @@ ExptVars = {
             'Bias Time': 100 * us,
             'Measure Time': 50 * us,
           
-            'JPM A Bias Voltage': 0 * V,
+            'JPM A Bias Voltage': .207 * V,
             'JPM A Fast Pulse Time': 10 * ns,
-            'JPM A Fast Pulse Amplitude': .5 * DACUnits,
+            'JPM A Fast Pulse Amplitude': .163 * DACUnits,
             'JPM A Fast Pulse Width': 0 * ns,
             
-            'JPM B Bias Voltage': 0 * V,
+            'JPM B Bias Voltage': .131 * V,
             'JPM B Fast Pulse Time': 10 * ns,
-            'JPM B Fast Pulse Amplitude': .5 * DACUnits,
+            'JPM B Fast Pulse Amplitude': .163 * DACUnits,
             'JPM B Fast Pulse Width': 0 * ns,
 
             # Both JPM A and JPM B fast pulses should appear within
             # the RF Pulse, i.e. they should only start after the
             # beginning of the RF Pulse and finish before the end of
-            # the RF Pulse.            
-            'RF to JPM A Fast Pulse Delay': 1000 * ns,
+            # the RF Pulse.
+            'RF to JPM A Fast Pulse Delay': 500 * ns,
             'JPM A to JPM B Fast Pulse Delay': 0 * ns,
           
             'Threshold': 100 * PreAmpTimeCounts,
@@ -127,17 +127,29 @@ ExptVars = {
 with double_jpm_experiments.DoubleJPMCorrelation() as run:
     run.set_experiment(ExptInfo, Resources, ExptVars) 
 
-    run.sweep([['JPM A Bias Voltage'], ['JPM B Bias Voltage']],
-             [[np.linspace(0, .3, 151) * V], [np.linspace(0, .3, 151) * V]], 
-             save=True, print_data=['Pa', 'Pb'], plot_data=['Pa', 'Pb'],
-             dependencies=[['Pa', 'JPM A Detection Time'], ['Pb', 'JPM B Detection Time']])
+    # run.sweep([['JPM A Bias Voltage'], ['JPM B Bias Voltage']],
+            # [[np.linspace(0, .3, 151) * V], [np.linspace(0, .3, 151) * V]], 
+            # save=True, print_data=['Pa', 'Pb'], plot_data=['Pa', 'Pb'],
+            # dependencies=[['Pa', 'JPM A Detection Time'], ['Pb', 'JPM B Detection Time']])
     
-    # run.sweep('JPM A Bias Voltage', np.linspace(0.15, .25, 201) * V,
-        # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])   
-    
-    # run.sweep('JPM A Fast Pulse Amplitude', np.linspace(0.12, .16, 101) * DACUnits,
-          # save=True, print_data=['Switching Probability'], plot_data=['Switching Probability'])
+    # run.sweep([['JPM A Fast Pulse Amplitude'], ['JPM B Fast Pulse Amplitude']],
+            # [[np.linspace(.1, .2, 101) * DACUnits], [np.linspace(.1, .2, 101) * DACUnits]], 
+            # save=True, print_data=['Pa', 'Pb'], plot_data=['Pa', 'Pb'],
+            # dependencies=[['Pa', 'JPM A Detection Time'], ['Pb', 'JPM B Detection Time']])
     
     # run.sweep(['JPM A Bias Voltage', 'JPM B Bias Voltage'], 
-        # [np.linspace(0, .5, 201) * V, np.linspace(0, .5, 201) * V],
-        # save=True, print_data=['Switching Probability'])
+            # [np.linspace(0, .25, 251) * V, np.linspace(0, .25, 251) * V],
+            # save=True, print_data=['Pa', 'Pb'])
+    
+    # run.sweep(['JPM A Fast Pulse Amplitude', 'JPM B Fast Pulse Amplitude'], 
+            # [np.linspace(.14, .18, 51) * DACUnits, np.linspace(.15, .19, 51) * DACUnits],
+            # save=True, print_data=['Pa', 'Pb'])
+        
+    # run.sweep('JPM A to JPM B Fast Pulse Delay', np.linspace(-400, 400, 201) * ns, 
+            # save=True, print_data=['Pa', 'Pb'], plot_data=['Pa', 'Pb', 'P11'])
+            
+    run.sweep('RF Frequency', np.linspace(3, 7, 801) * GHz, 
+            save=True, print_data=['Pa', 'Pb'], plot_data=['Pa', 'Pb', 'P11'])
+            
+    # run.sweep('Reps', 30 * np.power(2, np.linspace(0, 10, 11)).astype(int), 
+            # save=True, print_data=['Pa', 'Pb'], plot_data=['Pa', 'Pb', 'P11'])

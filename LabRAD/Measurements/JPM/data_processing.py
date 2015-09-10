@@ -11,8 +11,8 @@ def mean_time_from_array(t, threshold):
         t_mean = np.mean(t)
         t_std = np.std(t)
     else:
-        t_mean = -1
-        t_std = 0
+        t_mean = np.nan
+        t_std = np.nan
 
     return t_mean, t_std
 
@@ -28,8 +28,8 @@ def mean_time_diff_from_array(t, threshold):
         dt_mean = np.mean(dt)
         dt_std = np.std(dt)
     else:
-        dt_mean = 0
-        dt_std = 0
+        dt_mean = np.nan
+        dt_std = np.nan
 
     return dt_mean, dt_std
 
