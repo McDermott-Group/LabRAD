@@ -388,6 +388,8 @@ class GHzFPGABoards(object):
             raise Exception('Not enough memory commands to ' +
                     'populate the boards!')
         
+        reps = int(reps)
+        
         self.load_dacs(dac_srams, dac_mems)
         
         if self._data_adcs:
@@ -565,7 +567,7 @@ class SIM928VoltageSource(object):
                 self.address = resource['Address']
             else:
                 raise ResourceDefinitionError("Device with address '" +
-                    + str(resource['Address']) +
+                    str(resource['Address']) +
                     "' is not found on server '" + self.server_name + "'.")
         elif len(devices) == 1:
             self.address = devices[0][0]

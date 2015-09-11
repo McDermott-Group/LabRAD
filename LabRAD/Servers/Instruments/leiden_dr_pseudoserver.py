@@ -17,7 +17,7 @@
 ### BEGIN NODE INFO
 [info]
 name = Leiden DR Temperature
-version = 0.1.0
+version = 0.2.0
 description =  Gives access to Leiden DR temperatures.
 instancename = Leiden DR Temperature
 
@@ -61,7 +61,8 @@ class LeidenDRPseudoserver(LabradServer):
             
         if ('Leiden Log Files Path' not in keys or 
                 not os.path.exists(self._path)):
-                self._path = '\\AFS\physics.wisc.edu\mcdermott-group\Data\DR Log Files\Leiden'
+                self._path = ('\\AFS\physics.wisc.edu\mcdermott-group' + 
+                              '\Data\DR Log Files\Leiden')
                 
         if not os.path.exists(self._path):
             raise Exception("Could not find the Leiden Log Files Path: '" +
@@ -72,6 +73,8 @@ class LeidenDRPseudoserver(LabradServer):
     def initServer(self):
         """Initialize the Leiden DR Temperature Pseudoserver."""
         yield self.getRegistryKeys()
+        self._offset = 1024 # Number of bytes to read near the end 
+                            # of the log file.
         yield self.readTemperatures()
         callLater(0.1, self.startRefreshing)
 
@@ -98,23 +101,25 @@ class LeidenDRPseudoserver(LabradServer):
         # the most recent name.
         file = sorted([f for f in os.listdir(self._path)
                 if os.path.isfile(os.path.join(self._path, f))])[-1]
-        
+
         # Read the last line in the log file.
         with open(os.path.join(self._path, file), 'rb') as f:
-            offset = -1024
+            f.seek(0, os.SEEK_END)
+            sz = f.tell()   # Get the size of the file.
             while True:
-                f.seek(offset, os.SEEK_END)
+                if self._offset > sz:
+                    self._offset = sz
+                f.seek(-self._offset, os.SEEK_END)
                 lines = f.readlines()
-                if len(lines) > 1:
+                if len(lines) > 1 or self._offset == sz:
                     line = lines[-1]
                     break
-                offset *= 2
-
-        # Determine the temperatures.
-        fields = line.split('\t')
-        self._still_temp = float(fields[10]) * mK
-        self._exchange_temp = float(fields[11]) * mK
-        self._mix_temp = float(fields[12]) * mK
+                self._offset *= 2
+            # Extract temperatures.
+            fields = line.split('\t')
+            self._still_temp = float(fields[10]) * mK
+            self._exchange_temp = float(fields[11]) * mK
+            self._mix_temp = float(fields[12]) * mK
                 
     @setting(1, 'Refresh Temperatures')
     def refresh_temperatures(self, c):
@@ -122,7 +127,7 @@ class LeidenDRPseudoserver(LabradServer):
         self.readTemperatures()
         
     @setting(10, 'Still Temperature', returns='v[mK]')
-    def mix_temperature(self, c):
+    def still_temperature(self, c):
         """Return the still chamber temperature."""
         return self._still_temp
 

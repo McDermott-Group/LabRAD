@@ -97,7 +97,7 @@ class Experiment(object):
         try:
             self.cxn = labrad.connect()
         except:
-            raise Exception('Could not connect to LabRAD.')
+            raise Exception('Connection to LabRAD could not be established.')
         # This flag controls the standard output upon pressing [O]
         # during a experiment sweep.
         self._standard_output = True
@@ -1663,7 +1663,7 @@ class Experiment(object):
                     self._create_1d_plot([nm[0] for nm in names], 
                             values[0][0], data, plot_data_vars)
                 else:
-                    self._create_1d_plot('Run Iteration (Fast Axis)', 
+                    self._create_1d_plot('Run Iteration - Fast Axis', 
                             np.array(range(values[0][0].size)),
                             data, plot_data_vars)
             else:
@@ -1675,7 +1675,10 @@ class Experiment(object):
         # Specify x-axis label.
         xlabel = ''
         for var in self._combine_strs(independent_vars):
-            xlabel = xlabel + var + self.get_units(var, True) + ', '
+            if var != 'Run Iteration - Fast Axis':
+                xlabel = xlabel + var + self.get_units(var, True) + ', '
+            else:
+                xlabel = xlabel + var + ', '
         xlabel = xlabel[:-2]
         
         # Specify y-axis label.
