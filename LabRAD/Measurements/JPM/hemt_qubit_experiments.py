@@ -53,13 +53,13 @@ class HEMTExperiment(expt.Experiment):
         Output:
             None.
         """
-        adc = self.ghz_fpga_boards.get_adc(adc)
-        previous_adc_mode = self.ghz_fpga_boards.get_adc_setting('RunMode', adc)
-        self.ghz_fpga_boards.set_adc_setting('RunMode', 'demodulate', adc)
+        adc = self.boards.get_adc(adc)
+        previous_adc_mode = self.boards.get_adc_setting('RunMode', adc)
+        self.boards.set_adc_setting('RunMode', 'demodulate', adc)
         
         data = self._process_data(self.run_once())
         
-        self.ghz_fpga_boards.set_adc_setting('RunMode', previous_adc_mode, adc)
+        self.boards.set_adc_setting('RunMode', previous_adc_mode, adc)
         
         if plot_data is not None:
             self._plot_iqs(data)
@@ -102,9 +102,9 @@ class HEMTExperiment(expt.Experiment):
         self._run_status= ''
         self._run_message = ''
         
-        adc = self.ghz_fpga_boards.get_adc(adc)
-        previous_adc_mode = self.ghz_fpga_boards.get_adc_setting('RunMode', adc)
-        self.ghz_fpga_boards.set_adc_setting('RunMode', 'average', adc)
+        adc = self.boards.get_adc(adc)
+        previous_adc_mode = self.boards.get_adc_setting('RunMode', adc)
+        self.boards.set_adc_setting('RunMode', 'average', adc)
             
         data = self._process_data(self.run_once())
 
@@ -163,7 +163,7 @@ class HEMTExperiment(expt.Experiment):
             self._update_1d_plot([['ADC Time']], [[data['ADC Time']['Value']]],
                     data, plot_data, np.size(data['ADC Time']['Value']) - 1)
         
-        self.ghz_fpga_boards.set_adc_setting('RunMode', previous_adc_mode, adc)
+        self.boards.set_adc_setting('RunMode', previous_adc_mode, adc)
         
         # Save the data.
         if ((save and self._run_status != 'abort') or
@@ -192,7 +192,7 @@ class HEMTQubitReadout(HEMTExperiment):
             self.send_request('Qubit Power')                            # Qubit power
         if self.value('Qubit Frequency') is not None:
             if self.value('Qubit SB Frequency') is not None:            # Qubit frequency
-                self.send_request('Qubit Frequency', enforce=False,
+                self.send_request('Qubit Frequency',
                         value=self.value('Qubit Frequency') + 
                               self.value('Qubit SB Frequency'))
             else:
@@ -205,7 +205,7 @@ class HEMTQubitReadout(HEMTExperiment):
             self.send_request('Readout Power')                          # Readout power
         if self.value('Readout Frequency') is not None:
             if self.value('Readout SB Frequency') is not None:          # Readout frequency
-                self.send_request('Readout Frequency', enforce=False,
+                self.send_request('Readout Frequency',
                         value=self.value('Readout Frequency') + 
                               self.value('Readout SB Frequency'))
             else:
@@ -233,9 +233,8 @@ class HEMTQubitReadout(HEMTExperiment):
         ADC_wait_time = self.value('ADC Wait Time')['ns']            # delay from the start of the readout pulse to the start of the demodulation
         
         ###WAVEFORMS###############################################################################
-        fpga = self.ghz_fpga_boards
         requested_waveforms = [settings[ch] for settings in
-                fpga.dac_settings for ch in ['DAC A', 'DAC B']]
+                self.boards.dac_settings for ch in ['DAC A', 'DAC B']]
 
         waveforms = {};
         if 'None' in requested_waveforms:
@@ -261,7 +260,7 @@ class HEMTQubitReadout(HEMTExperiment):
                                               pulse.SinePulse(QB_time, QB_SB_freq, QB_amp, 0.0, 0.0),
                                               pulse.DC(QBtoRO + RO_time + DAC_ZERO_PAD_LEN, 0)])
  
-        dac_srams, sram_length, sram_delay = fpga.process_waveforms(waveforms)
+        dac_srams, sram_length, sram_delay = self.boards.process_waveforms(waveforms)
 
         if plot_waveforms:
             self._plot_waveforms([waveforms[wf] for wf in requested_waveforms],
@@ -269,27 +268,28 @@ class HEMTQubitReadout(HEMTExperiment):
 
         ###SET BOARDS PROPERLY#####################################################################
         demod_freq = -self.value('Readout SB Frequency')
-        fpga.set_adc_setting('DemodFreq', demod_freq, adc)
+        self.boards.set_adc_setting('DemodFreq', demod_freq, adc)
         # Waiting time before the demodulation start.
-        fpga.set_adc_setting('ADCDelay', (DAC_ZERO_PAD_LEN +
+        self.boards.set_adc_setting('ADCDelay', (DAC_ZERO_PAD_LEN +
                 ADC_wait_time + QB_time + QBtoRO) * units.ns, adc)
 
         dac_mems = [seq.mem_simple(self.value('Init Time')['us'], sram_length, 0, sram_delay)
-                    for k, dac in enumerate(fpga.dacs)]
+                    for k, dac in enumerate(self.boards.dacs)]
         
         ###RUN#####################################################################################
         self.acknowledge_requests()
-        result = fpga.load_and_run(dac_srams, dac_mems, self.value('Reps'))
+        self.send_request('Temperature')
+        result = self.boards.load_and_run(dac_srams, dac_mems, self.value('Reps'))
         
         ###DATA POST-PROCESSING####################################################################
         Is, Qs = result[0] 
         Is = np.array(Is)
         Qs = np.array(Qs)
 
-        if fpga.get_adc_setting('RunMode', adc) == 'demodulate':
+        if self.boards.get_adc_setting('RunMode', adc) == 'demodulate':
             I = np.mean(Is)
             Q = np.mean(Qs)
-            data = {
+            return {
                     'Single Shot Is': { 
                         'Value': Is * units.ADCUnits,
                         'Dependencies': ['Rep Iteration'],
@@ -327,12 +327,13 @@ class HEMTQubitReadout(HEMTExperiment):
                     'Rep Iteration': {
                         'Value': np.linspace(1, len(Is), len(Is)),
                         'Type': 'Independent'},
+                    'Temperature': {'Value': self.acknowledge_request('Temperature')}
                    }
-        elif fpga.get_adc_setting('RunMode', adc) == 'average':
+        elif self.boards.get_adc_setting('RunMode', adc) == 'average':
             self.value('Reps', 1, output=False)
             time = np.linspace(0, 2 * (len(Is) - 1), len(Is))
             I, Q = data_processing.software_demod(time, demod_freq, Is, Qs)
-            data = {
+            return {
                     'I': { 
                         'Value': Is * units.ADCUnits,
                         'Dependencies': ['ADC Time'],
@@ -362,12 +363,10 @@ class HEMTQubitReadout(HEMTExperiment):
                     'ADC Time': {
                         'Value': time * units.ns,
                         'Type': 'Independent'},
+                    'Temperature': {'Value': self.acknowledge_request('Temperature')}
                    }
-        
-        return data
 
     def average_data(self, data):
-        data = {}
         for key in data:
             if key in ['I', 'Q']:
                 if 'Single Shot ' + key + 's' in data:

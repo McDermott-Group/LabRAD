@@ -75,7 +75,7 @@ class JPMQubitReadout(JPMExperiment):
         
         if (BV_in + BV_out < 0 or 
                 BV_in + BV_out >= self.value('Max Bias Voltage')['V']):
-            data = {
+            return {
                     'Switching Probability': {
                         'Value': 0,
                         'Distribution': 'binomial',
@@ -90,28 +90,13 @@ class JPMQubitReadout(JPMExperiment):
                             'linestyle': 'r-', 
                             'ylim': [0, self.ghz_fpga_boards.consts['PREAMP_TIMEOUT']]}},
                     'Detection Time Std Dev': {
-                        'Value': 0 * units.PreAmpTimeCounts}
+                        'Value': 0 * units.PreAmpTimeCounts},
+                    'Temperature': {'Value': np.nan * units.mK}
                    }
-            if self.get_interface('Temperature') is not None:
-                data['Temperature'] = {'Value': -1 * units.mK}
-            return data
         
         BV_step = abs(self.value('Bias Voltage Step')['V'])             # bias voltage step
         BV_step_time = self.value('Bias Voltage Step Time')['us']       # bias voltage step time 
     
-        #RF VARIABLES##############################################################################
-        if self.value('RF Attenuation') is not None:
-            self.send_request('RF Attenuation')                         # RF attenuation
-        if self.value('RF Power') is not None:
-            self.send_request('RF Power')                               # RF power
-        if self.value('RF Frequency') is not None:
-            if self.value('RF SB Frequency') is not None:               # RF frequency
-                self.send_request('RF Frequency',                
-                        value=self.value('RF Frequency') + 
-                              self.value('RF SB Frequency'))
-            else:
-                self.send_request('RF Frequency')
-
         #QUBIT VARIABLES###########################################################################
         if self.value('Qubit Attenuation') is not None:
             self.send_request('Qubit Attenuation')                      # Qubit attenuation
@@ -173,9 +158,8 @@ class JPMQubitReadout(JPMExperiment):
         DtoFP = self.value('Displacement to Fast Pulse')['ns']          # delay between the end of the displacement pulse and the start of the fast pulse
 
         ###WAVEFORMS###############################################################################
-        fpga = self.ghz_fpga_boards
         requested_waveforms = [settings[ch] for settings in
-                fpga.dac_settings for ch in ['DAC A', 'DAC B']]
+                self.boards.dac_settings for ch in ['DAC A', 'DAC B']]
 
         JPM_smoothed_FP = pulse.GaussPulse(JPM_FPT, JPM_FPW, JPM_FPA)
         FPtoEnd = max(0, DtoFP + JPM_smoothed_FP.size) + DAC_ZERO_PAD_LEN
@@ -214,7 +198,7 @@ class JPMQubitReadout(JPMExperiment):
                                                 pulse.DC(FPtoEnd, 0)])
                                               
 
-        dac_srams, sram_length, sram_delay = fpga.process_waveforms(waveforms)
+        dac_srams, sram_length, sram_delay = self.boards.process_waveforms(waveforms)
 
         if plot_waveforms:
             self._plot_waveforms([waveforms[wf] for wf in requested_waveforms],
@@ -222,8 +206,8 @@ class JPMQubitReadout(JPMExperiment):
         
         # Create a memory command list.
         # The format is described in Servers.Instruments.GHzBoards.command_sequences.
-        mem_lists = [[] for dac in fpga.dacs]
-        for idx, settings in enumerate(fpga.dac_settings):
+        mem_lists = [[] for dac in self.boards.dacs]
+        for idx, settings in enumerate(self.boards.dac_settings):
             if 'FO1 FastBias Firmware Version' in settings:
                 mem_lists[idx].append({'Type': 'Firmware', 'Channel': 1, 
                               'Version': settings['FO1 FastBias Firmware Version']})
@@ -267,9 +251,8 @@ class JPMQubitReadout(JPMExperiment):
         
         ###RUN#####################################################################################
         self.acknowledge_requests()
-        if self.get_interface('Temperature') is not None:
-            self.send_request('Temperature')
-        P = fpga.load_and_run(dac_srams, mems, self.value('Reps'))
+        self.send_request('Temperature')
+        P = self.boards.load_and_run(dac_srams, mems, self.value('Reps'))
 
         ###EXTRA EXPERIMENT PARAMETERS TO SAVE#####################################################
         self.add_var('Actual Reps', len(P[0]))
@@ -278,11 +261,11 @@ class JPMQubitReadout(JPMExperiment):
         if histogram:
             self._plot_histogram(P, 1)
 
-        preamp_timeout = fpga.consts['PREAMP_TIMEOUT']
+        preamp_timeout = self.boards.consts['PREAMP_TIMEOUT']
         t_mean, t_std = dp.mean_time_from_array(P, preamp_timeout)
 
         ###DATA STRUCTURE##########################################################################
-        data = {
+        return {
                 'Switching Probability': {
                     'Value': dp.prob_from_array(P, self.value('Threshold')),
                     'Distribution': 'binomial',
@@ -297,10 +280,6 @@ class JPMQubitReadout(JPMExperiment):
                         'linestyle': 'r-', 
                         'ylim': [0, preamp_timeout]}},
                 'Detection Time Std Dev': {
-                    'Value': t_std * units.PreAmpTimeCounts}
-               } 
-
-        if self.get_interface('Temperature') is not None:
-            data['Temperature'] = {'Value': self.acknowledge_request('Temperature')}
-        
-        return data
+                    'Value': t_std * units.PreAmpTimeCounts},
+                'Temperature': {'Value': self.acknowledge_request('Temperature')}
+               }

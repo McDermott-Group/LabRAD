@@ -42,7 +42,7 @@ import LabRAD.Servers.Instruments.GHzBoards.command_sequences as seq
 
 
 class ResourceDefinitionError(Exception): pass
-
+class ResourceInitializationError(Exception): pass
 
 class GHzFPGABoards(object):
     """GHz FPGA boards simplified interface."""
@@ -282,7 +282,7 @@ class GHzFPGABoards(object):
             p.memory(memory[k])
             # p.start_delay(DACDelays[k])
             # Handle dual block calls here, in a different way than Sank in 
-            # the fpga_Server. This should be compatible.
+            # the self.boards_Server. This should be compatible.
             if len(sram[k]) > self.consts['SRAM_LEN']:
                 # Shove last chunk of SRAM into BLOCK1, be sure this can 
                 # contain what you need it to contain.
@@ -363,32 +363,27 @@ class GHzFPGABoards(object):
                     %filter_func)
         return filt.tostring()
 
-    def load_and_run(self, dac_srams, dac_mems, reps=1020):
+    def load(self, dac_srams, dac_mems):
         """
-        Load FPGA boards with the required memory and settings, and 
-        execute the run sequence a set number of times. This method
-        should be called at the end of each run_once. Input arguments
-        waveroms and memory should be lists which correspond to the the SRAM
-        and Memory in the order in which they are defined in experiment
-        resource dictionary. The first listed DAC is always assumed to
-        be the master. 
+        Load FPGA boards with the required memory and settings. Input 
+        arguments, dac_srams and dac_mems should be lists 
+        which correspond to the SRAM and Memory in the order in which
+        the DACs are defined in the experiment resource dictionary.
+        The first listed DAC is always assumed to be the master. 
         
         Inputs:
             sram: list of DAC SRAM waves. Use 
-                ghz_fpga_control.waves2sram method to get the right 
+                ghz_self.boards_control.waves2sram method to get the right 
                 format.
             memory: list of memory commands. Use memory tools in
                 DAC_control to build a memory sequence.
-            reps: number of repetitions in the sequence (default: 1020).
         Output:
-            run_data: returns the result of the fpga.run_sequence 
+            run_data: returns the result of the self.boards.run_sequence 
                 command.
         """
         if len(dac_mems) != len(dac_srams):
             raise Exception('Not enough memory commands to ' +
                     'populate the boards!')
-        
-        reps = int(reps)
         
         self.load_dacs(dac_srams, dac_mems)
         
@@ -418,37 +413,180 @@ class GHzFPGABoards(object):
             p.daisy_chain(list(itertools.chain(*[self.dacs])))
             p.timing_order(self._data_dacs)
             self._results.append(p.send(wait=False))
+    
+    def run(self, reps=1020):
+        """
+        Execute the run sequence a set number of times.
         
+        Input:
+            reps: number of repetitions in the sequence (default: 1020).
+        Output:
+            run_data: returns the result of the self.boards.run_sequence 
+                command.
+        """
         for result in self._results:
             result.wait()
         self._results = []
 
-        return self.server.run_sequence(reps, (bool(self._data_dacs) or 
-                                               bool(self._data_adcs)))
-
-class RFGenerator(object):
-    """
-    GPIB RF generator simplified interface.
-    """
-    def __init__(self, cxn, resource, var):
+        return self.server.run_sequence(int(reps), (bool(self._data_dacs) or 
+                                                    bool(self._data_adcs)))
+                                               
+    def load_and_run(self, dac_srams, dac_mems, reps=1020):
         """
-        Initialize an RF generator.
+        Load FPGA boards with the required memory and settings, and 
+        execute the run sequence a set number of times. This method
+        should be called at the end of each run_once. Input arguments,
+        dac_srams and dac_mems should be lists which correspond to the 
+        SRAM and Memory in the order in which the DACs are defined in
+        the experiment resource dictionary. The first listed DAC is
+        always assumed to be the master. 
+        
+        Inputs:
+            sram: list of DAC SRAM waves. Use 
+                ghz_self.boards_control.waves2sram method to get the right 
+                format.
+            memory: list of memory commands. Use memory tools in
+                DAC_control to build a memory sequence.
+            reps: number of repetitions in the sequence (default: 1020).
+        Output:
+            run_data: returns the result of the self.boards.run_sequence 
+                command.
+        """
+        self.load(dac_srams, dac_mems)
+        return self.run(reps)
+                   
+
+class BasicInterface(object):
+    """
+    Basic interface class.
+    """
+    def __init__(self, cxn, res, var):
+        """
+        Initialize a resource.
         
         Input:
             cxn: LabRAD connection object.
-            resource: resource dictionary.
+            res: resource dictionary.
             var: name of the variable.
         Output:
             None.
-        """ 
-        if 'Server' in resource:
-            self.server_name = resource['Server']
-        else:
-            self.server_name = 'GPIB RF Generators'
-        self.server = cxn[self.server_name]
+        """
+        self._initialized = False
+        self._request_sent = False
+        self._res = res
+        self._var = var
+        self._setting = None
+        self.server = self._get_server(cxn)
         
-        self._init_device(resource, var)
+        try:
+            self._init_resource()
+        except:
+            raise ResourceInitializationError('Resource ' +
+                    str(resource) + ' could not be intialized.')
+        
+        self._initialized = True
     
+    def __exit__(self, type, value, traceback):
+        """Properly exit the resource."""
+        pass
+
+    def _init_resource(self):
+        """Do device specific initialization."""
+        pass
+    
+    def _get_server(self, cxn):       
+        """Get server connection object."""
+        if 'Server' in self._res:
+            try:
+                return cxn[self._res['Server']]
+            except:
+                raise ResourceDefinitionError("Could not connect to " +
+                    "server '" + str(self._res['Server']) + "'.")
+        else:
+            raise ResourceDefinitionError("Key 'Server' is not found" +
+                    " in resource: " + str(self._res) + ".")
+    
+    def send_request(self, value=None):
+        """Send an empty non-blocking request."""
+        if self._initialized:
+            p = self.server.packet()
+            if self._setting is not None:
+                if value is None:
+                    p[self._setting]()
+                else:
+                    p[self._setting](value)
+            self._result = p.send(wait=False)
+            self._request_sent = True
+        else:
+            raise ResourceInitializationError("Resource " +
+                    str(self._res) + " is not properly initialized.")
+        
+    def acknowledge_request(self):
+        """Wait for the result of a non-blocking request."""
+        if self._initialized and self._request_sent:
+            self._request_sent = False
+            if self._setting is not None:
+                return self._result.wait()[self._setting]
+            else:
+                return self._result.wait()
+
+class GPIBInterface(BasicInterface):
+    """
+    Simplified GPIB interface class.
+    """
+    @inlineCallbacks
+    def _init_resource(self):
+        """Initialize a GPIB resource."""
+        p = self.server.packet()
+        devices = (yield p.list_devices().send())['list_devices']
+        devices = [dev for id, dev in devices]
+        if 'Address' in self._res:
+            if self._res['Address'] in devices:
+                self.address = self._res['Address']
+            else:
+                raise resourceDefinitionError("Device with address '" +
+                    str(self._res['Address']) + "' is not found.")
+        elif len(devices) == 1:
+            self.address = devices[0][0]
+        else:
+            raise ResourceDefinitionError("'Address' field is absent " +
+                    " in the experiment resource: " +
+                    str(self._res) + ".")
+        
+        if len(devices) == 1:
+            self._single_device = True
+        else:
+            self._single_device = False
+            
+        self._init_gpib_resource()
+    
+    def _init_gpib_resource(self):
+        """Do variable specific initialization."""
+        pass
+        
+    def send_request(self, value=None):
+        """Send a request to set a setting."""
+        if self._initialized:
+            p = self.server.packet()
+            if not self._single_device:
+                p.select_device(self.address)
+            if self._setting is not None:
+                if value is None:
+                    p[self._setting]()
+                else:
+                    p[self._setting](value)
+            self._result = p.send(wait=False)
+            self._request_sent = True
+        else:
+            raise ResourceDefinitionError("Resource '" +
+                    str(self._res) + "' is not properly initialized.")
+            
+
+class RFGenerator(GPIBInterface):
+    """
+    GPIB RF generator simplified interface.
+    """
+        
     @inlineCallbacks
     def __exit__(self, type, value, traceback):
         """Turn the RF generator off and deselect it."""
@@ -456,50 +594,39 @@ class RFGenerator(object):
             p = self.server.packet()
             yield p.select_device(self.address).output(False).deselect_device().send()
     
-    @inlineCallbacks
-    def _init_device(self, resource, var):
-        """Initialize an RF generator."""
-        self._initialized = False
-        self._resource = resource
-        p = self.server.packet()
-        devices = (yield p.list_devices().send())['list_devices']
-        devices = [dev for id, dev in devices]
-        if 'Address' in resource:
-            if resource['Address'] in devices:
-                self.address = resource['Address']
-            else:
-                raise ResourceDefinitionError("Device with address '" +
-                    str(resource['Address']) + "' is not found on server '" +
-                    self.server_name + "'.")
-        elif len(devices) == 1:
-            self.address = devices[0][0]
+    def _get_server(self, cxn):       
+        """Get server connection object."""
+        if 'Server' in self._res:
+            server_name = self._res['Server']
         else:
-            raise ResourceDefinitionError("'Address' field is absent " +
-                    " in the experiment resource: " + str(resource) + ".")
-        
-        if ('Variables' in resource and var in resource['Variables'] and 
-                isinstance(resource['Variables'], dict) and 
-                'Setting' in resource['Variables'][var]):
-            self._setting = resource['Variables'][var]['Setting']
-        elif var.lower().find('freq') != -1:
+            server_name = 'GPIB RF Generators'
+        try:
+            return cxn[server_name]
+        except:
+            raise ResourceDefinitionError("Could not connect to " +
+                "server '" + str(self._res['Server']) + "'.")
+
+    @inlineCallbacks
+    def _init_gpib_resource(self):
+        """Initialize an RF generator."""
+        if ('Variables' in self._res and 
+                self._var in self._res['Variables'] and 
+                isinstance(self._res['Variables'], dict) and 
+                'Setting' in self._res['Variables'][self._var]):
+            self._setting = self._res['Variables'][self._var]['Setting']
+        elif self._var.lower().find('freq') != -1:
             self._setting = 'Frequency'
-        elif var.lower().find('power') != -1:
+        elif self._var.lower().find('power') != -1:
             self._setting = 'Power'
         else:
             raise ResourceDefinitionError("Setting responsible for " +
-                    "variable '" + var + "' is not specified in the " +
-                    "experiment resource: " + str(resource) + ".")
+                    "variable '" + self._var + "' is not specified " +
+                    "in the experiment resource: " + 
+                    str(self._res) + ".")
         
         p = self.server.packet()
         yield p.select_device(self.address).reset().send()
-        if len(devices) == 1:
-            self._single_device = True
-        else:
-            self._single_device = False
-        
-        self._request_sent = False
         self._output_set = False
-        self._initialized = True
 
     def send_request(self, value):
         """Send a request to set a setting."""
@@ -515,77 +642,39 @@ class RFGenerator(object):
             self._request_sent = True
         else:
             raise ResourceDefinitionError("Resource " +
-                    str(self._resource) + " is not properly initialized.")
-
-    def acknowledge_request(self):
-        """Wait for the result of a non-blocking request."""
-        if self._initialized and self._request_sent:
-            self._request_sent = False
-            return self._result.wait()
+                    str(self._res) + " is not properly initialized.")
 
 
-class SIM928VoltageSource(object):
+class SIM928VoltageSource(GPIBInterface):
     """
     SRS SIM928 voltage source simplified interface.
-    """
-    def __init__(self, cxn, resource, var):
-        """
-        Initialize a voltage source.
-        
-        Input:
-            cxn: LabRAD connection object.
-            resource: resource dictionary.
-            var: name of the variable.
-        Output:
-            None.
-        """
-        if 'Server' in resource:
-            self.server_name = resource['Server']
-        else:
-            self.server_name = 'SIM928'
-        self.server = cxn[self.server_name]
-        
-        self._init_device(resource)
-    
+    """    
     @inlineCallbacks
     def __exit__(self, type, value, traceback):
         """Turn the voltage source off and deselect it."""
         if hasattr(self, 'address'):
             p = self.server.packet()
-            yield p.select_device(self.address).output(False).deselect_device().send()
-    
+            yield p.select_device(self.address).voltage(0 * units.V).deselect_device().send()
+
+    def _get_server(self, cxn):       
+        """Get server connection object."""
+        if 'Server' in self._res:
+            server_name = self._res['Server']
+        else:
+            server_name = 'SIM928'
+        try:
+            return cxn[server_name]
+        except:
+            raise ResourceDefinitionError("Could not connect to " +
+                "server '" + str(self._res['Server']) + "'.")
+
     @inlineCallbacks
-    def _init_device(self, resource):
+    def _init_gpib_resource(self):
         """Initialize a voltage source."""
-        self._initialized = False
-        self._resource = resource
-        p = self.server.packet()
-        devices = (yield p.list_devices().send())['list_devices']
-        devices = [dev for id, dev in devices]
-        if 'Address' in resource:
-            if resource['Address'] in devices:
-                self.address = resource['Address']
-            else:
-                raise ResourceDefinitionError("Device with address '" +
-                    str(resource['Address']) +
-                    "' is not found on server '" + self.server_name + "'.")
-        elif len(devices) == 1:
-            self.address = devices[0][0]
-        else:
-            raise ResourceDefinitionError("'Address' field is " +
-                    "not found in the experiment resource: " +
-                    str(resource) + ".")
-        
-        p = self.server.packet()
-        yield p.select_device(self.address).reset().send()
-        if len(devices) == 1:
-            self._single_device = True
-        else:
-            self._single_device = False
-        
-        self._request_sent = False
+        if self._single_device:
+            p = self.server.packet()
+            yield p.select_device(self.address).send()
         self._output_set = False
-        self._initialized = True
         
     def send_request(self, voltage):
         """Send a request to set the output voltage."""
@@ -601,39 +690,13 @@ class SIM928VoltageSource(object):
             self._request_sent = True
         else:
             raise ResourceDefinitionError("Resource " +
-                    str(self._resource) + " is not properly initialized.")
-        
-    def acknowledge_request(self):
-        """Wait for the result of a non-blocking request."""
-        if self._initialized and self._request_sent:
-            self._request_sent = False
-            return self._result.wait()
+                    str(self._res) + " is not properly initialized.")
 
 
-class LabBrickAttenuator(object):
+class LabBrickAttenuator(BasicInterface):
     """
     Lab Brick attenuator simplified interface.
     """
-    def __init__(self, cxn, resource, var):
-        """
-        Initialize a Lab Brick attenuator.
-        
-        Input:
-            cxn: LabRAD connection object.
-            resource: resource dictionary.
-            var: name of the variable.
-        Output:
-            None.
-        """ 
-        if 'Server' in resource:
-            self.server_name = resource['Server']
-        else:
-            self.server_name = (os.environ['COMPUTERNAME'].lower() +
-                                ' Lab Brick Attenuators')
-        self.server = cxn[self.server_name]
-        
-        self._init_device(resource)
-    
     @inlineCallbacks
     def __exit__(self, type, value, traceback):
         """Deselect the attenuator."""
@@ -641,25 +704,37 @@ class LabBrickAttenuator(object):
             p = self.server.packet()
             yield p.deselect_attenuator().send()
     
+    def _get_server(self, cxn):       
+        """Get server connection object."""
+        if 'Server' in self._res:
+            server_name = self._res['Server']
+        else:
+            server_name = (os.environ['COMPUTERNAME'].lower() +
+                                ' Lab Brick Attenuators')
+        try:
+            return cxn[server_name]
+        except:
+            raise ResourceDefinitionError("Could not connect to " +
+                "server '" + str(self._res['Server']) + "'.")
+    
     @inlineCallbacks
-    def _init_device(self, resource):
+    def _init_resource(self):
         """Initialize a Lab Brick attenuator."""
-        self._initialized = False
-        self._resource = resource
         p = self.server.packet()
         devices = (yield p.list_devices().send())['list_devices']
-        if 'Serial Number' in resource:
-            if resource['Serial Number'] in devices:
-                self.address = resource['Serial Number']
+        if 'Serial Number' in self._res:
+            if self._res['Serial Number'] in devices:
+                self.address = self._res['Serial Number']
             else:
-                raise ResourceDefinitionError("Device with serial number " +
-                    str(resource['Serial Number']) + " is not found on server '" +
-                    self.server_name + "'.")
+                raise ResourceDefinitionError("Device with serial " +
+                    "number " + str(self._res['Serial Number']) +
+                    " is not found.")
         elif len(devices) == 1:
             self.address = devices[0][0]
         else:
-            raise ResourceDefinitionError("'Serial Number' field is absent" +
-                    " in the experiment resource: " + str(resource) + ".")
+            raise ResourceDefinitionError("'Serial Number' field is " +
+                    "absent in the experiment resource: " +
+                    str(self._res) + ".")
         
         if len(devices) == 1:
             self._single_device = True
@@ -667,9 +742,6 @@ class LabBrickAttenuator(object):
             yield p.select_attenuator(self.address).send()
         else:
             self._single_device = False
-        
-        self._request_sent = False
-        self._initialized = True
         
     def send_request(self, attenuation):
         """Send a request to set the attenuation."""
@@ -681,65 +753,50 @@ class LabBrickAttenuator(object):
             self._request_sent = True
         else:
             raise ResourceDefinitionError("Resource " +
-                    str(self._resource) + " is not properly initialized.")
-        
-    def acknowledge_request(self):
-        """Wait for the result of a non-blocking request."""
-        if self._initialized and self._request_sent:
-            self._request_sent = False
-            return self._result.wait()
+                    str(self._res) + " is not properly initialized.")
 
             
-class ADR3(object):
+class ADR3(BasicInterface):
     """
     ADR3 simplified interface for temperature monitoring.
     """
-    def __init__(self, cxn, resource, var):
-        """
-        Initialize the access to the temperatures.
-        
-        Input:
-            cxn: LabRAD connection object.
-            resource: resource dictionary.
-            var: name of the variable.
-        Output:
-            None.
-        """ 
-        if 'Server' in resource:
-            self.server_name = resource['Server']
+    def _get_server(self, cxn):       
+        """Get server connection object."""
+        if 'Server' in self._res:
+            server_name = self._res['Server']
         else:
-            self.server_name = 'ADR3'
-        self.server = cxn[self.server_name]
-        
-        if ('Variables' in resource and var in resource['Variables'] and 
-                isinstance(resource['Variables'], dict)):
+            server_name = 'ADR3'
+        try:
+            return cxn[server_name]
+        except:
+            raise ResourceDefinitionError("Could not connect to " +
+                "server '" + str(self._res['Server']) + "'.")
+    
+    def _init_resource(self):
+        """Initialize the temperature variable."""
+        if ('Variables' in self._res and 
+                self._var in self._res['Variables'] and 
+                isinstance(self._res['Variables'], dict)):
             var_dict = True
         else:
             var_dict = False
         
-        if var_dict and 'Setting' in resource['Variables'][var]:
-            self._setting = resource['Variables'][var]['Setting']
+        if var_dict and 'Setting' in self._res['Variables'][self._var]:
+            self._setting = self._res['Variables'][self._var]['Setting']
         else:
             self._setting = 'Temperatures'
-        if var_dict and 'Stage' in resource['Variables'][var]:
-            if resource['Variables'][var]['Stage'].lower().find('50k') != -1:
+        if var_dict and 'Stage' in self._res['Variables'][self._var]:
+            if self._res['Variables'][self._var]['Stage'].lower().find('50k') != -1:
                 self._temp_idx = 0
-            elif resource['Variables'][var]['Stage'].lower().find('3k') != -1:
+            elif self._res['Variables'][self._var]['Stage'].lower().find('3k') != -1:
                 self._temp_idx = 1
-            elif resource['Variables'][var]['Stage'].lower().find('ggg') != -1:
+            elif self._res['Variables'][self._var]['Stage'].lower().find('ggg') != -1:
                 self._temp_idx = 2
-            elif resource['Variables'][var]['Stage'].lower().find('faa') != -1:
+            elif self._res['Variables'][self._var]['Stage'].lower().find('faa') != -1:
                 self._temp_idx = 3
             else:
                 self._temp_idx = 3
-                
-        self._request_sent = False
-        
-    def send_request(self, value=None):
-        """Send a request to obtain the temperature."""
-        p = self.server.packet()
-        self._result = p[self._setting]().send(wait=False)
-        self._request_sent = True
+
         
     def acknowledge_request(self):
         """Wait for the result of a non-blocking request."""
@@ -748,54 +805,38 @@ class ADR3(object):
             temperatures = self._result.wait()[self._setting]
             return temperatures[self._temp_idx]
             
-class Leiden(object):
+class Leiden(BasicInterface):
     """
     Leiden simplified interface for temperature monitoring.
-    """
-    def __init__(self, cxn, resource, var):
-        """
-        Initialize the access to the temperatures.
-        
-        Input:
-            cxn: LabRAD connection object.
-            resource: resource dictionary.
-            var: name of the variable.
-        Output:
-            None.
-        """ 
-        if 'Server' in resource:
-            self.server_name = resource['Server']
+    """        
+    def _get_server(self, cxn):       
+        """Get server connection object."""
+        if 'Server' in self._res:
+            server_name = self._res['Server']
         else:
-            self.server_name = 'Leiden DR Temperature'
-        self.server = cxn[self.server_name]
-        
-        if ('Variables' in resource and var in resource['Variables'] and 
-                isinstance(resource['Variables'], dict)):
+            server_name = 'Leiden DR Temperature'
+        try:
+            return cxn[server_name]
+        except:
+            raise ResourceDefinitionError("Could not connect to " +
+                "server '" + str(self._res['Server']) + "'.")
+
+    def _init_resource(self):
+        """Initialize the temperature variable."""
+        if ('Variables' in self._res and 
+                self._var in self._res['Variables'] and 
+                isinstance(self._res['Variables'], dict)):
             var_dict = True
         else:
             var_dict = False
         
         self._setting = None
-        if var_dict and 'Setting' in resource['Variables'][var]:
-            self._setting = resource['Variables'][var]['Setting']
-        elif 'Chamber' in resource:
-            if resource['Chamber'].lower().find('exch') != -1:
+        if var_dict and 'Setting' in self._res['Variables'][self._var]:
+            self._setting = self._res['Variables'][self._var]['Setting']
+        elif 'Chamber' in self._res:
+            if self._res['Chamber'].lower().find('exch') != -1:
                 self._setting = 'Exhange Temperature'
-            elif resource['Chamber'].lower().find('still') != -1:
+            elif self._res['Chamber'].lower().find('still') != -1:
                 self._setting = 'Still Temperature'
         if self._setting is None:
             self._setting = 'Mix Temperature'
-                
-        self._request_sent = False
-        
-    def send_request(self, value=None):
-        """Send a request to obtain the temperature."""
-        p = self.server.packet()
-        self._result = p[self._setting]().send(wait=False)
-        self._request_sent = True
-        
-    def acknowledge_request(self):
-        """Wait for the result of a non-blocking request."""
-        if self._request_sent:
-            self._request_sent = False
-            return self._result.wait()[self._setting]

@@ -340,19 +340,19 @@ class Experiment(object):
             # Readings entered manually, software parameters.
             if res['Interface'] is None:
                 pass
-            # GHz FPGA boards.
-            elif res['Interface'].replace(' ', '') == 'GHzFPGABoards':
-                self.ghz_fpga_boards = getattr(server_interfaces,
-                        res['Interface'].replace(' ', ''))(self.cxn, res)
-            # Resources specified in module sever_interfaces: Lab Brick
-            # attenuators, RF generators, voltage sources, etc.
-            elif hasattr(server_interfaces, res['Interface'].replace(' ', '')):
-                for var in res['Variables']:
-                    self._vars[var]['Interface'] = getattr(server_interfaces,
-                            res['Interface'].replace(' ', ''))(self.cxn, res, var)
             else:
-                print("Warning: resource type '" + str(res['Interface']) +
-                      "' is not yet supported.")
+                interface = res['Interface'].replace(' ', '')
+                # GHz FPGA boards.
+                if interface == 'GHzFPGABoards':
+                    self.boards = getattr(server_interfaces, interface)(self.cxn, res)
+                # Resources specified in module sever_interfaces: Lab Brick
+                # attenuators, RF generators, voltage sources, etc.
+                elif hasattr(server_interfaces, interface):
+                    for var in res['Variables']:
+                        self.interface(var, res)
+                else:
+                    print("Warning: resource type '" + str(res['Interface']) +
+                          "' is not yet supported.")
     
     def _set_variables(self, variables):
         """
@@ -383,7 +383,7 @@ class Experiment(object):
     def _check_var(self, var, check_type=True,
                               check_exist=True,
                               check_value=True,
-                              check_resource=True):
+                              check_interface=True):
         """
         Assert the existence of an experiment variable.
         
@@ -395,6 +395,8 @@ class Experiment(object):
                 the experiment variables (default: True).
             check_value (optional): check whether the var value is
                 defined (default: True).
+            check_interface (optional): check whether the var interface
+                is defined (default: True).
         Output:
             None.
         """        
@@ -409,7 +411,7 @@ class Experiment(object):
         if check_value and 'Value' not in self._vars[var]:
             raise ExperimentDefinitionError("No value is assigned to " + 
                     "the experiment variable '" + str(var) + "'.")
-        if check_resource and 'Interface' not in self._vars[var]:
+        if check_interface and 'Interface' not in self._vars[var]:
             raise ExperimentDefinitionError("No resource " + 
                     "is responsible for the experiment variable '" +
                     str(var) + "'.")
@@ -442,17 +444,88 @@ class Experiment(object):
 
         return self._vars[var]['Value']
         
-    def get_interface(self, var):
+    def interface(self, var, res=None):
         """
-        Get the name of an interface responsible for a variable.
+        Get the interface name responsible for a given variable.
         
         Input:
             var: name of the experiment variable.
+            res: resource dictionary.
         Output:
             interface: interface responsible for the variable.
         """
-        self._check_var(var, check_value=False)
+        if res is not None:
+            self._check_var(var, check_value=False, check_interface=False)
+            self._vars[var]['Interface'] = getattr(server_interfaces,
+            res['Interface'].replace(' ', ''))(self.cxn, res, var)
+        else:
+            self._check_var(var, check_value=False)
         return self._vars[var]['Interface']
+        
+    def send_request(self, var, value=None):
+        """
+        Send a non-blocking request to a server to set an experiment
+        variable.
+        
+        Inputs: 
+            var: variable name.
+            value (optional): new variable value.
+        Output: 
+            None.
+        """
+        try:
+            interface = self.interface(var)
+        except:
+            return None
+        if interface is not None and hasattr(interface, 'send_request'):
+            interface.send_request(self.value(var, value, output=False))
+        
+    def acknowledge_request(self, var):
+        """
+        Wait for the result of a non-blocking request to set a variable.
+        
+        Input: 
+            var: variable name.
+        Output: 
+            result: result of a request obtained from a server.
+        """
+        try:
+            interface = self.interface(var)
+        except:
+            return None
+        if interface is not None and hasattr(interface, 'acknowledge_request'):
+            return interface.acknowledge_request()
+        
+    def acknowledge_requests(self, vars=None):
+        """
+        Wait for the results of the non-blocking requests that are
+        sent to set the experiment variables. 
+        
+        Input: 
+            vars (optional): list of all variables, for which the
+                any outstanding requests should be acknowledge. If vars
+                is None, all variables will be checked (default: None).
+        Output: 
+            results: dictionary of the results returned by the 
+                acknowledge_request methods with variable names
+                as the keys.
+        """
+        if vars is None:
+            vars = self._vars
+        else:
+            if isinstance(vars, str):
+                vars = [vars]
+            elif isinstance(vars, list):
+                pass
+            else:
+                raise ExperimentDefinitionError('Argument in ' +
+                        'acknowledge_requests method should be ' +
+                        'a variable name or a list containing ' +
+                        'variable names.')
+        results = {}
+        for var in vars:
+            results[var] = self.acknowledge_request(var)
+        return results
 
     ###DATA SAVING METHODS#########################################################################
     def _text_save(self, data):
@@ -710,7 +783,7 @@ class Experiment(object):
             else:
                 return ''
         if isinstance(v, str):
-            self._check_var(v, check_resource=False)
+            self._check_var(v, check_interface=False)
             value = self._vars[v]['Value']
             if isinstance(value, units.Value):
                 return _place_in_brackets(str(units.Unit(value)))
@@ -738,7 +811,7 @@ class Experiment(object):
         if isinstance(v, list):
             return np.vectorize(self.strip_units)(np.array(v))
         if isinstance(v, str):
-            self._check_var(v, check_resource=False)
+            self._check_var(v, check_interface=False)
             if isinstance(self._vars[v]['Value'], units.Value):
                 return self._vars[v]['Value'][units.Unit(self._vars[v]['Value'])]
             else:
@@ -819,7 +892,7 @@ class Experiment(object):
             else:
                 return None
         else:
-            self._check_var(var, check_value=False, check_resource=False)
+            self._check_var(var, check_value=False, check_interface=False)
             if 'Value' in self._vars[var]:
                 if ((isinstance(value, units.Value) !=
                      isinstance(self._vars[var]['Value'], units.Value))
@@ -913,54 +986,6 @@ class Experiment(object):
                         axis=0)
 
         return avg_data
-        
-    def send_request(self, var, value=None):
-        """
-        Send a non-blocking request to a server to set an experiment
-        variable.
-        
-        Inputs: 
-            var: variable name.
-            value (optional): new variable value.
-        Output: 
-            None.
-        """
-        if 'Interface' not in self._vars[var]:
-            raise ExperimentDefinitionError("Server interface is not " +
-                "specified for variable '" + str(var) + "'.")
-
-        value = self.value(var, value, output=False)
-        self._vars[var]['Interface'].send_request(value)
-        
-    def acknowledge_request(self, var, enforce=False):
-        """
-        Wait for the result of a non-blocking request to set a variable.
-        
-        Inputs: 
-            var: variable name.
-            enforce (optional): if True check that the variable is
-                properly defined (default: False).
-        Output: 
-            result: result of a request obtained from a server.
-        """
-        if enforce:
-            self._check_var(var)
-        if ('Interface' in self._vars[var] and
-            hasattr(self._vars[var]['Interface'], 'acknowledge_request')):
-            return self._vars[var]['Interface'].acknowledge_request()
-    
-    def acknowledge_requests(self):
-        """
-        Wait for the results of all non-blocking requests that were
-        sent to set the experiment variables.
-        
-        Inputs: 
-            None.
-        Output: 
-            None.
-        """
-        for var in self._vars:
-            self.acknowledge_request(var)
 
     def _process_data(self, raw_data):
         """
@@ -1333,7 +1358,7 @@ class Experiment(object):
         
         if isinstance(names, str):
             # Check that the variable is properly defined.
-            self._check_var(names, check_resource=False)
+            self._check_var(names, check_interface=False)
             # If there is only one sweep variable defined as a string,
             # convert it to a list of lists for internal code consistency.
             names = [[names]]
@@ -1342,7 +1367,7 @@ class Experiment(object):
             # that they are strings.
             if len(names) > 0 and isinstance(names[0], str):
                 for name in names:
-                    self._check_var(name, check_resource=False)
+                    self._check_var(name, check_interface=False)
                 # Check that the variables are unique.
                 if len(names) > len(set(names)):
                     raise SweepError('Sweep method was called with ' +
@@ -1365,7 +1390,7 @@ class Experiment(object):
                         'should be the same for any parrallel scans.') 
                     # Check that the variables are properly defined.
                     for name in name_list:
-                        self._check_var(name, check_resource=False)
+                        self._check_var(name, check_interface=False)
                     # Check that the variables are unique.
                     if len(name_list) > len(set(name_list)):
                         raise SweepError('sweep method was called with' + 
