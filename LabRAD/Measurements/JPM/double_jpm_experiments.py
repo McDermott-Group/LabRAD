@@ -39,18 +39,15 @@ from jpm_qubit_experiments import JPMExperiment, DAC_ZERO_PAD_LEN
 
 class DoubleJPMCorrelation(JPMExperiment):
     """
-    Read out a qubit connected to a resonator with a readout and a displacement (reset) pulse.
+    Double JPM experiment (original).
     """
     def run_once(self, histogram=False, plot_waveforms=False):
         #DC BIAS VARIABLES#########################################################################
-        if self.value('DC Bias Voltage') is not None:
-            self.send_request('DC Bias Voltage')
+        self.send_request('DC Bias Voltage')
 
         #RF VARIABLES##############################################################################
-        if self.value('RF Attenuation') is not None:
-            self.send_request('RF Attenuation')                         # RF attenuation
-        if self.value('RF Power') is not None:
-            self.send_request('RF Power')                               # RF power
+        self.send_request('RF Attenuation')                             # RF attenuation
+        self.send_request('RF Power')                                   # RF power
         if self.value('RF Frequency') is not None:
             if self.value('RF SB Frequency') is not None:               # RF frequency
                 self.send_request('RF Frequency',                
@@ -88,7 +85,7 @@ class DoubleJPMCorrelation(JPMExperiment):
         JPMA_FP = pulse.GaussPulse(JPMA_FPT, JPMA_FW, JPMA_FPA)
         JPMB_FP = pulse.GaussPulse(JPMB_FPT, JPMB_FW, JPMB_FPA)
         
-        waveforms = {};
+        waveforms = {}
         if 'None' in requested_waveforms:
             waveforms['None'] = np.hstack([pulse.DC(2 * DAC_ZERO_PAD_LEN + RF_time, 0)])
         
@@ -122,14 +119,7 @@ class DoubleJPMCorrelation(JPMExperiment):
         
         # Create a memory command list.
         # The format is described in Servers.Instruments.GHzBoards.command_sequences.
-        mem_lists = [[] for dac in self.boards.dacs]
-        for idx, settings in enumerate(self.boards.dac_settings):
-            if 'FO1 FastBias Firmware Version' in settings:
-                mem_lists[idx].append({'Type': 'Firmware', 'Channel': 1, 
-                              'Version': settings['FO1 FastBias Firmware Version']})
-            if 'FO2 FastBias Firmware Version' in settings:
-                mem_lists[idx].append({'Type': 'Firmware', 'Channel': 2, 
-                              'Version': settings['FO2 FastBias Firmware Version']})
+        mem_lists = self.boards.init_mem_lists()
 
         mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
         mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0})
@@ -249,18 +239,15 @@ class DoubleJPMCorrelation(JPMExperiment):
 
 class DoubleJPMCorrelationFine(JPMExperiment):
     """
-    Read out a qubit connected to a resonator with a readout and a displacement (reset) pulse.
+    Double JPM experiment (current version).
     """
     def run_once(self, histogram=False, plot_waveforms=False):
         #DC BIAS VARIABLES#########################################################################
-        if self.value('DC Bias Voltage') is not None:
-            self.send_request('DC Bias Voltage')
+        self.send_request('DC Bias Voltage')
 
         #RF VARIABLES##############################################################################
-        if self.value('RF Attenuation') is not None:
-            self.send_request('RF Attenuation')                         # RF attenuation
-        if self.value('RF Power') is not None:
-            self.send_request('RF Power')                               # RF power
+        self.send_request('RF Attenuation')                             # RF attenuation
+        self.send_request('RF Power')                                   # RF power
         if self.value('RF Frequency') is not None:
             if self.value('RF SB Frequency') is not None:               # RF frequency
                 self.send_request('RF Frequency',                
@@ -298,7 +285,7 @@ class DoubleJPMCorrelationFine(JPMExperiment):
         JPMA_FP = pulse.GaussPulse(JPMA_FPT, JPMA_FW, JPMA_FPA)
         JPMB_FP = pulse.GaussPulse(JPMB_FPT, JPMB_FW, JPMB_FPA)
         
-        waveforms = {};
+        waveforms = {}
         if 'None' in requested_waveforms:
             waveforms['None'] = np.hstack([pulse.DC(2 * DAC_ZERO_PAD_LEN + RF_time, 0)])
         
@@ -332,14 +319,7 @@ class DoubleJPMCorrelationFine(JPMExperiment):
         
         # Create a memory command list.
         # The format is described in Servers.Instruments.GHzBoards.command_sequences.
-        mem_lists = [[] for dac in self.boards.dacs]
-        for idx, settings in enumerate(self.boards.dac_settings):
-            if 'FO1 FastBias Firmware Version' in settings:
-                mem_lists[idx].append({'Type': 'Firmware', 'Channel': 1, 
-                              'Version': settings['FO1 FastBias Firmware Version']})
-            if 'FO2 FastBias Firmware Version' in settings:
-                mem_lists[idx].append({'Type': 'Firmware', 'Channel': 2, 
-                              'Version': settings['FO2 FastBias Firmware Version']})
+        mem_lists = self.boards.init_mem_lists()
        
         mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0, 'Mode': 'Fast'})
         mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0, 'Mode': 'Fast'})
@@ -461,38 +441,35 @@ class DoubleJPMCorrelationFine(JPMExperiment):
                         'ylim': [0, 1],
                         'legendlabel': 'P11'}},
                 'Temperature': {'Value': self.acknowledge_request('Temperature')},
-                'JPM A Timing Data': {
-                    'Value': np.array(P[0]) * units.PreAmpTimeCounts,
-                    'Dependencies': ['Rep Iteration'],
-                    'Preferences': {
-                        'linestyle': 'r-', 
-                        'ylim': [0, preamp_timeout]}},
-                'JPM B Timing Data': {
-                    'Value': np.array(P[1]) * units.PreAmpTimeCounts,
-                    'Dependencies': ['Rep Iteration'],
-                    'Preferences': {
-                        'linestyle': 'b-', 
-                        'ylim': [0, preamp_timeout]}},
-                'Rep Iteration': {
-                        'Value': np.linspace(1, len(P[0]), len(P[0])),
-                        'Type': 'Independent'}
+                # 'JPM A Timing Data': {
+                    # 'Value': np.array(P[0]) * units.PreAmpTimeCounts,
+                    # 'Dependencies': ['Rep Iteration'],
+                    # 'Preferences': {
+                        # 'linestyle': 'r-', 
+                        # 'ylim': [0, preamp_timeout]}},
+                # 'JPM B Timing Data': {
+                    # 'Value': np.array(P[1]) * units.PreAmpTimeCounts,
+                    # 'Dependencies': ['Rep Iteration'],
+                    # 'Preferences': {
+                        # 'linestyle': 'b-', 
+                        # 'ylim': [0, preamp_timeout]}},
+                # 'Rep Iteration': {
+                        # 'Value': np.linspace(1, len(P[0]), len(P[0])),
+                        # 'Type': 'Independent'}
                }
         
         
 class DoubleJPMCorrelationSIM928(JPMExperiment):
     """
-    Read out a qubit connected to a resonator with a readout and a displacement (reset) pulse.
+    Double JPM experiment with SIM928 bias sources.
     """
     def run_once(self, histogram=False, plot_waveforms=False):
         #DC BIAS VARIABLES#########################################################################
-        if self.value('DC Bias Voltage') is not None:
-            self.send_request('DC Bias Voltage')
+        self.send_request('DC Bias Voltage')
 
         #RF VARIABLES##############################################################################
-        if self.value('RF Attenuation') is not None:
-            self.send_request('RF Attenuation')                         # RF attenuation
-        if self.value('RF Power') is not None:
-            self.send_request('RF Power')                               # RF power
+        self.send_request('RF Attenuation')                             # RF attenuation
+        self.send_request('RF Power')                                   # RF power
         if self.value('RF Frequency') is not None:
             if self.value('RF SB Frequency') is not None:               # RF frequency
                 self.send_request('RF Frequency',                
@@ -530,7 +507,7 @@ class DoubleJPMCorrelationSIM928(JPMExperiment):
         JPMA_FP = pulse.GaussPulse(JPMA_FPT, JPMA_FW, JPMA_FPA)
         JPMB_FP = pulse.GaussPulse(JPMB_FPT, JPMB_FW, JPMB_FPA)
         
-        waveforms = {};
+        waveforms = {}
         if 'None' in requested_waveforms:
             waveforms['None'] = np.hstack([pulse.DC(2 * DAC_ZERO_PAD_LEN + RF_time, 0)])
         
@@ -575,14 +552,7 @@ class DoubleJPMCorrelationSIM928(JPMExperiment):
         
         # Create a memory command list.
         # The format is described in Servers.Instruments.GHzBoards.command_sequences.
-        mem_lists = [[] for dac in self.boards.dacs]
-        for idx, settings in enumerate(self.boards.dac_settings):
-            if 'FO1 FastBias Firmware Version' in settings:
-                mem_lists[idx].append({'Type': 'Firmware', 'Channel': 1, 
-                              'Version': settings['FO1 FastBias Firmware Version']})
-            if 'FO2 FastBias Firmware Version' in settings:
-                mem_lists[idx].append({'Type': 'Firmware', 'Channel': 2, 
-                              'Version': settings['FO2 FastBias Firmware Version']})
+        mem_lists = self.boards.init_mem_lists()
        
         mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
         mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0})

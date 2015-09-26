@@ -98,12 +98,10 @@ class JPMQubitReadout(JPMExperiment):
         BV_step_time = self.value('Bias Voltage Step Time')['us']       # bias voltage step time 
     
         #QUBIT VARIABLES###########################################################################
-        if self.value('Qubit Attenuation') is not None:
-            self.send_request('Qubit Attenuation')                      # Qubit attenuation
-        if self.value('Qubit Power') is not None:
-            self.send_request('Qubit Power')                            # Qubit power
+        self.send_request('Qubit Attenuation')                          # qubit attenuation
+        self.send_request('Qubit Power')                                # qubit power
         if self.value('Qubit Frequency') is not None:
-            if self.value('Qubit SB Frequency') is not None:            # Qubit frequency
+            if self.value('Qubit SB Frequency') is not None:            # qubit frequency
                 self.send_request('Qubit Frequency',
                         value=self.value('Qubit Frequency') + 
                               self.value('Qubit SB Frequency'))
@@ -111,12 +109,10 @@ class JPMQubitReadout(JPMExperiment):
                 self.send_request('Qubit Frequency')
     
         #RF DRIVE (READOUT) VARIABLES##############################################################
-        if self.value('Readout Attenuation') is not None:
-            self.send_request('Readout Attenuation')                    # Readout attenuation
-        if self.value('Readout Power') is not None:
-            self.send_request('Readout Power')                          # Readout power
+        self.send_request('Readout Attenuation')                    # readout attenuation
+        self.send_request('Readout Power')                          # readout power
         if self.value('Readout Frequency') is not None:
-            if self.value('Readout SB Frequency') is not None:          # Readout frequency
+            if self.value('Readout SB Frequency') is not None:          # readout frequency
                 self.send_request('Readout Frequency',
                         value=self.value('Readout Frequency') + 
                               self.value('Readout SB Frequency'))
@@ -124,8 +120,7 @@ class JPMQubitReadout(JPMExperiment):
                 self.send_request('Readout Frequency')
 
         #DC BIAS VARIABLES#########################################################################
-        if self.value('Qubit Flux Bias Voltage') is not None:
-            self.send_request('Qubit Flux Bias Voltage')
+        self.send_request('Qubit Flux Bias Voltage')
         
         ###EXPERIMENT VARIABLES USED BY PERMANENTLY PRESENT DEVICES################################
         # Experiment variables that used by DC Rack, DAC and ADC boards should be defined here.
@@ -138,8 +133,8 @@ class JPMQubitReadout(JPMExperiment):
         Disp_amp = self.value('Displacement Amplitude')['DACUnits']     # amplitude of the displacement pulse
         Disp_time = self.value('Displacement Time')['ns']               # length of the displacement pulse time
         Disp_phase = self.value('Displacement Phase')['rad']            # displacement pulse phase
-        
         ROtoD_offset = self.value('Readout to Displacement Offset')['DACUnits'] # zero offset between readout and reset pulses
+        
         #QUBIT DRIVE VARIABLES#####################################################################
         QB_SB_freq = self.value('Qubit SB Frequency')['GHz']            # qubit sideband frequency
         QB_amp = self.value('Qubit Amplitude')['DACUnits']              # amplitude of the sideband modulation
@@ -206,14 +201,7 @@ class JPMQubitReadout(JPMExperiment):
         
         # Create a memory command list.
         # The format is described in Servers.Instruments.GHzBoards.command_sequences.
-        mem_lists = [[] for dac in self.boards.dacs]
-        for idx, settings in enumerate(self.boards.dac_settings):
-            if 'FO1 FastBias Firmware Version' in settings:
-                mem_lists[idx].append({'Type': 'Firmware', 'Channel': 1, 
-                              'Version': settings['FO1 FastBias Firmware Version']})
-            if 'FO2 FastBias Firmware Version' in settings:
-                mem_lists[idx].append({'Type': 'Firmware', 'Channel': 2, 
-                              'Version': settings['FO2 FastBias Firmware Version']})
+        mem_lists = self.boards.init_mem_lists()
        
         mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
         mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0})

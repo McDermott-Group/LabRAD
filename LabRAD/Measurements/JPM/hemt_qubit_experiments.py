@@ -186,10 +186,8 @@ class HEMTQubitReadout(HEMTExperiment):
     """
     def run_once(self, adc=None, plot_waveforms=False):
         #QUBIT VARIABLES###########################################################################
-        if self.value('Qubit Attenuation') is not None:
-            self.send_request('Qubit Attenuation')                      # Qubit attenuation
-        if self.value('Qubit Power') is not None:
-            self.send_request('Qubit Power')                            # Qubit power
+        self.send_request('Qubit Attenuation')                          # Qubit attenuation
+        self.send_request('Qubit Power')                                # Qubit power
         if self.value('Qubit Frequency') is not None:
             if self.value('Qubit SB Frequency') is not None:            # Qubit frequency
                 self.send_request('Qubit Frequency',
@@ -199,10 +197,8 @@ class HEMTQubitReadout(HEMTExperiment):
                 self.send_request('Qubit Frequency')
     
         #RF DRIVE (READOUT) VARIABLES##############################################################
-        if self.value('Readout Attenuation') is not None:
-            self.send_request('Readout Attenuation')                    # Readout attenuation
-        if self.value('Readout Power') is not None:
-            self.send_request('Readout Power')                          # Readout power
+        self.send_request('Readout Attenuation')                        # Readout attenuation
+        self.send_request('Readout Power')                              # Readout power
         if self.value('Readout Frequency') is not None:
             if self.value('Readout SB Frequency') is not None:          # Readout frequency
                 self.send_request('Readout Frequency',
@@ -212,8 +208,7 @@ class HEMTQubitReadout(HEMTExperiment):
                 self.send_request('Readout Frequency')
 
         #DC BIAS VARIABLES#########################################################################
-        if self.value('Qubit Flux Bias Voltage') is not None:
-            self.send_request('Qubit Flux Bias Voltage', False)
+        self.send_request('Qubit Flux Bias Voltage')
           
         ###EXPERIMENT VARIABLES USED BY PERMANENTLY PRESENT DEVICES################################
         # Experiment variables that used by DC Rack, DAC and ADC boards should be defined here.
@@ -236,7 +231,7 @@ class HEMTQubitReadout(HEMTExperiment):
         requested_waveforms = [settings[ch] for settings in
                 self.boards.dac_settings for ch in ['DAC A', 'DAC B']]
 
-        waveforms = {};
+        waveforms = {}
         if 'None' in requested_waveforms:
             waveforms['None'] = np.hstack([pulse.DC(2 * DAC_ZERO_PAD_LEN + QB_time + QBtoRO + RO_time, 0)])
         
@@ -273,13 +268,13 @@ class HEMTQubitReadout(HEMTExperiment):
         self.boards.set_adc_setting('ADCDelay', (DAC_ZERO_PAD_LEN +
                 ADC_wait_time + QB_time + QBtoRO) * units.ns, adc)
 
-        dac_mems = [seq.mem_simple(self.value('Init Time')['us'], sram_length, 0, sram_delay)
-                    for k, dac in enumerate(self.boards.dacs)]
+        mems = [seq.mem_simple(self.value('Init Time')['us'], sram_length, 0, sram_delay)
+                for k, dac in enumerate(self.boards.dacs)]
         
         ###RUN#####################################################################################
         self.acknowledge_requests()
         self.send_request('Temperature')
-        result = self.boards.load_and_run(dac_srams, dac_mems, self.value('Reps'))
+        result = self.boards.load_and_run(dac_srams, mems, self.value('Reps'))
         
         ###DATA POST-PROCESSING####################################################################
         Is, Qs = result[0] 
@@ -293,41 +288,34 @@ class HEMTQubitReadout(HEMTExperiment):
                     'Single Shot Is': { 
                         'Value': Is * units.ADCUnits,
                         'Dependencies': ['Rep Iteration'],
-                        'Preferences':  {
-                            'linestyle': 'b.'}},
+                        'Preferences':  {'linestyle': 'b.'}},
                     'Single Shot Qs': { 
                         'Value': Qs * units.ADCUnits,
                         'Dependencies': ['Rep Iteration'],
-                        'Preferences':  {
-                            'linestyle': 'g.'}},
+                        'Preferences':  {'linestyle': 'g.'}},
                     'I': {
                         'Value': I * units.ADCUnits,
                         'Distribution': 'normal',
-                        'Preferences':  {
-                            'linestyle': 'b-'}},
+                        'Preferences':  {'linestyle': 'b-'}},
                     'Q': { 
                         'Value': Q * units.ADCUnits,
                         'Distribution': 'normal',
-                        'Preferences':  {
-                            'linestyle': 'g-'}}, 
+                        'Preferences':  {'linestyle': 'g-'}}, 
                     'I Std Dev': { 
-                        'Value': np.std(Is) * units.ADCUnits,
-                        'Distribution': 'normal'},
+                        'Value': np.std(Is) * units.ADCUnits},
                     'Q Std Dev': { 
-                        'Value': np.std(Qs) * units.ADCUnits,
-                        'Distribution': 'normal'},
-                    'ADC Ammplitude': { 
+                        'Value': np.std(Qs) * units.ADCUnits},
+                    'ADC Amplitude': { 
                         'Value': np.sqrt(I**2 + Q**2) * units.ADCUnits,
-                        'Preferences':  {
-                            'linestyle': 'r-'}},
+                        'Preferences':  {'linestyle': 'r-'}},
                     'ADC Phase': { # numpy.arctan2(y, x) expects reversed arguments.
                         'Value': np.arctan2(Q, I) * units.rad,
-                        'Preferences':  {
-                            'linestyle': 'k-'}},
+                        'Preferences':  {'linestyle': 'k-'}},
                     'Rep Iteration': {
                         'Value': np.linspace(1, len(Is), len(Is)),
                         'Type': 'Independent'},
-                    'Temperature': {'Value': self.acknowledge_request('Temperature')}
+                    'Temperature': {
+                        'Value': self.acknowledge_request('Temperature')}
                    }
         elif self.boards.get_adc_setting('RunMode', adc) == 'average':
             self.value('Reps', 1, output=False)
@@ -337,33 +325,28 @@ class HEMTQubitReadout(HEMTExperiment):
                     'I': { 
                         'Value': Is * units.ADCUnits,
                         'Dependencies': ['ADC Time'],
-                        'Preferences':  {
-                            'linestyle': 'b-'}},
+                        'Preferences':  {'linestyle': 'b-'}},
                     'Q': { 
                         'Value': Qs * units.ADCUnits,
                         'Dependencies': ['ADC Time'],
-                        'Preferences':  {
-                            'linestyle': 'g-'}},
+                        'Preferences':  {'linestyle': 'g-'}},
                     'Software Demod I': { 
                         'Value': I * units.ADCUnits,
-                        'Preferences':  {
-                            'linestyle': 'b.'}},
+                        'Preferences':  {'linestyle': 'b.'}},
                     'Software Demod Q': { 
                         'Value': Q * units.ADCUnits,
-                        'Preferences':  {
-                            'linestyle': 'g.'}}, 
+                        'Preferences':  {'linestyle': 'g.'}}, 
                     'Software Demod ADC Amplitude': { 
                         'Value': np.sqrt(I**2 + Q**2) * units.ADCUnits,
-                        'Preferences':  {
-                            'linestyle': 'r.'}},
+                        'Preferences':  {'linestyle': 'r.'}},
                     'Software Demod ADC Phase': { 
                         'Value': np.arctan2(Q, I) * units.rad,
-                        'Preferences':  {
-                            'linestyle': 'k.'}},
+                        'Preferences':  {'linestyle': 'k.'}},
                     'ADC Time': {
                         'Value': time * units.ns,
                         'Type': 'Independent'},
-                    'Temperature': {'Value': self.acknowledge_request('Temperature')}
+                    'Temperature': {
+                        'Value': self.acknowledge_request('Temperature')}
                    }
 
     def average_data(self, data):
@@ -394,3 +377,139 @@ class HEMTQubitReadout(HEMTExperiment):
                 data['Software Demod ADC Phase']['Value'] = np.arctan2(data['Software Demod Q'],
                                                                        data['Software Demod I']) 
         return data
+        
+
+class HEMTCavityJPM(HEMTExperiment):
+    """
+    Probe a resonator driven by switching JPM with a HEMT.
+    """
+    def run_once(self, adc=None, plot_waveforms=False):
+        #RF DRIVE (READOUT) VARIABLES##############################################################
+        self.send_request('RF Attenuation')                             # RF attenuation
+        self.send_request('RF Power')                                   # RF power
+        if self.value('RF Frequency') is not None:
+            if self.value('RF SB Frequency') is not None:               # RF frequency
+                self.send_request('RF Frequency',
+                        value=self.value('RF Frequency') + 
+                              self.value('RF SB Frequency'))
+            else:
+                self.send_request('RF Frequency')
+
+        #DC BIAS VARIABLES#########################################################################
+        self.send_request('Qubit Flux Bias Voltage')
+          
+        ###EXPERIMENT VARIABLES USED BY PERMANENTLY PRESENT DEVICES################################
+        # Experiment variables that used by DC Rack, DAC and ADC boards should be defined here.
+
+        #RF VARIABLES##############################################################################
+        ADC_wait_time = self.value('ADC Wait Time')['ns']       # delay from the start of the fast pulse to the start of the demodulation
+        
+        #JPM VARIABLES#############################################################################
+        JPM_FPT = self.value('Fast Pulse Time')['ns']                   # length of the DAC pulse
+        JPM_FPA = self.value('Fast Pulse Amplitude')['DACUnits']        # amplitude of the DAC pulse
+        JPM_FPW = self.value('Fast Pulse Width')['ns']                  # DAC pulse rise time 
+        
+        ###WAVEFORMS###############################################################################
+        requested_waveforms = [settings[ch] for settings in
+                self.boards.dac_settings for ch in ['DAC A', 'DAC B']]
+
+        JPM_smoothed_FP = pulse.GaussPulse(JPM_FPT, JPM_FPW, JPM_FPA)
+                
+        waveforms = {}
+        if 'JPM Fast Pulse' in requested_waveforms:
+            waveforms['JPM Fast Pulse'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN, 0),
+                                                     JPM_smoothed_FP,
+                                                     pulse.DC(DAC_ZERO_PAD_LEN, 0)])
+
+        if 'None' in requested_waveforms:
+            waveforms['None'] = np.hstack([pulse.DC(2 * DAC_ZERO_PAD_LEN + JPM_smoothed_FP.size, 0)])
+
+        dac_srams, sram_length, sram_delay = self.boards.process_waveforms(waveforms)
+
+        if plot_waveforms:
+            self._plot_waveforms([waveforms[wf] for wf in requested_waveforms],
+                    ['r', 'g', 'b', 'k'], requested_waveforms)
+
+        ###SET BOARDS PROPERLY#####################################################################
+        self.boards.set_adc_setting('ADCDelay', (DAC_ZERO_PAD_LEN +
+                ADC_wait_time) * units.ns, adc)
+
+        # Create a memory command list.
+        # The format is described in Servers.Instruments.GHzBoards.command_sequences.
+        mem_lists = self.boards.init_mem_lists()
+        
+        mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
+        mem_lists[0].append({'Type': 'Delay', 'Time': self.value('Init Time')['us']})
+        mem_lists[0].append({'Type': 'Bias', 'Channel': 1,
+                'Voltage': self.value('Bias Voltage')['V']})
+        mem_lists[0].append({'Type': 'Delay', 'Time': self.value('Bias Time')['us']})
+        mem_lists[0].append({'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay})
+        mem_lists[0].append({'Type': 'Timer', 'Time': self.value('Measure Time')['us']})
+        mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
+
+        mem_lists[1].append({'Type': 'Delay', 'Time': self.value('Init Time')['us'] +
+                                      self.value('Bias Time')['us']})
+        mem_lists[1].append({'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay})
+        mem_lists[1].append({'Type': 'Timer', 'Time': self.value('Measure Time')['us']})
+
+        mems = [seq.mem_from_list(mem_list) for mem_list in mem_lists]
+        
+        ###RUN#####################################################################################
+        self.acknowledge_requests()
+        self.send_request('Temperature')
+        result = self.boards.load_and_run(dac_srams, mems, self.value('Reps'))
+        
+        ###DATA POST-PROCESSING####################################################################
+        Is, Qs = result[0] 
+        Is = np.array(Is)
+        Qs = np.array(Qs)
+
+        if self.boards.get_adc_setting('RunMode', adc) == 'demodulate':
+            I = np.mean(Is)
+            Q = np.mean(Qs)
+            return {
+                    'Single Shot Is': { 
+                        'Value': Is * units.ADCUnits,
+                        'Dependencies': ['Rep Iteration'],
+                        'Preferences':  {'linestyle': 'b.'}},
+                    'Single Shot Qs': { 
+                        'Value': Qs * units.ADCUnits,
+                        'Dependencies': ['Rep Iteration'],
+                        'Preferences':  {'linestyle': 'g.'}},
+                    'I': {
+                        'Value': I * units.ADCUnits,
+                        'Distribution': 'normal',
+                        'Preferences':  {'linestyle': 'b-'}},
+                    'Q': { 
+                        'Value': Q * units.ADCUnits,
+                        'Distribution': 'normal',
+                        'Preferences':  {'linestyle': 'g-'}}, 
+                    'I Std Dev': { 
+                        'Value': np.std(Is) * units.ADCUnits},
+                    'Q Std Dev': { 
+                        'Value': np.std(Qs) * units.ADCUnits},
+                    'Mean ADC Amplitude': { 
+                        'Value': np.mean(np.sqrt(Is**2 + Qs**2)) * units.ADCUnits,
+                        'Distribution': 'normal',
+                        'Preferences':  {'linestyle': 'r-'}},
+                    'Mean ADC Amplitude Std Dev': { 
+                        'Value': np.mean(np.sqrt(Is**2 + Qs**2)) * units.ADCUnits},
+                    'ADC Phases': { # numpy.arctan2(y, x) expects reversed arguments.
+                        'Value': np.arctan2(Qs, Is) * units.rad,
+                        'Dependencies': ['Rep Iteration'],
+                        'Preferences':  {'linestyle': 'k-'}},
+                    'Rep Iteration': {
+                        'Value': np.linspace(1, len(Is), len(Is)),
+                        'Type': 'Independent'},
+                    'Temperature': {
+                        'Value': self.acknowledge_request('Temperature')}
+                   }
+        elif self.boards.get_adc_setting('RunMode', adc) == 'average':
+            raise NotImplementedError("ADC mode 'average' is not " +
+                "supported for this specific experiment to avoid" +
+                "misinterpretation of the results.")
+
+    def average_data(self, data):
+        raise NotImplementedError("Proper averaging of multiple runs " +
+            "is not implemented for this specific experiment to avoid" +
+            "misinterpretation of the results.")

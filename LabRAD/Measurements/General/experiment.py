@@ -26,7 +26,7 @@ A basic experiment program would look something like this:
 import os
 import numpy as np
 
-import labrad.units as units
+from labrad.units import GHz
 
 import some_experiment
 
@@ -41,7 +41,7 @@ resources =  { # GPIB RF Generator.
                 'Interface': 'RF Generator',
                 'Server': 'GPIB RF Generators',
                 'Address': (os.environ['COMPUTERNAME'].lower() + 
-                            ' GPIB Bus - GPIB0::01::INSTR)',
+                            ' GPIB Bus - GPIB0::19::INSTR)',
                 'Variables': { 
                                 'Power': {'Setting': 'Power'}, 
                                 'Frequency': {'Setting': 'Frequency'}
@@ -49,13 +49,13 @@ resources =  { # GPIB RF Generator.
               },
 
 variables = {
-                'RF Frequency' : 10 * units.GHz,
+                'RF Frequency' : 10 * GHz,
                 'RF Power': 13 * dBm
             }
 
 with some_experiment.experiment() as expt:    
     expt.set_experiment(information, resources, variables) 
-    freq = np.linspace(2e9, 5e9, 101) * units.GHz
+    freq = np.linspace(2e9, 5e9, 101) * GHz
     expt.sweep('RF Frequency', freq, save=True)
 """
 
@@ -148,10 +148,11 @@ class Experiment(object):
                     'Device Address': 'address that could be used to
                         select a specific device',
                     'Variables': {
-                                    'Variable 1': 'server setting that 
-                                        controls Variable 1', 
-                                    'Variable 2': 'server setting that
-                                        controls Variable 2'
+                                    'Variable 1': {'Setting': 
+                                    'server_setting_that_controls_Variable_1',
+                                    'Value': some_default_value(optional)}, 
+                                    'Variable 2': {'Setting':
+                                    'server_setting_that_controls_Variable_2'}
                                  }
                 },
                 { # Waveform parameters.
@@ -185,20 +186,16 @@ class Experiment(object):
                                         'ADCDelay': 0 * ns,
                                         'Data': False
                                        },
-                'Variables': [
-                                'Init Time',
-                                'Bias Time', 
-                                'Measure Time',
-                                'Bias Voltage', 
-                                'Fast Pulse Time', 
-                                'Fast Pulse Amplitude', 
-                                'Fast Pulse Width',
-                                'ADC Time'
-                             ]
+                'Variables': {
+                                'Init Time': {},
+                                'Qubit SB Frequency': {'Value': 0 * MHz},
+                                'Qubit Amplitude': {'Value': 0 * DACUnits},
+                                'Qubit Time': {'Value': 0 * ns},
+                                'ADC Wait Time': {'Value': 0 * ns}
+                             }
                 },
                 { # GPIB RF Generator.
                     'Interface': 'GPIB RF Generator'
-                    'Server': 'GPIB RF Generators',
                     'Address': 'computer-name GPIB Bus - GPIB0::10:INSTR',
                     'Variables': {
                                     'Qubit Power': {'Setting': 'Power'}, 
@@ -321,21 +318,21 @@ class Experiment(object):
                     self._vars[var] = var_res.copy()
             elif isinstance(res['Variables'], dict):
                 for var, var_dict in res['Variables'].items():
+                    self._vars[var] = var_res.copy()
                     if isinstance(var_dict, dict):
                         for property in var_dict:
-                            var_res[property] = res['Variables'][var][property]
-                        self._vars[var] = var_res.copy()
+                            self._vars[var][property] = res['Variables'][var][property]
                     else:
                         raise ExperimentDefinitionError("Variable " +
                                 "properties in the resource dictionary " +
                                 str(res) + " should be specified " + 
-                                "as a dictionary.")
+                                "in a dictionary.")
             else:
-                raise ExperimentDefinitionError("Variables in the " +
-                    "resource dictionary " + str(res) +
-                    " should be specified as a list of strings, " + 
-                    "a dictionary, " + 
-                    "or as a string for a single variable.")
+                raise ExperimentDefinitionError("Variables in the" +
+                    " resource dictionary " + str(res) +
+                    " should be specified as a list of strings," + 
+                    " a dictionary," + 
+                    " or as a string for a single variable.")
 
             # Readings entered manually, software parameters.
             if res['Interface'] is None:
@@ -370,8 +367,7 @@ class Experiment(object):
         
         for var in variables:
             if var in self._vars:
-                self._vars[var]['Value'] = variables[var]
-                self._vars[var]['Save'] = True
+                self.value(var, variables[var], output=False)
             else:
                 print("Warning: variable '" + str(var) + 
                       "' is not found in the experiment variables. " +
@@ -446,7 +442,7 @@ class Experiment(object):
         
     def interface(self, var, res=None):
         """
-        Get the interface name responsible for a given variable.
+        Get the interface responsible for a given variable.
         
         Input:
             var: name of the experiment variable.
@@ -754,7 +750,7 @@ class Experiment(object):
         """
         Return variable units.
         
-        Input:
+        Inputs:
             v: value or name of the variable.
             brackets: boolean that specifies whether the variable units 
                 should be enclosed in brackets (default: False).
@@ -825,7 +821,7 @@ class Experiment(object):
         
         Input(s):
             val: value of a physical quantity or a unitless number.
-            brackets: boolean that specifies whether the variable units
+            brackets (optional): boolean that specifies whether the variable units
                 should be enclosed in brackets (default: False).
         Output:
             string: string representing the physical quantity or
@@ -874,17 +870,17 @@ class Experiment(object):
         dictionary. Useful if you want to run a single point experiment
         or over a few different values. 
         
-        Inputs:
+        Input(s):
             var: name of the variable key in the experiment variables
                 dictionary.
-            value: optional parameter. If not included, the function
-                returns value of an existing variable or None. 
-                Otherwise, the function sets variable to a value if 
-                the variable exists in among the experiment variables.
-                The method raises an exception if the variable is not
-                found.
+            value (optional): If value is None or omitted, the function
+                returns the value of variable var (default: None). 
+                Otherwise, the function sets variable to the specified
+                value if variable var could be found among the
+                experiment variables. The method raises an exception if
+                the variable is not found.
         Output:
-            value: value of the desired variable or None.
+            value: current value of the specified variable or None.
         """
         if value is None:
             if var in self._vars and 'Value' in self._vars[var]:
@@ -900,8 +896,8 @@ class Experiment(object):
                     (isinstance(value, units.Value) and not
                      value.isCompatible(units.Unit(self._vars[var]['Value'])))):
                     raise Exception("An attempt to change the variable '" +
-                            str(var) + "' type is detected. Check " +
-                            "the variable units.")
+                            str(var) + "' unit type is detected. Check " +
+                            "the value reassignments.")
             self._vars[var]['Value'] = value
             self._vars[var]['Save'] = True
             if output:
@@ -934,7 +930,7 @@ class Experiment(object):
         a specified number of times and the results of all runs will be
         averaged.
         
-        Inputs: 
+        Input: 
             runs: number of independent runs of the experiment.
         """
         self.add_var('Runs', runs)

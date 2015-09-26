@@ -454,6 +454,30 @@ class GHzFPGABoards(object):
         """
         self.load(dac_srams, dac_mems)
         return self.run(reps)
+        
+    def init_mem_lists(self):
+        """
+        Initialize memory command lists. The output is a list with the
+        length that corresponds to the number of DAC boards. Each list
+        item is a list on its own that should be populated with the
+        memory commands corresponding to the board. The memory command
+        format is described in
+        Servers.Instruments.GHzBoards.command_sequences.
+        
+        Input:
+            None.
+        Output:
+            mem_lists: list of memory command lists.
+        """
+        mem_lists = [[] for dac in self.dacs]
+        for idx, settings in enumerate(self.dac_settings):
+            if 'FO1 FastBias Firmware Version' in settings:
+                mem_lists[idx].append({'Type': 'Firmware', 'Channel': 1, 
+                              'Version': settings['FO1 FastBias Firmware Version']})
+            if 'FO2 FastBias Firmware Version' in settings:
+                mem_lists[idx].append({'Type': 'Firmware', 'Channel': 2, 
+                              'Version': settings['FO2 FastBias Firmware Version']})
+        return mem_lists
                    
 
 class BasicInterface(object):
@@ -544,7 +568,7 @@ class GPIBInterface(BasicInterface):
             if self._res['Address'] in devices:
                 self.address = self._res['Address']
             else:
-                raise resourceDefinitionError("Device with address '" +
+                raise ResourceDefinitionError("Device with address '" +
                     str(self._res['Address']) + "' is not found.")
         elif len(devices) == 1:
             self.address = devices[0][0]
@@ -571,10 +595,7 @@ class GPIBInterface(BasicInterface):
             if not self._single_device:
                 p.select_device(self.address)
             if self._setting is not None:
-                if value is None:
-                    p[self._setting]()
-                else:
-                    p[self._setting](value)
+                p[self._setting](value)
             self._result = p.send(wait=False)
             self._request_sent = True
         else:
@@ -586,7 +607,6 @@ class RFGenerator(GPIBInterface):
     """
     GPIB RF generator simplified interface.
     """
-        
     @inlineCallbacks
     def __exit__(self, type, value, traceback):
         """Turn the RF generator off and deselect it."""
@@ -631,15 +651,16 @@ class RFGenerator(GPIBInterface):
     def send_request(self, value):
         """Send a request to set a setting."""
         if self._initialized:
-            p = self.server.packet()
-            if not self._single_device:
-                p.select_device(self.address)
-            p[self._setting](value)
-            if not self._output_set:
-                p.output(True)
-                self._output_set = True
-            self._result = p.send(wait=False)
-            self._request_sent = True
+            if value is not None:
+                p = self.server.packet()
+                if not self._single_device:
+                    p.select_device(self.address)
+                p[self._setting](value)
+                if not self._output_set:
+                    p.output(True)
+                    self._output_set = True
+                self._result = p.send(wait=False)
+                self._request_sent = True
         else:
             raise ResourceDefinitionError("Resource " +
                     str(self._res) + " is not properly initialized.")
@@ -679,15 +700,16 @@ class SIM928VoltageSource(GPIBInterface):
     def send_request(self, voltage):
         """Send a request to set the output voltage."""
         if self._initialized:
-            p = self.server.packet()
-            if not self._single_device:
-                p.select_device(self.address)
-            p.voltage(voltage)
-            if not self._output_set:
-                p.output(True)
-                self._output_set = True
-            self._result = p.send(wait=False)
-            self._request_sent = True
+            if voltage is not None:
+                p = self.server.packet()
+                if not self._single_device:
+                    p.select_device(self.address)
+                p.voltage(voltage)
+                if not self._output_set:
+                    p.output(True)
+                    self._output_set = True
+                self._result = p.send(wait=False)
+                self._request_sent = True
         else:
             raise ResourceDefinitionError("Resource " +
                     str(self._res) + " is not properly initialized.")
@@ -746,16 +768,17 @@ class LabBrickAttenuator(BasicInterface):
     def send_request(self, attenuation):
         """Send a request to set the attenuation."""
         if self._initialized:
-            p = self.server.packet()
-            if not self._single_device:
-                p.select_attenuator(self.address)
-            self._result = p.attenuation(attenuation).send(wait=False)
-            self._request_sent = True
+            if attenuation is not None:
+                p = self.server.packet()
+                if not self._single_device:
+                    p.select_attenuator(self.address)
+                self._result = p.attenuation(attenuation).send(wait=False)
+                self._request_sent = True
         else:
             raise ResourceDefinitionError("Resource " +
                     str(self._res) + " is not properly initialized.")
 
-            
+
 class ADR3(BasicInterface):
     """
     ADR3 simplified interface for temperature monitoring.
@@ -804,7 +827,8 @@ class ADR3(BasicInterface):
             self._request_sent = False
             temperatures = self._result.wait()[self._setting]
             return temperatures[self._temp_idx]
-            
+
+
 class Leiden(BasicInterface):
     """
     Leiden simplified interface for temperature monitoring.
