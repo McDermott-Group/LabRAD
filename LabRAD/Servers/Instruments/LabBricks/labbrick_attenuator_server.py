@@ -98,14 +98,14 @@ class LBAttenuatorServer(LabradServer):
         if self.autoRefresh:
             callLater(0.1, self.startRefreshing)
         else:
-            yield self.refreshAttenuators()
+            self.refreshAttenuators()
 
     def startRefreshing(self):
         """Start periodically refreshing the list of devices.
 
         The start call returns a deferred which we save for later.
         When the refresh loop is shutdown, we will wait for this
-        deferred to fire to indicate that it has terminated.
+        deferred to fire to indicate that it has termin_attnted.
         """
         self.refresher = LoopingCall(self.refreshAttenuators)
         self.refresherDone = self.refresher.start(self.refreshInterval, now=True)
@@ -165,7 +165,7 @@ class LBAttenuatorServer(LabradServer):
     @setting(1, 'Refresh Device List')
     def refresh_device_list(self, c):
         '''Manually refresh attenuator list.'''
-        yield self.refreshAttenuators()
+        self.refreshAttenuators
         
     @setting(2, 'List Devices', returns='*w')
     def list_devices(self, c):
@@ -197,11 +197,12 @@ class LBAttenuatorServer(LabradServer):
 
         DID = ctypes.c_uint(SN)
         yield self.VNXdll.fnLDA_InitDevice(DID)
-        if atten is not None:
+        if atten is None:
+            atten = 0.25 * (yield self.VNXdll.fnLDA_GetAttenuation(DID)) * dB
+        else:
             yield self.VNXdll.fnLDA_SetAttenuation(DID, ctypes.c_int(int(4. * atten['dB'])))
-        atten = 0.25 * (yield self.VNXdll.fnLDA_GetAttenuation(DID)) * dB
-        yield self.VNXdll.fnLDA_CloseDevice(DID)
         self.LastAttenuation[c['SN']] = atten
+        yield self.VNXdll.fnLDA_CloseDevice(DID)
         returnValue(atten)
         
     @setting(21, 'Max Attenuation', returns='v[dB]')
