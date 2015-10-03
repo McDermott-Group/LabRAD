@@ -112,7 +112,7 @@ class GHzFPGABoards(object):
                     elif not isinstance(settings[ch], str):
                         raise ResourceDefinitionError("Board '" +
                                 board + "' '" + ch + "' setting" +
-                                " should either be specified either as " + 
+                                " should be specified either as " + 
                                 " a string or be of a None type.")
                 self.dac_settings.append(settings)
                 if 'Data' in settings and settings['Data']:
@@ -134,11 +134,11 @@ class GHzFPGABoards(object):
         if len(self.dacs) != len(set(self.dacs)):
             raise ExperimentDefinitionError("All DAC boards must have" +
             " unique names in the resource dictionary. The following" + 
-            " DAC boards are given: ", + str(dacs) + ".")
+            " DAC boards are given: " + str(dacs) + ".")
         if len(self.adcs) != len(set(self.adcs)):
             raise ExperimentDefinitionError("All ADC boards must have" +
             " unique names in the resource dictionary. The following" +
-            " ADC boards are given: ", + str(self.adcs) + ".")
+            " ADC boards are given: " + str(self.adcs) + ".")
 
         # Check that the boards are listed on the GHz FPGA server.
         p = self.server.packet()
@@ -184,6 +184,18 @@ class GHzFPGABoards(object):
                 preamp_timeout = 1253
             self.consts['PREAMP_TIMEOUT'] = (preamp_timeout *
                     units.PreAmpTimeCounts)
+        try:
+            dac_zero_pad_len = yield cxn.registry.get('DAC_ZERO_PAD_LEN')
+        except:
+            print("'DAC_ZERO_PAD_LEN' key is not found in the " +
+                    "LabRAD Registry. It will be set to 10 ns.")
+            dac_zero_pad_len = 10
+        self.consts['DAC_ZERO_PAD_LEN'] = dac_zero_pad_len * units.ns
+        
+        # Create a list that contains all requested/used waveforms.
+        self.requested_waveforms = [settings[ch] for settings in
+                self.dac_settings for ch in ['DAC A', 'DAC B']]
+                   
 
     def process_waveforms(self, waveforms):
         """
@@ -478,7 +490,7 @@ class GHzFPGABoards(object):
                 mem_lists[idx].append({'Type': 'Firmware', 'Channel': 2, 
                               'Version': settings['FO2 FastBias Firmware Version']})
         return mem_lists
-                   
+
 
 class BasicInterface(object):
     """

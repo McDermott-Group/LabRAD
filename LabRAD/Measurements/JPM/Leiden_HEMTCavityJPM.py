@@ -118,8 +118,6 @@ with hemt_qubit_experiments.HEMTCavityJPM() as run:
     
     run.set_experiment(ExptInfo, Resources, ExptVars)
 
-    run.run_once(plot_waveforms=True)
-    
     run.single_shot_iqs(save=False, plot_data=True)
     # run.single_shot_osc(save=False, plot_data=['I', 'Q'])
     # run.avg_osc(save=True, plot_data=['I', 'Q'], runs=250)

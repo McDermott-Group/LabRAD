@@ -56,6 +56,13 @@ def outcomes_from_array(t, threshold):
     threshold_vectorized = np.vectorize(_threshold)
 
     return threshold_vectorized(t)
+    
+def corr_coef_from_outcomes(outcomes):
+    """
+    Compute correrlation coefficient from an array of switching
+    outcomes.
+    """
+    return np.corrcoef(outcomes[0, :], outcomes[1, :])[0, 1]
 
 def software_demod(t, freq, Is, Qs):
     """

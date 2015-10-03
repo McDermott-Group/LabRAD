@@ -1,6 +1,24 @@
 #import pulse_shapes as pulse
 import numpy as np
 
+#######################################################################
+############## HOW TO USE WAVEFORM CLASS ##############################
+#
+# import path.to.wavepulse as wp
+# import path.to.waveform as wf
+#
+# r = wp.WavePulse("block", 0 ,3, 2, 10, None)
+# s = wp.WavePulse("sine", 0, 10, 0.25, None, 10)
+# w = wf.WaveForm(r,s, ...) #as many as you want
+#
+# w.getArr() gives you the array that you need
+# r.start, r.end and r.duration return exactly what you think
+#
+# wavepulses are declared with (type, start, amplitude, frequency, end=None, duration=None)
+# where type is either "block", "sine", "cosine", or "gauss"
+#######################################################################
+#######################################################################
+
 class WavePulse ():
     def __init__(self, type, start, amplitude, frequency, end=None, duration=None):
         #type either block, sine, cosine or gauss

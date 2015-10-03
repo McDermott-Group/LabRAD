@@ -35,8 +35,6 @@ import LabRAD.Measurements.General.pulse_shapes as pulse
 import LabRAD.Servers.Instruments.GHzBoards.command_sequences as seq
 import data_processing as dp
 
-DAC_ZERO_PAD_LEN = 10
-
 
 class JPMExperiment(expt.Experiment):
     def _plot_histogram(self, data, number_of_devices=1, 
@@ -109,8 +107,8 @@ class JPMQubitReadout(JPMExperiment):
                 self.send_request('Qubit Frequency')
     
         #RF DRIVE (READOUT) VARIABLES##############################################################
-        self.send_request('Readout Attenuation')                    # readout attenuation
-        self.send_request('Readout Power')                          # readout power
+        self.send_request('Readout Attenuation')                        # readout attenuation
+        self.send_request('Readout Power')                              # readout power
         if self.value('Readout Frequency') is not None:
             if self.value('Readout SB Frequency') is not None:          # readout frequency
                 self.send_request('Readout Frequency',
@@ -121,10 +119,7 @@ class JPMQubitReadout(JPMExperiment):
 
         #DC BIAS VARIABLES#########################################################################
         self.send_request('Qubit Flux Bias Voltage')
-        
-        ###EXPERIMENT VARIABLES USED BY PERMANENTLY PRESENT DEVICES################################
-        # Experiment variables that used by DC Rack, DAC and ADC boards should be defined here.
-           
+
         #CAVITY DRIVE (READOUT) VARIABLES##########################################################
         RO_SB_freq = self.value('Readout SB Frequency')['GHz']          # readout sideband frequency
         RO_amp = self.value('Readout Amplitude')['DACUnits']            # amplitude of the sideband modulation
@@ -153,14 +148,13 @@ class JPMQubitReadout(JPMExperiment):
         DtoFP = self.value('Displacement to Fast Pulse')['ns']          # delay between the end of the displacement pulse and the start of the fast pulse
 
         ###WAVEFORMS###############################################################################
-        requested_waveforms = [settings[ch] for settings in
-                self.boards.dac_settings for ch in ['DAC A', 'DAC B']]
-
+        DAC_ZERO_PAD_LEN = self.boards.consts['DAC_ZERO_PAD_LEN']['ns']
+        
         JPM_smoothed_FP = pulse.GaussPulse(JPM_FPT, JPM_FPW, JPM_FPA)
         FPtoEnd = max(0, DtoFP + JPM_smoothed_FP.size) + DAC_ZERO_PAD_LEN
         
         waveforms = {}
-        if 'None' in requested_waveforms:
+        if 'None' in self.boards.requested_waveforms:
             waveforms['None'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN + QB_time + QBtoRO + RO_time + ROtoD + Disp_time + FPtoEnd, 0)])
         
         if 'JPM Fast Pulse' in requested_waveforms:
@@ -168,24 +162,24 @@ class JPMQubitReadout(JPMExperiment):
                                                      JPM_smoothed_FP,
                                                      pulse.DC(max(0, -DtoFP - JPM_smoothed_FP.size) + DAC_ZERO_PAD_LEN, 0)])      
 
-        if 'Qubit I' in requested_waveforms: 
+        if 'Qubit I' in self.boards.requested_waveforms: 
             waveforms['Qubit I'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN, 0),
                                               pulse.CosinePulse(QB_time, QB_SB_freq, QB_amp, 0.0, 0.0),
                                               pulse.DC(QBtoRO + RO_time + ROtoD + Disp_time + FPtoEnd, 0)])
 
-        if 'Qubit Q' in requested_waveforms: 
+        if 'Qubit Q' in self.boards.requested_waveforms: 
             waveforms['Qubit Q'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN, 0),
                                               pulse.SinePulse(QB_time, QB_SB_freq, QB_amp, 0.0, 0.0),
                                               pulse.DC(QBtoRO + RO_time + ROtoD + Disp_time + FPtoEnd, 0)])
 
-        if 'Readout I' in requested_waveforms:
+        if 'Readout I' in self.boards.requested_waveforms:
             waveforms['Readout I'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN + QB_time + QBtoRO, 0),
                                                 pulse.CosinePulse(RO_time, RO_SB_freq, RO_amp, RO_phase, 0),
                                                 pulse.CosinePulse(ROtoD, RO_SB_freq, ROtoD_offset, ROtoD * RO_SB_freq + RO_phase, 0),
                                                 pulse.CosinePulse(Disp_time, RO_SB_freq, Disp_amp, (RO_time + ROtoD) * RO_SB_freq + Disp_phase, 0),
                                                 pulse.DC(FPtoEnd, 0)])
 
-        if 'Readout Q' in requested_waveforms:
+        if 'Readout Q' in self.boards.requested_waveforms:
             waveforms['Readout Q'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN + QB_time + QBtoRO, 0),
                                                 pulse.SinePulse(RO_time, RO_SB_freq, RO_amp, RO_phase, 0),
                                                 pulse.SinePulse(ROtoD, RO_SB_freq, ROtoD_offset, ROtoD * RO_SB_freq + RO_phase, 0),
@@ -196,8 +190,8 @@ class JPMQubitReadout(JPMExperiment):
         dac_srams, sram_length, sram_delay = self.boards.process_waveforms(waveforms)
 
         if plot_waveforms:
-            self._plot_waveforms([waveforms[wf] for wf in requested_waveforms],
-                    ['r', 'g', 'b', 'k'], requested_waveforms)
+            self._plot_waveforms([waveforms[wf] for wf in self.boards.requested_waveforms],
+                    ['r', 'g', 'b', 'k'], self.boards.requested_waveforms)
         
         # Create a memory command list.
         # The format is described in Servers.Instruments.GHzBoards.command_sequences.

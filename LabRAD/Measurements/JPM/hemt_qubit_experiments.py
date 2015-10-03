@@ -36,8 +36,6 @@ import LabRAD.Measurements.General.pulse_shapes as pulse
 import LabRAD.Servers.Instruments.GHzBoards.command_sequences as seq
 import data_processing
 
-DAC_ZERO_PAD_LEN = 10
-
 
 class HEMTExperiment(expt.Experiment):        
     def single_shot_iqs(self, adc=None, save=False, plot_data=None):
@@ -186,10 +184,10 @@ class HEMTQubitReadout(HEMTExperiment):
     """
     def run_once(self, adc=None, plot_waveforms=False):
         #QUBIT VARIABLES###########################################################################
-        self.send_request('Qubit Attenuation')                          # Qubit attenuation
-        self.send_request('Qubit Power')                                # Qubit power
+        self.send_request('Qubit Attenuation')                          # qubit attenuation
+        self.send_request('Qubit Power')                                # qubit power
         if self.value('Qubit Frequency') is not None:
-            if self.value('Qubit SB Frequency') is not None:            # Qubit frequency
+            if self.value('Qubit SB Frequency') is not None:            # qubit frequency
                 self.send_request('Qubit Frequency',
                         value=self.value('Qubit Frequency') + 
                               self.value('Qubit SB Frequency'))
@@ -197,10 +195,10 @@ class HEMTQubitReadout(HEMTExperiment):
                 self.send_request('Qubit Frequency')
     
         #RF DRIVE (READOUT) VARIABLES##############################################################
-        self.send_request('Readout Attenuation')                        # Readout attenuation
-        self.send_request('Readout Power')                              # Readout power
+        self.send_request('Readout Attenuation')                        # readout attenuation
+        self.send_request('Readout Power')                              # readout power
         if self.value('Readout Frequency') is not None:
-            if self.value('Readout SB Frequency') is not None:          # Readout frequency
+            if self.value('Readout SB Frequency') is not None:          # readout frequency
                 self.send_request('Readout Frequency',
                         value=self.value('Readout Frequency') + 
                               self.value('Readout SB Frequency'))
@@ -209,9 +207,6 @@ class HEMTQubitReadout(HEMTExperiment):
 
         #DC BIAS VARIABLES#########################################################################
         self.send_request('Qubit Flux Bias Voltage')
-          
-        ###EXPERIMENT VARIABLES USED BY PERMANENTLY PRESENT DEVICES################################
-        # Experiment variables that used by DC Rack, DAC and ADC boards should be defined here.
 
         #CAVITY DRIVE (READOUT) VARIABLES##########################################################
         RO_SB_freq = self.value('Readout SB Frequency')['GHz']       # readout sideband frequency
@@ -228,29 +223,28 @@ class HEMTQubitReadout(HEMTExperiment):
         ADC_wait_time = self.value('ADC Wait Time')['ns']            # delay from the start of the readout pulse to the start of the demodulation
         
         ###WAVEFORMS###############################################################################
-        requested_waveforms = [settings[ch] for settings in
-                self.boards.dac_settings for ch in ['DAC A', 'DAC B']]
+        DAC_ZERO_PAD_LEN = self.boards.consts['DAC_ZERO_PAD_LEN']['ns']
 
         waveforms = {}
-        if 'None' in requested_waveforms:
+        if 'None' in self.boards.requested_waveforms:
             waveforms['None'] = np.hstack([pulse.DC(2 * DAC_ZERO_PAD_LEN + QB_time + QBtoRO + RO_time, 0)])
         
-        if 'Readout I' in requested_waveforms:
+        if 'Readout I' in self.boards.requested_waveforms:
             waveforms['Readout I'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN + QB_time + QBtoRO, 0),
                                                 pulse.CosinePulse(RO_time, RO_SB_freq, RO_amp, 0.0, 0.0),
                                                 pulse.DC(DAC_ZERO_PAD_LEN, 0)])
 
-        if 'Readout Q' in requested_waveforms:
+        if 'Readout Q' in self.boards.requested_waveforms:
             waveforms['Readout Q'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN + QB_time + QBtoRO, 0),
                                                 pulse.SinePulse(RO_time, RO_SB_freq, RO_amp, 0.0, 0.0),
                                                 pulse.DC(DAC_ZERO_PAD_LEN, 0)])
  
-        if 'Qubit I' in requested_waveforms:            
+        if 'Qubit I' in self.boards.requested_waveforms:            
             waveforms['Qubit I'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN, 0),
                                               pulse.CosinePulse(QB_time, QB_SB_freq, QB_amp, 0.0, 0.0),
                                               pulse.DC(QBtoRO + RO_time + DAC_ZERO_PAD_LEN, 0)])
 
-        if 'Qubit Q' in requested_waveforms:        
+        if 'Qubit Q' in self.boards.requested_waveforms:        
             waveforms['Qubit Q'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN, 0),
                                               pulse.SinePulse(QB_time, QB_SB_freq, QB_amp, 0.0, 0.0),
                                               pulse.DC(QBtoRO + RO_time + DAC_ZERO_PAD_LEN, 0)])
@@ -258,8 +252,8 @@ class HEMTQubitReadout(HEMTExperiment):
         dac_srams, sram_length, sram_delay = self.boards.process_waveforms(waveforms)
 
         if plot_waveforms:
-            self._plot_waveforms([waveforms[wf] for wf in requested_waveforms],
-                    ['r', 'g', 'b', 'k'], requested_waveforms)
+            self._plot_waveforms([waveforms[wf] for wf in self.boards.requested_waveforms],
+                    ['r', 'g', 'b', 'k'], self.boards.requested_waveforms)
 
         ###SET BOARDS PROPERLY#####################################################################
         demod_freq = -self.value('Readout SB Frequency')
@@ -381,7 +375,7 @@ class HEMTQubitReadout(HEMTExperiment):
 
 class HEMTCavityJPM(HEMTExperiment):
     """
-    Probe a resonator driven by switching JPM with a HEMT.
+    Probe a resonator that is driven by a switching JPM with a HEMT.
     """
     def run_once(self, adc=None, plot_waveforms=False):
         #RF DRIVE (READOUT) VARIABLES##############################################################
@@ -397,12 +391,9 @@ class HEMTCavityJPM(HEMTExperiment):
 
         #DC BIAS VARIABLES#########################################################################
         self.send_request('Qubit Flux Bias Voltage')
-          
-        ###EXPERIMENT VARIABLES USED BY PERMANENTLY PRESENT DEVICES################################
-        # Experiment variables that used by DC Rack, DAC and ADC boards should be defined here.
 
         #RF VARIABLES##############################################################################
-        ADC_wait_time = self.value('ADC Wait Time')['ns']       # delay from the start of the fast pulse to the start of the demodulation
+        ADC_wait_time = self.value('ADC Wait Time')['ns']               # delay from the start of the fast pulse to the start of the demodulation
         
         #JPM VARIABLES#############################################################################
         JPM_FPT = self.value('Fast Pulse Time')['ns']                   # length of the DAC pulse
@@ -410,25 +401,24 @@ class HEMTCavityJPM(HEMTExperiment):
         JPM_FPW = self.value('Fast Pulse Width')['ns']                  # DAC pulse rise time 
         
         ###WAVEFORMS###############################################################################
-        requested_waveforms = [settings[ch] for settings in
-                self.boards.dac_settings for ch in ['DAC A', 'DAC B']]
-
+        DAC_ZERO_PAD_LEN = self.boards.consts['DAC_ZERO_PAD_LEN']['ns']
+        
         JPM_smoothed_FP = pulse.GaussPulse(JPM_FPT, JPM_FPW, JPM_FPA)
                 
         waveforms = {}
-        if 'JPM Fast Pulse' in requested_waveforms:
+        if 'JPM Fast Pulse' in self.boards.requested_waveforms:
             waveforms['JPM Fast Pulse'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN, 0),
                                                      JPM_smoothed_FP,
                                                      pulse.DC(DAC_ZERO_PAD_LEN, 0)])
 
-        if 'None' in requested_waveforms:
+        if 'None' in self.boards.requested_waveforms:
             waveforms['None'] = np.hstack([pulse.DC(2 * DAC_ZERO_PAD_LEN + JPM_smoothed_FP.size, 0)])
 
         dac_srams, sram_length, sram_delay = self.boards.process_waveforms(waveforms)
 
         if plot_waveforms:
-            self._plot_waveforms([waveforms[wf] for wf in requested_waveforms],
-                    ['r', 'g', 'b', 'k'], requested_waveforms)
+            self._plot_waveforms([waveforms[wf] for wf in self.boards.requested_waveforms],
+                    ['r', 'g', 'b', 'k'], self.boards.requested_waveforms)
 
         ###SET BOARDS PROPERLY#####################################################################
         self.boards.set_adc_setting('ADCDelay', (DAC_ZERO_PAD_LEN +
@@ -493,7 +483,7 @@ class HEMTCavityJPM(HEMTExperiment):
                         'Distribution': 'normal',
                         'Preferences':  {'linestyle': 'r-'}},
                     'Mean ADC Amplitude Std Dev': { 
-                        'Value': np.mean(np.sqrt(Is**2 + Qs**2)) * units.ADCUnits},
+                        'Value': np.std(np.sqrt(Is**2 + Qs**2)) * units.ADCUnits},
                     'ADC Phases': { # numpy.arctan2(y, x) expects reversed arguments.
                         'Value': np.arctan2(Qs, Is) * units.rad,
                         'Dependencies': ['Rep Iteration'],

@@ -38,16 +38,12 @@ DAC_ZERO_PAD_LEN = 10
 
 class FIM(expt.Experiment):
     """
-    Test.
+    Test experiment.
     """
     def run_once(self):
-        requested_waveforms = [settings[ch] for settings in
-                self.boards.dac_settings for ch in ['DAC A', 'DAC B']]
-
         waveforms = {}
-        if 'None' in requested_waveforms:
-            waveforms['None'] = np.hstack([pulse.DC(2 * DAC_ZERO_PAD_LEN, 0)])
-
+        if 'None' in self.boards.requested_waveforms:
+            waveforms['None'] = np.hstack([pulse.DC(2 * self.boards.consts['DAC_ZERO_PAD_LEN']['ns'], 0)])
         dac_srams, sram_length, sram_delay = self.boards.process_waveforms(waveforms)
         
         # Create a memory command list.

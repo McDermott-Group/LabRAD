@@ -35,24 +35,6 @@ M = float(10**6)
 DAC_ZERO_PAD_LEN = 20
 PREAMP_TIMEOUT = 1253
 
-#######################################################################
-############## HOW TO USE WAVEFORM CLASS ##############################
-#
-# import path.to.wavepulse as wp
-# import path.to.waveform as wf
-#
-# r = wp.WavePulse("block", 0 ,3, 2, 10, None)
-# s = wp.WavePulse("sine", 0, 10, 0.25, None, 10)
-# w = wf.WaveForm(r,s, ...) #as many as you want
-#
-# w.getArr() gives you the array that you need
-# r.start, r.end and r.duration return exactly what you think
-#
-# wavepulses are declared with (type, start, amplitude, frequency, end=None, duration=None)
-# where type is either "block", "sine", "cosine", or "gauss"
-#######################################################################
-#######################################################################
-
 
 class JPMTwoPhotonExpt(expt.Experiment):
     """
