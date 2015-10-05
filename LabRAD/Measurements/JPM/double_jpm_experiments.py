@@ -43,7 +43,11 @@ class DoubleJPMCorrelation(JPMExperiment):
     """
     def run_once(self, histogram=False, plot_waveforms=False):
         #DC BIAS VARIABLES#########################################################################
-        self.send_request('DC Bias Voltage')
+        if (self.value('DC Bias Voltage') is not None and
+            abs(self.value('DC Bias Voltage')['mV']) <= 30):
+            self.send_request('DC Bias Voltage')
+        else:
+            raise Exception("'DC Bias Voltage' should not exceed 30 mV.")
 
         #RF VARIABLES##############################################################################
         self.send_request('RF Attenuation')                             # RF attenuation
@@ -55,10 +59,7 @@ class DoubleJPMCorrelation(JPMExperiment):
                               self.value('RF SB Frequency'))
             else:
                 self.send_request('RF Frequency')
-        
-        ###EXPERIMENT VARIABLES USED BY PERMANENTLY PRESENT DEVICES################################
-        # Experiment variables that used by DC Rack, DAC and ADC boards should be defined here.
-           
+ 
         #RF DRIVE VARIABLES########################################################################
         RF_SB_freq = self.value('RF SB Frequency')['GHz']               # readout sideband frequency
         RF_amp = self.value('RF Amplitude')['DACUnits']                 # amplitude of the sideband modulation

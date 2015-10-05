@@ -1,4 +1,5 @@
 import numpy as np
+import warnings
     
 def mean_time_from_array(t, threshold):
     """
@@ -62,7 +63,9 @@ def corr_coef_from_outcomes(outcomes):
     Compute correrlation coefficient from an array of switching
     outcomes.
     """
-    return np.corrcoef(outcomes[0, :], outcomes[1, :])[0, 1]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return np.corrcoef(outcomes[0, :], outcomes[1, :])[0, 1]
 
 def software_demod(t, freq, Is, Qs):
     """
