@@ -65,6 +65,7 @@ def mem_from_list(memList):
                 
         elif memOp['Type'] in ['Bias', 'BiasThenWait']:
             if 'Mode' in memOp:
+                FastBiasDACMode[memOp['Channel']] = memOp['Mode']
                 mem = Mem.AppendMemSetVoltage(mem, memOp['Voltage'], 
                         memOp['Mode'], memOp['Channel'],
                         FastBiasFirmware[memOp['Channel']])

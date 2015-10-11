@@ -27,6 +27,7 @@ if LABRAD_PATH not in sys.path:
     sys.path.append(LABRAD_PATH)
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 import labrad.units as units
 
@@ -38,7 +39,7 @@ import data_processing as dp
 
 class JPMExperiment(expt.Experiment):
     def _plot_histogram(self, data, number_of_devices=1, 
-            pream_timeout=1253):
+            preamp_timeout=1253):
         if number_of_devices == 0:
             return
         data = np.array(data)
@@ -46,19 +47,20 @@ class JPMExperiment(expt.Experiment):
         plt.ion()
         plt.clf()
         if number_of_devices == 1: 
-            plt.hist(data[0, :], bins=500, range=(0, pream_timeout),
+            plt.hist(data[0,:], bins=preamp_timeout, range=(1, preamp_timeout-1),
                 color='b')
         elif number_of_devices == 2:
-            plt.hist(data[0, :], bins=500, range=(0, pream_timeout),
-                color='b', label='JPM A')
-            plt.hist(data[1, :], bins=500, range=(0, pream_timeout),
-                color='r', label='JPM B')
+            plt.hist(data[0,:], bins=preamp_timeout, range=(1, preamp_timeout-1),
+                color='r', label='JPM A')
+            plt.hist(data[1,:], bins=preamp_timeout, range=(1, preamp_timeout-1),
+                color='b', label='JPM B')
             plt.legend()
         elif number_of_devices > 2:
             raise Exception('Histogram plotting for more than two ' +
             'devices is not implemented.')
-        plt.xlabel('Timing Information [counts]')
+        plt.xlabel('Timing Information [PreAmpTimeCounts]')
         plt.ylabel('Counts')
+        plt.xlim(0, preamp_timeout) 
         plt.draw()
 
 
@@ -239,17 +241,20 @@ class JPMQubitReadout(JPMExperiment):
         ###EXTRA EXPERIMENT PARAMETERS TO SAVE#####################################################
         self.add_var('Actual Reps', len(P[0]))
         
+        preamp_timeout = self.value('Preamp Timeout')['PreAmpTimeCounts']
+        threshold = self.value('Threshold')['PreAmpTimeCounts']
+        
         ###DATA POST-PROCESSING####################################################################
         if histogram:
             self._plot_histogram(P, 1)
 
-        preamp_timeout = self.boards.consts['PREAMP_TIMEOUT']
-        t_mean, t_std = dp.mean_time_from_array(P, preamp_timeout)
+        P = np.array(P)
+        t_mean, t_std = dp.mean_time(P, 0, preamp_timeout)
 
         ###DATA STRUCTURE##########################################################################
         return {
                 'Switching Probability': {
-                    'Value': dp.prob_from_array(P, self.value('Threshold')),
+                    'Value': dp.prob(P, 0, max_threshold),
                     'Distribution': 'binomial',
                     'Preferences':  {
                         'linestyle': 'b-',

@@ -18,13 +18,13 @@ Resources = [   {
                           ],
                 'Leiden Board DAC 3':  {
                                         'DAC A': 'JPM A Fast Pulse',
-                                        'DAC B': 'None',
+                                        'DAC B': 'JPM B Fast Pulse',
                                         'FO1 FastBias Firmware Version': '2.1',
                                         'FO2 FastBias Firmware Version': '2.1',
                                         'Data': True
                                        },
                 'Leiden Board DAC 4': {
-                                        'DAC A': 'JPM B Fast Pulse',
+                                        'DAC A': 'None',
                                         'DAC B': 'None',
                                         'Data': True
                                        },
@@ -74,7 +74,9 @@ Resources = [   {
                     'Interface': None,
                     'Variables': ['Reps',
                                   'Actual Reps',
-                                  'Threshold'],
+                                  'Min Threshold',
+                                  'Max Threshold',
+                                  'Preamp Timeout'],
                 }
             ]
 
@@ -83,16 +85,15 @@ ExptInfo = {
             'Device Name': 'NIST040115-1 = 051215A-E11+E10',
             'User': 'Ivan Pechenezhskiy',
             'Base Path': 'Z:\mcdermott-group\Data\Matched JPM Photon Counting\Leiden DR 2015-10-02 - Cross-Correlation',
-            'Experiment Name': 'FPA1D',
+            'Experiment Name': 'FPDelay1D',
             'Comments': '051215A-E11 = JPM A, DAC 3 A+; 051215A-E10 = JPM B, DAC 3 B+. Both JPM A and JPM B inputs are connected to a tunnel junction via a bias-T, a circulator and a splitter. FastBias cards in Fine mode. DC lines terminated with 50/0 Ohm. DB-25 E & D filters on top of the fridge. 50 Ohm terminations on unused RF lines. Oscilloscope connected.' 
            }
-# PA2: 10, 22, 33700, FB15
-# PA5: 10, 22, 33890, FB17 
+# PA2: 10, 22, 33700, FB15, 33, 22, 33650
+# PA5: 10, 22, 33890, FB17, 33, 22, 34230
 
-           
 # Experiment Variables
 ExptVars = {
-            'Reps': 55000, # should not exceed ~50,000
+            'Reps': 3000, # should not exceed ~50,000
 
             'RF Frequency': 20 * GHz, #3.54 * GHz,
             'RF Power': -110 * dBm,
@@ -104,17 +105,17 @@ ExptVars = {
             'DC Bias Voltage': 0 * mV,
 
             'Init Time': 500 * us,
-            'Bias Time': 100 * us,
-            'Measure Time': 50 * us,
+            'Bias Time': 150 * us,
+            'Measure Time': 20 * us,
           
-            'JPM A Bias Voltage': .180 * V,
-            'JPM A Fast Pulse Time': 10 * ns,
-            'JPM A Fast Pulse Amplitude': .8468 * DACUnits,
+            'JPM A Bias Voltage': .298 * V,
+            'JPM A Fast Pulse Time': 3 * ns,
+            'JPM A Fast Pulse Amplitude': .5 * DACUnits,
             'JPM A Fast Pulse Width': 0 * ns,
             
-            'JPM B Bias Voltage': .181 * V,
-            'JPM B Fast Pulse Time': 10 * ns,
-            'JPM B Fast Pulse Amplitude': .8724 * DACUnits,
+            'JPM B Bias Voltage': .191 * V,
+            'JPM B Fast Pulse Time': 3 * ns,
+            'JPM B Fast Pulse Amplitude': .5 * DACUnits,
             'JPM B Fast Pulse Width': 0 * ns,
 
             # Both JPM A and JPM B fast pulses should appear within
@@ -124,25 +125,30 @@ ExptVars = {
             'RF to JPM A Fast Pulse Delay': 5500 * ns,
             'JPM A to JPM B Fast Pulse Delay': 0 * ns,
           
-            'Threshold': 100 * PreAmpTimeCounts,
+            'Preamp Timeout': 503 * PreAmpTimeCounts,
+            'Min Threshold': 0 * PreAmpTimeCounts,
+            'Max Threshold': 503 * PreAmpTimeCounts,
            }
 
 with double_jpm_experiments.DoubleJPMCorrelation() as run:
     run.set_experiment(ExptInfo, Resources, ExptVars) 
 
+    # run.sweep('JPM B Bias Voltage', np.linspace(.0, .25, 251) * V,
+            # save=True, print_data=['Pa', 'Pb', 'P11'], plot_data=['Pa', 'Pb', 'P11'])
+    
     # run.sweep([['JPM A Bias Voltage'], ['JPM B Bias Voltage']],
-            # [[np.linspace(0.16, 0.22, 151) * V], [np.linspace(0.16, 0.22, 151) * V]], 
+            # [[np.linspace(.295, .32, 151) * V], [np.linspace(.172, .178, 151) * V]], 
             # save=True, print_data=['Pa', 'Pb', 'Temperature'], plot_data=['Pa', 'Pb'],
             # dependencies=[['Pa', 'JPM A Detection Time'], ['Pb', 'JPM B Detection Time']])
     
     # run.sweep([['JPM A Fast Pulse Amplitude'], ['JPM B Fast Pulse Amplitude']],
-            # [[np.linspace(.82, .86, 101) * DACUnits], [np.linspace(.82, .86, 101) * DACUnits]], 
+            # [[np.linspace(0.7, 1, 51) * DACUnits], [np.linspace(0.7, 1, 51) * DACUnits]], 
             # save=True, print_data=['Pa', 'Pb', 'P11'], plot_data=['Pa', 'Pb', 'P11'],
             # dependencies=[['Pa', 'JPM A Detection Time'], ['Pb', 'JPM B Detection Time']])
     
     # run.sweep(['JPM A Bias Voltage', 'JPM B Bias Voltage'], 
-            # [np.linspace(0, .25, 251) * V, np.linspace(0, .25, 251) * V],
-            # save=True, print_data=['Pa', 'Pb'])
+            # [np.linspace(0.29, .32, 151) * V, np.linspace(0.175, .177, 51) * V],
+            # save=True, print_data=['Pa', 'Pb', 'P11'])
     
     # run.sweep(['JPM A Fast Pulse Amplitude', 'JPM B Fast Pulse Amplitude'], 
             # [np.linspace(.096, .12, 51) * DACUnits, np.linspace(.068, .095, 51) * DACUnits],
@@ -190,8 +196,12 @@ with double_jpm_experiments.DoubleJPMCorrelation() as run:
     # run.sweep('Reps', 30 * np.power(2, np.linspace(0, 10, 11)), 
             # save=True, print_data=['Pa', 'Pb'], plot_data=['Pa', 'Pb', 'P11'])
             
-    run.sweep('DC Bias Voltage', np.linspace(-30, 30, 61) * mV, 
-        save=True, print_data=['Pa', 'Pb'], plot_data=['Pa', 'Pb', 'P11', 'Temperature'])
+    # run.sweep('DC Bias Voltage', np.linspace(-30, 30, 61) * mV, 
+        # save=True, print_data=['Pa', 'Pb'], plot_data=['Pa', 'Pb', 'P11', 'Temperature'])
+
+    # run.sweep(['RF Attenuation', 'RF Frequency'],
+              # [np.linspace(30, 63, 6) * dB, np.linspace(3, 7, 201) * GHz], 
+              # save=True, print_data=['Pa', 'Pb', 'P11'])
     
     # run.sweep(['RF Attenuation', 'DC Bias Voltage'], 
               # [np.linspace(15, 35, 11) * dB, np.linspace(0, 30, 31) * mV], 

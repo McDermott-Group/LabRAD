@@ -120,6 +120,27 @@ class DoubleJPMCorrelation(JPMExperiment):
         # The format is described in Servers.Instruments.GHzBoards.command_sequences.
         mem_lists = self.boards.init_mem_lists()
        
+        # mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0, 'Mode': 'Fast'})
+        # mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0, 'Mode': 'Fast'})
+        # mem_lists[0].append({'Type': 'Delay', 'Time': self.value('Init Time')['us']})
+        # mem_lists[0].append({'Type': 'Bias', 'Channel': 1,
+                # 'Voltage': self.value('JPM A Bias Voltage')['V']})
+        # mem_lists[0].append({'Type': 'Bias', 'Channel': 2,
+                # 'Voltage': self.value('JPM B Bias Voltage')['V']})
+        # mem_lists[0].append({'Type': 'Delay', 'Time': 7})
+        # mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Mode': 'Fine',
+                # 'Voltage': self.value('JPM A Bias Voltage')['V']})
+        # mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Mode': 'Fine',
+                # 'Voltage': self.value('JPM B Bias Voltage')['V']})
+        # mem_lists[0].append({'Type': 'Delay', 'Time': self.value('Bias Time')['us']})
+        # mem_lists[0].append({'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay})
+        # mem_lists[0].append({'Type': 'Timer', 'Time': self.value('Measure Time')['us']})
+        # mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
+        # mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0})
+        # mem_lists[0].append({'Type': 'Delay', 'Time': 6})
+        # mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0, 'Mode': 'Fast'})
+        # mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0, 'Mode': 'Fast'})
+
         mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0, 'Mode': 'Fast'})
         mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0, 'Mode': 'Fast'})
         mem_lists[0].append({'Type': 'Delay', 'Time': self.value('Init Time')['us']})
@@ -127,20 +148,17 @@ class DoubleJPMCorrelation(JPMExperiment):
                 'Voltage': self.value('JPM A Bias Voltage')['V']})
         mem_lists[0].append({'Type': 'Bias', 'Channel': 2,
                 'Voltage': self.value('JPM B Bias Voltage')['V']})
-        mem_lists[0].append({'Type': 'Delay', 'Time': 7})
         mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Mode': 'Fine',
                 'Voltage': self.value('JPM A Bias Voltage')['V']})
         mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Mode': 'Fine',
                 'Voltage': self.value('JPM B Bias Voltage')['V']})
         mem_lists[0].append({'Type': 'Delay', 'Time': self.value('Bias Time')['us']})
         mem_lists[0].append({'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay})
-        mem_lists[0].append({'Type': 'Timer', 'Time': self.value('Measure Time')['us']})
-        mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
-        mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0})
-        mem_lists[0].append({'Type': 'Delay', 'Time': 6})
-        mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0, 'Mode': 'Fast'})
+        mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0, 'Mode': 'Slow'})
         mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0, 'Mode': 'Fast'})
-
+        mem_lists[0].append({'Type': 'Timer', 'Time': self.value('Measure Time')['us']})
+        mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0, 'Mode': 'Fast'})
+        
         mem_lists[1].append({'Type': 'Delay', 'Time': self.value('Init Time')['us'] +
                                       self.value('Bias Time')['us']})
         mem_lists[1].append({'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay})
@@ -157,31 +175,32 @@ class DoubleJPMCorrelation(JPMExperiment):
         self.add_var('Actual Reps', len(P[0]))
         
         ###DATA POST-PROCESSING####################################################################
+        preamp_timeout = self.value('Preamp Timeout')['PreAmpTimeCounts']
+        min_threshold = self.value('Min Threshold')['PreAmpTimeCounts']
+        max_threshold = self.value('Max Threshold')['PreAmpTimeCounts']
+
         if histogram:
-            self._plot_histogram(P, 2)
-
-        preamp_timeout = self.boards.consts['PREAMP_TIMEOUT']['PreAmpTimeCounts']
-        threshold = self.value('Threshold')['PreAmpTimeCounts']
-
-        ta_mean, ta_std = dp.mean_time_from_array(P[0], preamp_timeout)
-        tb_mean, tb_std = dp.mean_time_from_array(P[1], preamp_timeout)
-        dt_mean, dt_std = dp.mean_time_diff_from_array(P, preamp_timeout)
+            self._plot_histogram(P, 2, preamp_timeout)
         
-        outcomes = dp.outcomes_from_array(P, threshold)
-        outcomes_a = outcomes[0, :]
-        outcomes_b = outcomes[1, :]
+        P = np.array(P)
+        ta_mean, ta_std = dp.mean_time(P[0,:], 0, preamp_timeout)
+        tb_mean, tb_std = dp.mean_time(P[1,:], 0, preamp_timeout)
+        dt_mean, dt_std = dp.mean_time_diff(P, 0, preamp_timeout)
+        
+        outcomes = dp.outcomes(P, min_threshold, max_threshold)
+        print('Maximum timing value = ' + str(np.max(P)) + ' PreAmpTimeCounts')
         n = float(np.shape(outcomes)[1])
 
         return {
                 'Pa': {
-                    'Value': dp.prob_from_array(P[0], threshold),
+                    'Value': dp.prob(P[0,:], min_threshold, max_threshold),
                     'Distribution': 'binomial',
                     'Preferences':  {
                         'linestyle': 'r-',
                         'ylim': [0, 1],
                         'legendlabel': 'JPM A Switch. Prob.'}},
                 'Pb': {
-                    'Value': dp.prob_from_array(P[1], threshold),
+                    'Value': dp.prob(P[1], min_threshold, max_threshold),
                     'Distribution': 'binomial',
                     'Preferences':  {
                         'linestyle': 'b-',
@@ -218,28 +237,28 @@ class DoubleJPMCorrelation(JPMExperiment):
                 'Detection Time Diff Std Dev': {
                     'Value': dt_std * units.PreAmpTimeCounts},
                 'P00': {
-                    'Value': float(((1 - outcomes_a) * (1 - outcomes_b)).sum()) / n,
+                    'Value': float(((1 - outcomes[0,:]) * (1 - outcomes[1,:])).sum()) / n,
                     'Distribution': 'binomial',
                     'Preferences':  {
                         'linestyle': 'k-',
                         'ylim': [0, 1],
                         'legendlabel': 'P00'}},
                 'P01': {
-                    'Value': float(((1 - outcomes_a) * outcomes_b).sum()) / n,
+                    'Value': float(((1 - outcomes[0,:]) * outcomes[1,:]).sum()) / n,
                     'Distribution': 'binomial',
                     'Preferences':  {
                         'linestyle': 'g-',
                         'ylim': [0, 1],
                         'legendlabel': 'P01'}},
                 'P10': {
-                    'Value': float((outcomes_a * (1 - outcomes_b)).sum()) / n,
+                    'Value': float((outcomes[0,:] * (1 - outcomes[1,:])).sum()) / n,
                     'Distribution': 'binomial',
                     'Preferences':  {
                         'linestyle': 'c-',
                         'ylim': [0, 1],
                         'legendlabel': 'P10'}},
                 'P11': {
-                    'Value': float((outcomes_a * outcomes_b).sum()) / n,
+                    'Value': float((outcomes[0,:] * outcomes[1,:]).sum()) / n,
                     'Distribution': 'binomial',
                     'Preferences':  {
                         'linestyle': 'm-',
@@ -247,13 +266,13 @@ class DoubleJPMCorrelation(JPMExperiment):
                         'legendlabel': 'P11'}},
                 'Temperature': {'Value': self.acknowledge_request('Temperature')},
                 # 'JPM A Timing Data': {
-                    # 'Value': np.array(P[0]) * units.PreAmpTimeCounts,
+                    # 'Value': P[0,:] * units.PreAmpTimeCounts,
                     # 'Dependencies': ['Rep Iteration'],
                     # 'Preferences': {
                         # 'linestyle': 'r-', 
                         # 'ylim': [0, preamp_timeout]}},
                 # 'JPM B Timing Data': {
-                    # 'Value': np.array(P[1]) * units.PreAmpTimeCounts,
+                    # 'Value': P[1,:] * units.PreAmpTimeCounts,
                     # 'Dependencies': ['Rep Iteration'],
                     # 'Preferences': {
                         # 'linestyle': 'b-', 
