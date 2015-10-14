@@ -333,7 +333,7 @@ class GHzFPGABoards(object):
             p.adc_filter_func(self.filter_bytes(self.adc_settings[idx]), 
                     int(self.adc_settings[idx]['FilterStretchLen']['ns']),
                     int(self.adc_settings[idx]['FilterStretchAt']['ns']))
-            dPhi = int(self.adc_settings[idx]['DemodFreq']['MHz'] / 7629)
+            dPhi = int(self.adc_settings[idx]['DemodFreq']['Hz'] / 7629)
             phi0 = int(self.adc_settings[idx]['DemodPhase']['rad'] * (2**16))
             for k in range(self.consts['DEMOD_CHANNELS']):
                 p.adc_demod_phase(k, dPhi, phi0)
@@ -414,7 +414,7 @@ class GHzFPGABoards(object):
                     timing_order_list.append(adc + '::0')
                 else:
                     raise ResourceDefinitionError("ADC board '" +
-                            adc + "' 'RunMode' " +
+                            adc + "' 'RunMode' setting " +
                             "should be either 'average'" +
                             " or 'demodulate'.")
             p.timing_order(timing_order_list)

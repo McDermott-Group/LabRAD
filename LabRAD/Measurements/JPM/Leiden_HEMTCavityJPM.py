@@ -22,10 +22,12 @@ Resources = [ {
                                         'DAC B': 'None',
                                         'FO1 FastBias Firmware Version': '2.1',
                                         'FO2 FastBias Firmware Version': '2.1',
+                                        'Data': False,
                                        },
                 'Leiden Board DAC 4': {
                                         'DAC A': 'None',
                                         'DAC B': 'None',
+                                        'Data': False,
                                        },
                 'Leiden Board ADC 5': {
                                         'RunMode': 'demodulate', #'average'
@@ -37,7 +39,7 @@ Resources = [ {
                                         'DemodPhase': 0 * rad,
                                         'DemodCosAmp': 255,
                                         'DemodSinAmp': 255,
-                                        'DemodFreq': 0 * MHz,
+                                        'DemodFreq': -30 * MHz,
                                         'ADCDelay': 0 * ns,
                                         'Data': True
                                        },
@@ -49,13 +51,14 @@ Resources = [ {
                                 'Fast Pulse Time': {},
                                 'Fast Pulse Amplitude': {},
                                 'Fast Pulse Width': {'Value': 0 * ns},
+                                'RF SB Frequency': {'Value': 30 * MHz},
                                 'ADC Wait Time': {'Value': 0 * ns}
                              }
                 },
-                { # GPIB RF Generator
+                { # GPIB RF Generator.
                     'Interface': 'RF Generator',
                     'Address': comp_name + ' GPIB Bus - GPIB0::20::INSTR',
-                    'Variables': {  
+                    'Variables': {
                                     'RF Power': {'Setting': 'Power'}, 
                                     'RF Frequency': {'Setting': 'Frequency'}
                                  }
@@ -88,39 +91,40 @@ Resources = [ {
 ExptInfo = {
             'Device Name': 'MH048B-051215A-D10',
             'User': 'Ivan Pechenezhskiy',
-            'Base Path': 'Z:\mcdermott-group\Data\Leiden DR 2015-09-25 - Qubits and JPMs',
+            'Base Path': r'Z:\mcdermott-group\Data\Matched JPM Photon Counting\Leiden DR 2015-10-02 - Cavity Excitation by JPM',
             'Experiment Name': 'InverseDirectionCavitySpectroscopy',
-            'Comments': 'Driving qubit cavity through JPM Fast Pulse line.' 
+            'Comments': 'MH048B Qubit and 051215A-D10 JPM in a single box. Driving qubit cavity through JPM Fast Pulse line.' 
            }
  
 # Experiment Variables
 ExptVars = {
-            'Reps': 5000, # should not exceed ~50,000
+            'Reps': 25000, # should not exceed ~50,000
 
             'Qubit Flux Bias Voltage': 0 * V,
 
             'RF Frequency': 4.821 * GHz,
+            'RF SB Frequency': 30 * MHz,
             'RF Power': 13 * dBm,
 
-            'Init Time': 100 * us,
+            'Init Time': 50 * us,
             'Bias Time': 100 * us,
-            'Measure Time': 50 * us,
+            'Measure Time': 75 * us,
           
-            'Bias Voltage': 0.195 * V,
+            'Bias Voltage': 0.184 * V,
             'Fast Pulse Time': 10 * ns,
-            'Fast Pulse Amplitude': .1492 * DACUnits,
+            'Fast Pulse Amplitude': .5 * DACUnits,
             'Fast Pulse Width': 0 * ns,
 
-            'ADC Wait Time': 1000 * ns, # time delay between the start of the readout pulse and the start of the demodulation
+            'ADC Wait Time': 10 * ns, # time delay between the start of the readout pulse and the start of the demodulation
            }
 
 with hemt_qubit_experiments.HEMTCavityJPM() as run:
     
     run.set_experiment(ExptInfo, Resources, ExptVars)
 
-    run.single_shot_iqs(save=False, plot_data=True)
+    # run.single_shot_iqs(save=False, plot_data=True)
     # run.single_shot_osc(save=False, plot_data=['I', 'Q'])
-    # run.avg_osc(save=True, plot_data=['I', 'Q'], runs=250)
+    # run.avg_osc(save=False, plot_data=['I', 'Q'], runs=250)
 
-    # run.sweep('Readout Frequency', np.linspace(4.65, 4.85, 201) * GHz,
-              # plot_data=['I', 'Q', 'ADC Amplitude'], save=True)
+    run.sweep('RF Frequency', np.linspace(4.50, 5.00, 501) * GHz,
+              plot_data=['I', 'Q', 'Mean ADC Amplitude'], save=True, max_data_dim=1)

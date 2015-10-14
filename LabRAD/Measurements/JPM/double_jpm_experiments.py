@@ -154,8 +154,8 @@ class DoubleJPMCorrelation(JPMExperiment):
                 'Voltage': self.value('JPM B Bias Voltage')['V']})
         mem_lists[0].append({'Type': 'Delay', 'Time': self.value('Bias Time')['us']})
         mem_lists[0].append({'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay})
-        mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0, 'Mode': 'Slow'})
         mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0, 'Mode': 'Fast'})
+        mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0, 'Mode': 'Slow'})
         mem_lists[0].append({'Type': 'Timer', 'Time': self.value('Measure Time')['us']})
         mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0, 'Mode': 'Fast'})
         

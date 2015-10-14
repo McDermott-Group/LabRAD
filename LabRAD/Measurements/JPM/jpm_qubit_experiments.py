@@ -58,7 +58,7 @@ class JPMExperiment(expt.Experiment):
         elif number_of_devices > 2:
             raise Exception('Histogram plotting for more than two ' +
             'devices is not implemented.')
-        plt.xlabel('Timing Information [PreAmpTimeCounts]')
+        plt.xlabel('Timing Information [Preamp Time Counts]')
         plt.ylabel('Counts')
         plt.xlim(0, preamp_timeout) 
         plt.draw()
@@ -159,7 +159,7 @@ class JPMQubitReadout(JPMExperiment):
         if 'None' in self.boards.requested_waveforms:
             waveforms['None'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN + QB_time + QBtoRO + RO_time + ROtoD + Disp_time + FPtoEnd, 0)])
         
-        if 'JPM Fast Pulse' in requested_waveforms:
+        if 'JPM Fast Pulse' in self.boards.requested_waveforms:
             waveforms['JPM Fast Pulse'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN + QB_time + QBtoRO + RO_time + ROtoD + Disp_time + DtoFP, 0),
                                                      JPM_smoothed_FP,
                                                      pulse.DC(max(0, -DtoFP - JPM_smoothed_FP.size) + DAC_ZERO_PAD_LEN, 0)])      
@@ -254,7 +254,7 @@ class JPMQubitReadout(JPMExperiment):
         ###DATA STRUCTURE##########################################################################
         return {
                 'Switching Probability': {
-                    'Value': dp.prob(P, 0, max_threshold),
+                    'Value': dp.prob(P, 0, threshold),
                     'Distribution': 'binomial',
                     'Preferences':  {
                         'linestyle': 'b-',

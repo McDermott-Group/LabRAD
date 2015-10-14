@@ -84,8 +84,8 @@ class HEMTExperiment(expt.Experiment):
 
     def avg_osc(self, adc=None, save=False, plot_data=None, runs=100):
         """
-        Run a single experiment in average mode Reps number of times 
-        and average the results together.
+        Run a single experiment in average mode specified number of
+        times and average the results together.
         
         Inputs:
             adc: ADC board name.
@@ -423,7 +423,8 @@ class HEMTCavityJPM(HEMTExperiment):
         ###SET BOARDS PROPERLY#####################################################################
         self.boards.set_adc_setting('ADCDelay', (DAC_ZERO_PAD_LEN +
                 ADC_wait_time) * units.ns, adc)
-
+        self.boards.set_adc_setting('DemodFreq', -self.value('RF SB Frequency'), adc)
+        
         # Create a memory command list.
         # The format is described in Servers.Instruments.GHzBoards.command_sequences.
         mem_lists = self.boards.init_mem_lists()
@@ -448,9 +449,9 @@ class HEMTCavityJPM(HEMTExperiment):
         self.acknowledge_requests()
         self.send_request('Temperature')
         result = self.boards.load_and_run(dac_srams, mems, self.value('Reps'))
-        
+
         ###DATA POST-PROCESSING####################################################################
-        Is, Qs = result[0] 
+        Is, Qs = result[0]
         Is = np.array(Is)
         Qs = np.array(Qs)
 
@@ -495,11 +496,38 @@ class HEMTCavityJPM(HEMTExperiment):
                         'Value': self.acknowledge_request('Temperature')}
                    }
         elif self.boards.get_adc_setting('RunMode', adc) == 'average':
-            raise NotImplementedError("ADC mode 'average' is not " +
-                "supported for this specific experiment to avoid" +
-                "misinterpretation of the results.")
+            self.value('Reps', 1, output=False)
+            time = np.linspace(0, 2 * (len(Is) - 1), len(Is))
+            I, Q = data_processing.software_demod(time, 0, Is, Qs)
+            return {
+                    'I': { 
+                        'Value': Is * units.ADCUnits,
+                        'Dependencies': ['ADC Time'],
+                        'Preferences':  {'linestyle': 'b-'}},
+                    'Q': { 
+                        'Value': Qs * units.ADCUnits,
+                        'Dependencies': ['ADC Time'],
+                        'Preferences':  {'linestyle': 'g-'}},
+                    'Software Demod I': { 
+                        'Value': I * units.ADCUnits,
+                        'Preferences':  {'linestyle': 'b.'}},
+                    'Software Demod Q': { 
+                        'Value': Q * units.ADCUnits,
+                        'Preferences':  {'linestyle': 'g.'}}, 
+                    'Software Demod ADC Amplitude': { 
+                        'Value': np.sqrt(I**2 + Q**2) * units.ADCUnits,
+                        'Preferences':  {'linestyle': 'r.'}},
+                    'Software Demod ADC Phase': { 
+                        'Value': np.arctan2(Q, I) * units.rad,
+                        'Preferences':  {'linestyle': 'k.'}},
+                    'ADC Time': {
+                        'Value': time * units.ns,
+                        'Type': 'Independent'},
+                    'Temperature': {
+                        'Value': self.acknowledge_request('Temperature')}
+                   }
 
     def average_data(self, data):
         raise NotImplementedError("Proper averaging of multiple runs " +
             "is not implemented for this specific experiment to avoid" +
-            "misinterpretation of the results.")
+            " any misinterpretation of the results.")

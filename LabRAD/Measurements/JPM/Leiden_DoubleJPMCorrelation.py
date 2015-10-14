@@ -93,7 +93,7 @@ ExptInfo = {
 
 # Experiment Variables
 ExptVars = {
-            'Reps': 3000, # should not exceed ~50,000
+            'Reps': 25000, # should not exceed ~50,000
 
             'RF Frequency': 20 * GHz, #3.54 * GHz,
             'RF Power': -110 * dBm,
@@ -108,14 +108,14 @@ ExptVars = {
             'Bias Time': 150 * us,
             'Measure Time': 20 * us,
           
-            'JPM A Bias Voltage': .298 * V,
+            'JPM A Bias Voltage': .2842 * V,
             'JPM A Fast Pulse Time': 3 * ns,
-            'JPM A Fast Pulse Amplitude': .5 * DACUnits,
+            'JPM A Fast Pulse Amplitude': 1 * DACUnits,
             'JPM A Fast Pulse Width': 0 * ns,
             
-            'JPM B Bias Voltage': .191 * V,
+            'JPM B Bias Voltage': .1565 * V,
             'JPM B Fast Pulse Time': 3 * ns,
-            'JPM B Fast Pulse Amplitude': .5 * DACUnits,
+            'JPM B Fast Pulse Amplitude': 1 * DACUnits,
             'JPM B Fast Pulse Width': 0 * ns,
 
             # Both JPM A and JPM B fast pulses should appear within
@@ -133,11 +133,11 @@ ExptVars = {
 with double_jpm_experiments.DoubleJPMCorrelation() as run:
     run.set_experiment(ExptInfo, Resources, ExptVars) 
 
-    # run.sweep('JPM B Bias Voltage', np.linspace(.0, .25, 251) * V,
+    # run.sweep('JPM B Bias Voltage', np.linspace(.17, .18, 251) * V,
             # save=True, print_data=['Pa', 'Pb', 'P11'], plot_data=['Pa', 'Pb', 'P11'])
     
     # run.sweep([['JPM A Bias Voltage'], ['JPM B Bias Voltage']],
-            # [[np.linspace(.295, .32, 151) * V], [np.linspace(.172, .178, 151) * V]], 
+            # [[np.linspace(.275, .32, 51) * V], [np.linspace(0*.155, 0*.178, 51) * V]], 
             # save=True, print_data=['Pa', 'Pb', 'Temperature'], plot_data=['Pa', 'Pb'],
             # dependencies=[['Pa', 'JPM A Detection Time'], ['Pb', 'JPM B Detection Time']])
     
@@ -160,11 +160,11 @@ with double_jpm_experiments.DoubleJPMCorrelation() as run:
     # run.sweep('JPM A to JPM B Fast Pulse Delay', np.linspace(-10, 10, 21) * ns, 
         # save=True, print_data=['Pa', 'Pb', 'P11', 'Corr Coef', 'Temperature'], plot_data=['Pa', 'Pb', 'P11'])
     
-    # run.sweep('JPM A to JPM B Fast Pulse Delay', np.linspace(-500, 500, 126) * ns, 
+    # run.sweep('JPM A to JPM B Fast Pulse Delay', np.linspace(-50, 50, 51) * ns, 
             # save=True, print_data=['Pa', 'Pb', 'P11', 'Temperature'], plot_data=['Pa', 'Pb', 'P11'])
     
-    # run.sweep('JPM A to JPM B Fast Pulse Delay', np.linspace(-5000, 5000, 501) * ns, 
-            # save=True, print_data=['Pa', 'Pb', 'P11', 'Temperature'], plot_data=['Pa', 'Pb', 'P11'])
+    run.sweep('JPM A to JPM B Fast Pulse Delay', np.linspace(-5000, 5000, 1001) * ns, 
+            save=True, print_data=['Pa', 'Pb', 'P11', 'Temperature'], plot_data=['Pa', 'Pb', 'P11'])
     
     # run.value('Reps', 2500)
     # run.sweep('JPM A to JPM B Fast Pulse Delay', np.linspace(-500, 500, 51) * ns, 
