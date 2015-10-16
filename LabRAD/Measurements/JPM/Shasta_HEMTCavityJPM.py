@@ -17,19 +17,19 @@ Resources = [ {
                             'Shasta Board DAC 10',
                             'Shasta Board ADC 11'
                           ],
-                'Leiden Board DAC 3':  {
+                'Shasta Board DAC 9':  {
                                         'DAC A': 'JPM Fast Pulse',
                                         'DAC B': 'None',
                                         'FO1 FastBias Firmware Version': '2.1',
                                         'FO2 FastBias Firmware Version': '2.1',
                                         'Data': False,
                                        },
-                'Leiden Board DAC 4': {
+                'Shasta Board DAC 10': {
                                         'DAC A': 'None',
                                         'DAC B': 'None',
                                         'Data': False,
                                        },
-                'Leiden Board ADC 5': {
+                'Shasta Board ADC 11': {
                                         'RunMode': 'demodulate', #'average'
                                         'FilterType': 'square',
                                         'FilterWidth': 9500 * ns,
