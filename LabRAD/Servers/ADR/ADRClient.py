@@ -30,7 +30,6 @@ message = 987654321
 timeout = 20
 ### END NODE INFO
 """
-selectedADR = 'ADR3'
 
 import matplotlib as mpl
 mpl.use('TkAgg')
@@ -41,6 +40,7 @@ from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolb
 import labrad
 from labrad.server import (inlineCallbacks, returnValue)
 from twisted.internet import tksupport, reactor
+import os
 
 class EntryWithAlert(Tkinter.Entry):
     """Inherited from the Tkinter Entry widget, this just turns red when a limit is reached"""
@@ -89,7 +89,7 @@ class ADRController(object):#Tkinter.Tk):
     def __init__(self,parent):
         #Tkinter.Tk.__init__(self,parent)
         self.parent = parent
-        self.selectedADR = selectedADR
+        self.selectedADR = None
         #initialize and start measurement loop
         self.connect()
     @inlineCallbacks
@@ -101,11 +101,6 @@ class ADRController(object):#Tkinter.Tk):
             self.cxn = yield connectAsync(name = self.name)
         else:self.cxn = cxn
         yield self.initializeWindow()
-        try: #adr_server may not be open yet
-            logMessages = yield self.cxn[self.selectedADR].get_log(20) #only load last 20 messages
-            for (m,a) in logMessages:
-                self.updateLog(m,a)
-        except Exception as e: pass
         self.startListening()
     @inlineCallbacks
     def startListening(self):
@@ -141,6 +136,13 @@ class ADRController(object):#Tkinter.Tk):
         reg_start = lambda c, (s,payload): self.regulationStarted() if s==self.cxn[self.selectedADR].ID else -1
         self.cxn._cxn.addListener(reg_start, source=mgr.ID, ID=106)
         yield mgr.subscribe_to_named_message('Regulation Started', 106, True)
+        # servers starting and stopping
+        serv_conn_func = lambda c, (s, payload): self.populateADRSelectMenu()
+        serv_disconn_func = lambda c, (s, payload): self.populateADRSelectMenu()
+        self.cxn._cxn.addListener(serv_conn_func, source=mgr.ID, ID=107)
+        self.cxn._cxn.addListener(serv_disconn_func, source=mgr.ID, ID=108)
+        yield mgr.subscribe_to_named_message('Server Connect', 107, True)
+        yield mgr.subscribe_to_named_message('Server Disconnect', 108, True)
     @inlineCallbacks
     def initializeWindow(self):
         """Creates the GUI."""
@@ -270,7 +272,7 @@ class ADRController(object):#Tkinter.Tk):
         self.setFieldLimits()
         root.protocol("WM_DELETE_WINDOW", self._quit) #X BUTTON
     def setFieldLimits(self):
-        adrSettingsPath = self.cxn[self.selectedADR].get_settings_path()
+        adrSettingsPath = yield self.cxn[self.selectedADR].get_settings_path()
         reg = self.cxn.registry
         reg.cd(adrSettingsPath)
         try: magVLimit = yield reg.get('magnet_voltage_limit')
@@ -302,7 +304,6 @@ class ADRController(object):#Tkinter.Tk):
                 self.adrSelect.set(runningADRs[0])
             except IndexError as e: pass
             except Exception as e: print e
-        # &&& still need to add listeners for if server is later started
     @inlineCallbacks
     def changeFridge(self,*args):
         """Select which ADR you want to operate on.  Called when select ADR menu is changed."""
@@ -316,14 +317,36 @@ class ADRController(object):#Tkinter.Tk):
         self.stageGGG.set_ydata([])
         self.stageFAA.set_xdata([])
         self.stageFAA.set_ydata([])
-        # &&& load saved temp data
-        adrSettingsPath = self.cxn[self.selectedADR].get_settings_path()
+        # load saved temp data
+        adrSettingsPath = yield self.cxn[self.selectedADR].get_settings_path()
+        date_append = yield self.cxn[self.selectedADR].get_date_append()
         reg = self.cxn.registry
         reg.cd(adrSettingsPath)
-		file_path = yield reg.get('Log Path')
-		# with open(file_path+'\\temperatures'+self.dateAppend+'.temps', 'r') as f:
-            # f.read(  )
-        # self.updatePlot()
+        file_path = yield reg.get('Log Path')
+        file_length = os.stat(file_path+'\\temperatures'+date_append+'.temps')[6]
+        with open(file_path+'\\temperatures'+date_append+'.temps', 'rb') as f:
+            first = False
+            n = 1
+            while first is False and file_length - n*5*8 > 0:
+                f.seek(file_length - n*5*8)
+                newRow = [struct.unpack('d',f.read(8))[0] for x in ['time','t1','t2','t3','t4']]
+                #timeDisplayOptions = {'10 minutes':10,'1 hour':60,'6 hours':6*60,'24 hours':24*60,'All':0}
+                if len(self.stage60K.get_xdata()) < 1: xMin = mpl.dates.num2date(1)
+                else:
+                    lastDatetime = mpl.dates.num2date(self.stage60K.get_xdata()[-1])
+                    xMin = lastDatetime-datetime.timedelta(minutes=6*60) #timeDisplayOptions[self.wScale.get()])
+                if mpl.dates.date2num(xMin) < newRow[0]:
+                    self.stage60K.set_xdata(numpy.append(newRow[0],self.stage60K.get_xdata()))
+                    self.stage60K.set_ydata(numpy.append(newRow[1],self.stage60K.get_ydata()))
+                    self.stage03K.set_xdata(numpy.append(newRow[0],self.stage03K.get_xdata()))
+                    self.stage03K.set_ydata(numpy.append(newRow[2],self.stage03K.get_ydata()))
+                    self.stageGGG.set_xdata(numpy.append(newRow[0],self.stageGGG.get_xdata()))
+                    self.stageGGG.set_ydata(numpy.append(newRow[3],self.stageGGG.get_ydata()))
+                    self.stageFAA.set_xdata(numpy.append(newRow[0],self.stageFAA.get_xdata()))
+                    self.stageFAA.set_ydata(numpy.append(newRow[4],self.stageFAA.get_ydata()))
+                else: first = True
+                n += 1
+        self.updatePlot()
         # clear and reload log
         self.log.clear()
         logMessages = yield self.cxn[self.selectedADR].get_log(20) #only load last 20 messages
@@ -389,16 +412,16 @@ class ADRController(object):#Tkinter.Tk):
         if self.toolbar._active == 'HOME' or self.toolbar._active == None:
             ymin,ymax = 10000000, -10000000
             lineAndVar = {self.stage60K:self.t60K, self.stage03K:self.t3K, self.stageGGG:self.tGGG, self.stageFAA:self.tFAA}
-            for line in lineAndVar.keys():
-                if lineAndVar[line].get() == 0: line.set_visible(False)
-                else:
-                    line.set_visible(True)
-                    ydata = line.get_ydata()[xMinIndex:-1]
-                    try:
-                        ymin = min(ymin, numpy.nanmin(ydata))
-                        ymax = max(ymax, numpy.nanmax(ydata))
-                    except ValueError as e: pass
-            if len(self.stage60K.get_xdata())>1: 
+            if len(self.stage60K.get_xdata())>1:
+                for line in lineAndVar.keys():
+                    if lineAndVar[line].get() == 0: line.set_visible(False)
+                    else:
+                        line.set_visible(True)
+                        ydata = line.get_ydata()[xMinIndex:-1]
+                        try:
+                            ymin = min(ymin, numpy.nanmin(ydata))
+                            ymax = max(ymax, numpy.nanmax(ydata))
+                        except ValueError as e: pass 
                 self.ax.set_xlim(xMin,lastDatetime)
                 self.ax.set_ylim(ymin - (ymax-ymin)/10, ymax + (ymax-ymin)/10)
                 hfmt = mpl.dates.DateFormatter('%H:%M:%S')

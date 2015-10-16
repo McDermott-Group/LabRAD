@@ -6,23 +6,22 @@ TODO LIST
 - try running some of this from dif computers
 - ADRClient should get settings path and limits from ADRServer
 - mag up buttons should be updated with the updateState cycle so they get updated if client is opened later
-- switching fridges should load the past temp history
 - make the startup scripts check what is already open before opening again
 - make the startup scripts fully automated
 - when automated startup, add interface to see different windows to ADRClient (so we can check what is working)
 - Add open/close HS to mag up/reg buttons
-- ADR is selected from  beginning in client.  what if none are started first?
++ ADR is selected from  beginning in client.  what if none are started first?
 - selecting an ADR from menu when that ADR does not exist causes errors
+- add compressor controls
 
 BUGS
 - changing the regulation temp automatically starts regulation
 - sometimes starting regulation doesnt decrease properly (I think due to dT=0)
 - mag up buttons when adr server is not active give error
-- SIM900 sometimes needs to be restarted.  can this be fixed by sending *RST?
 - changing the temperature does not seem to work
 - since current lags voltage, often will mag all the way down.  have to press regulate again to go back up
 - temperature logging inevitably fails after a while
-
+- uses lots of memory
 
 TODO IN GENERAL
 Data - either write a new datavault server or (hopefully) just use the existing one and change Ivan's code to use it

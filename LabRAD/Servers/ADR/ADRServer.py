@@ -120,14 +120,21 @@ class ADRServer(DeviceServer):
         yield self.startServers()
         yield util.wakeupCall( 2 ) # on the round ADR, the HP DMM takes forever to initialize.  This prevents it from going on before it is ready.
         yield self.initializeInstruments()
-        #subscribe to messages
+        # subscribe to messages
+        # the server ones are not used right now, but at some point they could be
         connect_func = lambda c, (s, payload): self.gpib_device_connect(*payload)
         disconnect_func = lambda c, (s, payload): self.gpib_device_disconnect(*payload)
+        serv_conn_func = lambda c, (s, payload): 1
+        serv_disconn_func = lambda c, (s, payload): 1
         mgr = self.client.manager
         self._cxn.addListener(connect_func, source=mgr.ID, ID=10)
         self._cxn.addListener(disconnect_func, source=mgr.ID, ID=11)
+        self._cxn.addListener(serv_conn_func, source=mgr.ID, ID=12)
+        self._cxn.addListener(serv_disconn_func, source=mgr.ID, ID=13)
         yield mgr.subscribe_to_named_message('GPIB Device Connect', 10, True)
         yield mgr.subscribe_to_named_message('GPIB Device Disconnect', 11, True)
+        yield mgr.subscribe_to_named_message('Server Connect', 12, True)
+        yield mgr.subscribe_to_named_message('Server Disconnect', 13, True)
         self.updateState()
     @inlineCallbacks
     def loadDefaults(self):
@@ -414,16 +421,19 @@ class ADRServer(DeviceServer):
                 #self.regulationStopped('done') #signal
                 self.client.manager.send_named_message('Regulation Stopped', 'done')
     
-    @setting(101, 'Get Settings Path', returns=['*(s,b)'])
+    @setting(101, 'Get Settings Path', returns=['*s'])
     def getSettingsPath(self,c):
         return self.ADRSettingsPath
-    @setting(102, 'Get Log', n=['v'], returns=['*(s,b)'])
+    @setting(102, 'Get Date Append', returns=['s'])
+    def getDateAppend(self,c):
+        return self.dateAppend
+    @setting(103, 'Get Log', n=['v'], returns=['*(s,b)'])
     def getLog(self,c, n=0):
         """Get an array of the last n logs."""
         if n==0: n = len(self.logMessages)
         n = min(n, len(self.logMessages))
         return [messageAndAlert for messageAndAlert in self.logMessages[-n:]]
-    @setting(103, 'Get State Var', var=['s'], returns=['?'])
+    @setting(104, 'Get State Var', var=['s'], returns=['?'])
     def getStateVar(self,c, var):
         """You can get any arbitrary value stored in the state variable by passing its name to this function."""
         return self.state[var]
