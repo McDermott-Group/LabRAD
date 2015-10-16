@@ -81,7 +81,7 @@ ExptInfo = {
  
 # Experiment Variables
 ExptVars = {
-            'Reps': 100, # should not exceed ~50,000
+            'Reps': 55000, # should not exceed ~50,000
           
             'Init Time': 100 * us,
             'Bias Time': 100 * us,

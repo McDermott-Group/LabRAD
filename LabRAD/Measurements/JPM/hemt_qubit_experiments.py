@@ -384,8 +384,8 @@ class HEMTCavityJPM(HEMTExperiment):
         if self.value('RF Frequency') is not None:
             if self.value('RF SB Frequency') is not None:               # RF frequency
                 self.send_request('RF Frequency',
-                        value=self.value('RF Frequency') + 
-                              self.value('RF SB Frequency'))
+                        value= self.value('RF Frequency') + 
+                               self.value('RF SB Frequency'))
             else:
                 self.send_request('RF Frequency')
 

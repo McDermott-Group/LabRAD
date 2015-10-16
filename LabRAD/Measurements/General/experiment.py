@@ -474,7 +474,9 @@ class Experiment(object):
         except:
             return None
         if interface is not None and hasattr(interface, 'send_request'):
+            prev_val = self.value(var)
             interface.send_request(self.value(var, value, output=False))
+            self.value(var, prev_val, output=False)
         
     def acknowledge_request(self, var):
         """

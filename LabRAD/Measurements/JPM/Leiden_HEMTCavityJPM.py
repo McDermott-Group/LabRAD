@@ -89,7 +89,7 @@ Resources = [ {
 
 # Experiment Information
 ExptInfo = {
-            'Device Name': 'Test',
+            'Device Name': 'LeidenTest',
             'User': 'Ivan Pechenezhskiy',
             'Base Path': r'Z:\mcdermott-group\Data\Matched JPM Photon Counting\Leiden DR 2015-10-02 - Cavity Excitation by JPM',
             'Experiment Name': 'Test',
@@ -104,7 +104,7 @@ ExptVars = {
 
             'RF Frequency': 4.821 * GHz,
             'RF SB Frequency': 30 * MHz,
-            'RF Power': 13 * dBm,
+            'RF Power': -110 * dBm,
 
             'Init Time': 50 * us,
             'Bias Time': 100 * us,
@@ -126,5 +126,5 @@ with hemt_qubit_experiments.HEMTCavityJPM() as run:
     # run.single_shot_osc(save=False, plot_data=['I', 'Q'])
     # run.avg_osc(save=False, plot_data=['I', 'Q'], runs=250)
 
-    run.sweep('RF Frequency', np.linspace(4.50, 5.00, 1001) * GHz,
-              plot_data=['I', 'Q', 'Mean ADC Amplitude'], save=True, max_data_dim=1)
+    run.sweep('RF Frequency', np.linspace(4.50, 5.00, 1001) * GHz, 
+                save=True, print_data = ['I', 'Q'], max_data_dim=1)

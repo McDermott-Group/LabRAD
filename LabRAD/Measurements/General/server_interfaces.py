@@ -292,9 +292,9 @@ class GHzFPGABoards(object):
             p = self.server.packet()
             p.select_device(dac)
             p.memory(memory[k])
-            # p.start_delay(DACDelays[k])
-            # Handle dual block calls here, in a different way than Sank in 
-            # the self.boards_Server. This should be compatible.
+            # p.start_delay(self.dac_settings[k]['CalibDelay'])
+            # Handle dual block calls here, in a different way than Sank
+            # did. This should be compatible.
             if len(sram[k]) > self.consts['SRAM_LEN']:
                 # Shove last chunk of SRAM into BLOCK1, be sure this can 
                 # contain what you need it to contain.
@@ -425,6 +425,11 @@ class GHzFPGABoards(object):
             p.daisy_chain(list(itertools.chain(*[self.dacs])))
             p.timing_order(self._data_dacs)
             self._results.append(p.send(wait=False))
+            
+        # Ensure that all packets are sent.
+        for result in self._results:
+            result.wait()
+        self._results = []
     
     def run(self, reps=1020):
         """
@@ -436,10 +441,6 @@ class GHzFPGABoards(object):
             run_data: returns the result of the self.boards.run_sequence 
                 command.
         """
-        for result in self._results:
-            result.wait()
-        self._results = []
-
         return self.server.run_sequence(int(reps), (bool(self._data_dacs) or 
                                                     bool(self._data_adcs)))
                                                
