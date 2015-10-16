@@ -143,7 +143,6 @@ class ADRController(object):#Tkinter.Tk):
         self.cxn._cxn.addListener(serv_disconn_func, source=mgr.ID, ID=108)
         yield mgr.subscribe_to_named_message('Server Connect', 107, True)
         yield mgr.subscribe_to_named_message('Server Disconnect', 108, True)
-    @inlineCallbacks
     def initializeWindow(self):
         """Creates the GUI."""
         root = self.parent
