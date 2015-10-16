@@ -4,14 +4,12 @@ TODO LIST
 - GGG temp monitoring
 - do we want to have a recording checkbox with a time interval?
 - try running some of this from dif computers
-- ADRClient should get settings path and limits from ADRServer
-- mag up buttons should be updated with the updateState cycle so they get updated if client is opened later
++ mag up buttons should be updated with the updateState cycle so they get updated if client is opened later
 - make the startup scripts check what is already open before opening again
 - make the startup scripts fully automated
 - when automated startup, add interface to see different windows to ADRClient (so we can check what is working)
 - Add open/close HS to mag up/reg buttons
 + ADR is selected from  beginning in client.  what if none are started first?
-- selecting an ADR from menu when that ADR does not exist causes errors
 - add compressor controls
 
 BUGS
@@ -22,6 +20,7 @@ BUGS
 - since current lags voltage, often will mag all the way down.  have to press regulate again to go back up
 - temperature logging inevitably fails after a while
 - uses lots of memory
++ selecting an ADR from menu when that ADR does not exist causes errors
 
 TODO IN GENERAL
 Data - either write a new datavault server or (hopefully) just use the existing one and change Ivan's code to use it

@@ -242,16 +242,6 @@ class ADRController(object):#Tkinter.Tk):
         self.regulateTempField.pack(side=Tkinter.LEFT)
         self.regulateTempField.insert(0, "0.1")
         Tkinter.Label(magControlsFrame, text="K").pack(side=Tkinter.LEFT)
-        try:
-            mUp = yield self.cxn[self.selectedADR].get_state_var('maggingUp')
-            reg = yield self.cxn[self.selectedADR].get_state_var('regulating')
-            if mUp:
-                self.magUpButton.configure(text='Stop Magging Up', command=self.cancelMagUp)
-                self.regulateButton.configure(state=Tkinter.DISABLED)
-            if reg:
-                self.regulateButton.configure(text='Stop Regulating', command=self.cancelRegulate)
-                self.magUpButton.configure(state=Tkinter.DISABLED)
-        except Exception as e: pass #if not connected to ADRServer
         #shows current values for backEMF, current, voltage
         monitorFrame = Tkinter.Frame(root)
         monitorFrame.pack(side=Tkinter.TOP)
@@ -352,7 +342,16 @@ class ADRController(object):#Tkinter.Tk):
         logMessages = yield self.cxn[self.selectedADR].get_log(20) #only load last 20 messages
         for (m,a) in logMessages:
             self.updateLog(m,a)
+        # update field limits and button statuses
         self.setFieldLimits()
+        mUp = yield self.cxn[self.selectedADR].get_state_var('maggingUp')
+        reg = yield self.cxn[self.selectedADR].get_state_var('regulating')
+        if mUp:
+            self.magUpButton.configure(text='Stop Magging Up', command=self.cancelMagUp)
+            self.regulateButton.configure(state=Tkinter.DISABLED)
+        if reg:
+            self.regulateButton.configure(text='Stop Regulating', command=self.cancelRegulate)
+            self.magUpButton.configure(state=Tkinter.DISABLED)
         # refresh interface
         self.updateInterface()
     def refreshInstruments(self):
