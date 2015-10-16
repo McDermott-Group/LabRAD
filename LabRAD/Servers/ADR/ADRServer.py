@@ -85,7 +85,7 @@ class ADRServer(DeviceServer):
                         'maggingUp':False,
                         'regulating':False,
                         'regulationTemp':0.1,
-                        'PID_cumulativeError':0}
+                        'PID_cumulativeError':0*units.K}
         self.lastState = self.state.copy()
         self.ADRSettings ={ 'PID_KP':0.75,
                             'PID_KI':0,
@@ -370,7 +370,9 @@ class ADRServer(DeviceServer):
             #propose new voltage
             T_target = float(self.state['regulationTemp'])*units.K
             dT = deltaT( self.state['datetime'] - self.lastState['datetime'] )
-            #print 'dt =',dT, self.state['datetime'], self.lastState['datetime']
+            print 'dt, now, last, ==0 =',dT, self.state['datetime'], self.lastState['datetime'], dT==0
+            print 't_target, t_faa_now, t_faa_last = ', T_target, self.state['T_FAA'], self.lastState['T_FAA']
+            print 'cum err = ', self.state['PID_cumulativeError']
             if dT == 0: dT = 0.0000000001 #to prevent divide by zero error
             self.state['PID_cumulativeError'] += (T_target-self.state['T_FAA'])
             dV = ( self.ADRSettings['PID_KP']*(T_target-self.state['T_FAA']) \
@@ -412,6 +414,9 @@ class ADRServer(DeviceServer):
                 #self.regulationStopped('done') #signal
                 self.client.manager.send_named_message('Regulation Stopped', 'done')
     
+    @setting(101, 'Get Settings Path', returns=['*(s,b)'])
+    def getSettingsPath(self,c):
+        return self.ADRSettingsPath
     @setting(102, 'Get Log', n=['v'], returns=['*(s,b)'])
     def getLog(self,c, n=0):
         """Get an array of the last n logs."""

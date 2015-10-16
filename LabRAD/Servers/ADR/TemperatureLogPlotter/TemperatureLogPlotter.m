@@ -5,9 +5,9 @@ function TemperatureLogPlotter
 % File C:\Program Files\MATLAB\R2014b\bin\win64\tbb.dll should be placed in the
 % same folder with the executable for the proper operatation.
 
-[filename, pathname] = uigetfile({'*.txt','Text Files';...
+[filename, pathname] = uigetfile({'*','Text Files';...
           '*.*','All Files' },'Select the ADR temperature log file',...
-          'Z:\mcdermott-group\ADR_log_files\NEW_ADR\temperatures_yymmdd_hhmm.txt');
+          'Z:\mcdermott-group\Data\ADR_log_files\');
 
 if isnumeric(filename)
     return

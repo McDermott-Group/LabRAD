@@ -11,7 +11,8 @@ TODO LIST
 - make the startup scripts fully automated
 - when automated startup, add interface to see different windows to ADRClient (so we can check what is working)
 - Add open/close HS to mag up/reg buttons
-- compressor control
+- ADR is selected from  beginning in client.  what if none are started first?
+- selecting an ADR from menu when that ADR does not exist causes errors
 
 BUGS
 - changing the regulation temp automatically starts regulation
@@ -20,21 +21,13 @@ BUGS
 - SIM900 sometimes needs to be restarted.  can this be fixed by sending *RST?
 - changing the temperature does not seem to work
 - since current lags voltage, often will mag all the way down.  have to press regulate again to go back up
+- temperature logging inevitably fails after a while
 
 
 TODO IN GENERAL
 Data - either write a new datavault server or (hopefully) just use the existing one and change Ivan's code to use it
-Sweep Server - Mark Ansman's thesis details one of these that sounds great, but I have not been able to find it on their github.  Probably have to rewrite one. 
-Optimization Server
-DC Rack Controller - Remake the crappy labview one we have now
-Noise Measurements - basically convert Pradeep's labview code to labrad
-IV Curve - Ed has started this, but it's not very good.  Make program that is easy to take IV curve with.
-Compressor Server - Maybe we can adapt this from the Martinis group, maybe he have to rewrite it
 Grapher - make an universal plotting tool that is detangled from the experiment (sweep) code or use existing Grapher whatever is best (the decision on project "Data" should me made with this in mind).
-Waveforms - write waveform generating module to ease the process of setting up new GHz FPGA experiments.
 Units - improve labrad.units module.
-PyLabRAD - transition to the newer version or fork from Martinis group, the main problem will probably be with the GHz FPGA code.
-Leiden DR Monitor - MaxiGuage server, pressure and temperature monitor client, somewhat similar to ADR controller bar the control functionality.
 
 
 QUESTIONS

@@ -30,7 +30,6 @@ message = 987654321
 timeout = 20
 ### END NODE INFO
 """
-ADR_SETTINGS_PATH = ['','ADR Settings','ADR3']  # path in registry
 selectedADR = 'ADR3'
 
 import matplotlib as mpl
@@ -52,6 +51,10 @@ class EntryWithAlert(Tkinter.Entry):
         self.variable.trace('w',self.callback)
         Tkinter.Entry.__init__(self,*args,**kwargs)
         self.naturalBGColor = self.cget('disabledbackground')
+    def setUpperLimit(self,limit):
+        self.upper_limit = limit
+    def setLowerLimit(self,limit):
+        self.lower_limit = limit
     def callback(self,*dummy):
         if self.upper_limit != False or self.lower_limit != False:
             x = self.variable.get()
@@ -142,14 +145,6 @@ class ADRController(object):#Tkinter.Tk):
     def initializeWindow(self):
         """Creates the GUI."""
         root = self.parent
-        reg = self.cxn.registry
-        reg.cd(ADR_SETTINGS_PATH)
-        try: magVLimit = yield reg.get('magnet_voltage_limit')
-        except Exception as e: magVLimit = 0.1
-        try: PSILimit = yield reg.get('current_limit')
-        except Exception as e: PSILimit = 9
-        try: PSVLimit = yield reg.get('voltage_limit')
-        except Exception as e: PSVLimit = 2
         #set up window
         root.wm_title('ADR Magnet Controller')
         root.title('ADR Controller')
@@ -262,17 +257,31 @@ class ADRController(object):#Tkinter.Tk):
         self.currentI = Tkinter.StringVar()
         self.currentV = Tkinter.StringVar()
         Tkinter.Label(monitorFrame, text="Back EMF = ").pack(side=Tkinter.LEFT)
-        backEMFField = EntryWithAlert(monitorFrame, textvariable=self.currentBackEMF, state=Tkinter.DISABLED, upper_limit=magVLimit)
-        backEMFField.pack(side=Tkinter.LEFT)
+        self.backEMFField = EntryWithAlert(monitorFrame, textvariable=self.currentBackEMF, state=Tkinter.DISABLED)
+        self.backEMFField.pack(side=Tkinter.LEFT)
         Tkinter.Label(monitorFrame, text="(V)   I = ").pack(side=Tkinter.LEFT)
-        currentIField = EntryWithAlert(monitorFrame, textvariable=self.currentI, state=Tkinter.DISABLED, upper_limit=PSILimit)
-        currentIField.pack(side=Tkinter.LEFT)
+        self.currentIField = EntryWithAlert(monitorFrame, textvariable=self.currentI, state=Tkinter.DISABLED)
+        self.currentIField.pack(side=Tkinter.LEFT)
         Tkinter.Label(monitorFrame, text="(A)   V = ").pack(side=Tkinter.LEFT)
-        currentVField = EntryWithAlert(monitorFrame, textvariable=self.currentV, state=Tkinter.DISABLED, upper_limit=PSVLimit)
-        currentVField.pack(side=Tkinter.LEFT)
+        self.currentVField = EntryWithAlert(monitorFrame, textvariable=self.currentV, state=Tkinter.DISABLED)
+        self.currentVField.pack(side=Tkinter.LEFT)
         Tkinter.Label(monitorFrame, text="(V)").pack(side=Tkinter.LEFT)
         self.fig.tight_layout()
+        self.setFieldLimits()
         root.protocol("WM_DELETE_WINDOW", self._quit) #X BUTTON
+    def setFieldLimits(self):
+        adrSettingsPath = self.cxn[self.selectedADR].get_settings_path()
+        reg = self.cxn.registry
+        reg.cd(adrSettingsPath)
+        try: magVLimit = yield reg.get('magnet_voltage_limit')
+        except Exception as e: magVLimit = 0.1
+        try: PSILimit = yield reg.get('current_limit')
+        except Exception as e: PSILimit = 9
+        try: PSVLimit = yield reg.get('voltage_limit')
+        except Exception as e: PSVLimit = 2
+        self.backEMFField.setUpperLimit(magVLimit)
+        self.currentIField.setUpperLimit(PSILimit)
+        self.currentVField.setUpperLimit(PSVLimit)
     def closeHeatSwitch(self):
         self.cxn[self.selectedADR].close_heat_switch()
     def openHeatSwitch(self):
@@ -291,8 +300,9 @@ class ADRController(object):#Tkinter.Tk):
         else: 
             try:
                 self.adrSelect.set(runningADRs[0])
-            except Exception as e: pass
-        # &&& still need to add listeners
+            except IndexError as e: pass
+            except Exception as e: print e
+        # &&& still need to add listeners for if server is later started
     @inlineCallbacks
     def changeFridge(self,*args):
         """Select which ADR you want to operate on.  Called when select ADR menu is changed."""
@@ -307,7 +317,10 @@ class ADRController(object):#Tkinter.Tk):
         self.stageFAA.set_xdata([])
         self.stageFAA.set_ydata([])
         # &&& load saved temp data
-		# file_path = ''
+        adrSettingsPath = self.cxn[self.selectedADR].get_settings_path()
+        reg = self.cxn.registry
+        reg.cd(adrSettingsPath)
+		file_path = yield reg.get('Log Path')
 		# with open(file_path+'\\temperatures'+self.dateAppend+'.temps', 'r') as f:
             # f.read(  )
         # self.updatePlot()
@@ -316,7 +329,7 @@ class ADRController(object):#Tkinter.Tk):
         logMessages = yield self.cxn[self.selectedADR].get_log(20) #only load last 20 messages
         for (m,a) in logMessages:
             self.updateLog(m,a)
-        # &&& refresh limits
+        self.setFieldLimits()
         # refresh interface
         self.updateInterface()
     def refreshInstruments(self):
