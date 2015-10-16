@@ -636,7 +636,7 @@ class RFGenerator(GPIBInterface):
             return cxn[server_name]
         except:
             raise ResourceDefinitionError("Could not connect to " +
-                "server '" + str(self._res['Server']) + "'.")
+                "server '" + server_name + "'.")
 
     @inlineCallbacks
     def _init_gpib_resource(self):
@@ -699,7 +699,7 @@ class SIM928VoltageSource(GPIBInterface):
             return cxn[server_name]
         except:
             raise ResourceDefinitionError("Could not connect to " +
-                "server '" + str(self._res['Server']) + "'.")
+                "server '" + server_name + "'.")
 
     @inlineCallbacks
     def _init_gpib_resource(self):
@@ -749,7 +749,7 @@ class LabBrickAttenuator(BasicInterface):
             return cxn[server_name]
         except:
             raise ResourceDefinitionError("Could not connect to " +
-                "server '" + str(self._res['Server']) + "'.")
+                "server '" + server_name + "'.")
     
     @inlineCallbacks
     def _init_resource(self):
@@ -805,7 +805,7 @@ class ADR3(BasicInterface):
             return cxn[server_name]
         except:
             raise ResourceDefinitionError("Could not connect to " +
-                "server '" + str(self._res['Server']) + "'.")
+                "server '" + server_name + "'.")
     
     def _init_resource(self):
         """Initialize the temperature variable."""
@@ -855,7 +855,7 @@ class Leiden(BasicInterface):
             return cxn[server_name]
         except:
             raise ResourceDefinitionError("Could not connect to " +
-                "server '" + str(self._res['Server']) + "'.")
+                "server '" + server_name + "'.")
 
     def _init_resource(self):
         """Initialize the temperature variable."""
