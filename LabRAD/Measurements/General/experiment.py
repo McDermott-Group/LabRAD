@@ -26,7 +26,7 @@ A basic experiment program would look something like this:
 import os
 import numpy as np
 
-from labrad.units import GHz
+from labrad.units import GHz, dBm
 
 import some_experiment
 
@@ -34,8 +34,8 @@ information = {
                 'Device Name': 'Test Device',
                 'User': 'Test User',
                 'Base Path': 'Z:\mcdermott-group\Data\Test',
-                'Experiment Name': 'SimpleExperiment',
-                'Comments': '' 
+                'Experiment Name': 'Test_Experiment',
+                'Comments': 'This is only a test.' 
               }
 resources =  { # GPIB RF Generator.
                 'Interface': 'RF Generator',
@@ -53,7 +53,7 @@ variables = {
                 'RF Power': 13 * dBm
             }
 
-with some_experiment.experiment() as expt:    
+with some_experiment.SomeExperiment() as expt:    
     expt.set_experiment(information, resources, variables) 
     freq = np.linspace(2e9, 5e9, 101) * GHz
     expt.sweep('RF Frequency', freq, save=True)
@@ -86,7 +86,7 @@ class Experiment(object):
     Experiment class. Parent class for specific instances of experiments
     that provides shared functionality.
     """
-###SPECIAL METHODS##############################################################
+###SPECIAL METHODS######################################################
     def __init__(self):
         """
         Input:
@@ -127,7 +127,7 @@ class Experiment(object):
         print('The instrument resources have been safely terminated! ' + 
               'Have a nice day.')
   
-    ###SETUP METHODS############################################################
+    ###SETUP METHODS####################################################
     def set_experiment(self, information, resources, variables):
         """
         Sets experiment information, resources and experiment variables.
@@ -160,7 +160,7 @@ class Experiment(object):
                 'Boards': [
                             'Shasta Board DAC 9', 
                             'Shasta Board DAC 10',
-                            'Shasta Board ADC 6'
+                            'Shasta Board ADC 11'
                           ],
                 'Shasta Board DAC 9':  {
                                         'DAC A': 'JPM Fast Pulse',
@@ -172,7 +172,7 @@ class Experiment(object):
                                         'DAC A': 'Readout Q',
                                         'DAC B': 'Readout I',
                                        },
-                'Shasta Board ADC 6':  {
+                'Shasta Board ADC 11':  {
                                         'RunMode': 'demodulate', #'average'
                                         'FilterType': 'square',
                                         'FilterWidth': 9500 * ns,
@@ -275,7 +275,7 @@ class Experiment(object):
 
     def _set_resources(self, resources):
         """
-        Set electronics information (what dacs, adcs, and RF generators,
+        Set electronics information (which DACs, ADCs, and RF generators,
         Lab Bricks, etc. we are running), initializes connections to the
         LabRAD servers.
         
@@ -289,7 +289,6 @@ class Experiment(object):
             None.
         """
         self._vars = {}     # Dictionary of the experiment variables.
-        self.fpga_server = None     # LabRAD GHz FPGA server.
         
         def _msg(key, resource):
             return ("'" + key + "' key is not found in the resource " + 
@@ -474,8 +473,12 @@ class Experiment(object):
         except:
             return None
         if interface is not None and hasattr(interface, 'send_request'):
+            # Save the current variable value in case a correction to 
+            # the value is made, i.e. a side-band frequency offset or 
+            # bias zero-voltage offset are added.
             prev_val = self.value(var)
             interface.send_request(self.value(var, value, output=False))
+            # Restore the previous value.
             self.value(var, prev_val, output=False)
         
     def acknowledge_request(self, var):
@@ -525,8 +528,8 @@ class Experiment(object):
             results[var] = self.acknowledge_request(var)
         return results
 
-    ###DATA SAVING METHODS#########################################################################
-    def _text_save(self, data):
+    ###DATA SAVING METHODS##############################################
+    def _txt_save(self, data):
         """
         Save the data in a human-readable text data file. The method
         saves a header containing all experiment variables, then sweep
@@ -538,37 +541,34 @@ class Experiment(object):
             try:
                 os.makedirs(text_dir)
             except:
-                raise Exception('Could not create experiment text ' + 
-                'data save path! Is AFS on?')
+                raise Exception('Could not create data save path for ' +
+                        'the experiment data! Is AFS on?')
         
         # Which contents are files?
-        onlyfiles = [f for f in os.listdir(text_dir)
+        only_files = [f for f in os.listdir(text_dir)
                      if os.path.isfile(os.path.join(text_dir, f))]
-        ExptName = self.information['Experiment Name'].replace(" ", "_")
+        expt_name = self.information['Experiment Name'].replace(" ", "_")
         # Which files start off with 'ExperimentName_'?
-        files = [f.split('.')[0] for f in onlyfiles 
-                 if f[:len(ExptName) + 1] == ExptName+'_']
-        
-        # Get file numbers and increment, or create first file if none 
-        # in the folder.
+        files = [f.split('.')[0] for f in only_files 
+                 if f[:len(expt_name) + 1] == expt_name + '_']
+        # Get the file numbers and the increment, or create the first 
+        # file if none in the folder.
         nums = [int(f[-3:]) for f in files if f[-3:].isdigit()]
-        if nums==[]:
+        if not nums:
             num = '000'
-            fname = ExptName+'_' + num + '.txt'
+            fname = expt_name + '_' + num + '.txt'
         else:
             num = ("%03d" % (max(nums) + 1,))
-            fname = ExptName + '_' + num +'.txt'
+            fname = expt_name + '_' + num + '.txt'
         
         # Create the file path.
-        filePath = os.path.join(text_dir,fname)
+        file_path = os.path.join(text_dir,fname)
         
         # Build a header for the file.
-        h = []
-        h.append(ExptName)
-        h.append(time.asctime())
+        h = ['Format Version: 0.1', expt_name, time.asctime()]
         h.append('====Experiment Parameters====')
         # Save only the variables that have been actually used.
-        # Do not save the sweep variables in the header.
+        # Do not save the sweep variables here.
         for var in self._vars:
             if (var not in data and 'Save' in self._vars[var] and 
                 self._vars[var]['Save'] and 'Value' in self._vars[var]):
@@ -579,7 +579,7 @@ class Experiment(object):
             h.append('Comments: ' + self.information['Comments'])
         
         h.append('====Sweep Variables====')
-        with file(filePath, 'w') as outfile:
+        with file(file_path, 'w') as outfile:
             for k in h:
                 outfile.write(k + '\n')
             # This is to avoid duplicative saving of the sweep variables
@@ -588,29 +588,36 @@ class Experiment(object):
                 if ('Type' in data[key] and 'Value' in data[key] and 
                     data[key]['Type'] == 'Independent'):
                         outfile.write(key + 
-                                self.get_units(data[key]['Value'], True) + 
-                                ':' +
-                                str(list(np.shape(data[key]['Value']))) +
+                                self.get_units(data[key]['Value'], 
+                                True) + '\n')
+                        outfile.write('Type: independent\n')
+                        outfile.write('Size: ' +
+                                str(np.shape(data[key]['Value']))[1:-1] +
                                 '\n')
-                        self._ndarray_text_save(outfile, 
+                        self._ndarray_txt_save(outfile, 
                                 self.strip_units(data[key]['Value']))
 
             outfile.write('====Data Variables====\n');
             for key in data:
                 if ('Type' in data[key] and 'Value' in data[key] and 
                     data[key]['Type'] == 'Dependent'):
-                    extra = ''
+                    outfile.write(key + 
+                                self.get_units(data[key]['Value'], 
+                                True) + '\n')
+                    outfile.write('Type: dependent\n')
                     if 'Dependencies' in data[key]:
-                        extra = '::' + str(data[key]['Dependencies'])
+                        outfile.write('Dependencies: ' +
+                                str(data[key]['Dependencies']) + '\n')
                     if 'Distribution' in data[key]:
-                        extra = extra + ':::[' + data[key]['Distribution'] + ']'
-                    outfile.write(key + self.get_units(data[key]['Value'], True) + 
-                            ':' + str(list(np.shape(data[key]['Value']))) +
-                            extra + '\n')
-                    self._ndarray_text_save(outfile, 
-                            self.strip_units(data[key]['Value']))
-                    
-    def _ndarray_text_save(self, outfile, array):
+                        outfile.write('Distribution: ' +
+                                data[key]['Distribution'] + '\n')
+                    outfile.write('Size: ' +
+                                str(np.shape(data[key]['Value']))[1:-1] +
+                                '\n')
+                    self._ndarray_txt_save(outfile, 
+                            self.strip_units(data[key]['Value']))                
+
+    def _ndarray_txt_save(self, outfile, array):
         """
         Write numpy.ndarray into a text file.
         
@@ -643,24 +650,24 @@ class Experiment(object):
                 'data save path! Is AFS on?')
         
         # Which contents are files?
-        onlyfiles = [f for f in os.listdir(matlab_dir)
+        only_files = [f for f in os.listdir(matlab_dir)
                      if os.path.isfile(os.path.join(matlab_dir, f))]
-        ExptName = self.information['Experiment Name'].replace(" ", "_")
+        expt_name = self.information['Experiment Name'].replace(" ", "_")
         # Which files start off with 'ExperimentName_'?
-        files = [f.split('.')[0] for f in onlyfiles
-                 if f[:len(ExptName) + 1] == ExptName + '_']
+        files = [f.split('.')[0] for f in only_files
+                 if f[:len(expt_name) + 1] == expt_name + '_']
         
         # Get file numbers and increment, or create first file if none
         # in the folder.
         nums = [int(f[-3:]) for f in files if f[-3:].isdigit()]
         if nums==[]:
             num = '000'
-            fname = ExptName + '_' + num + '.mat'
+            fname = expt_name + '_' + num + '.mat'
         else:
             num = ("%03d" % (max(nums) + 1,))
-            fname = ExptName + '_' + num + '.mat'
+            fname = expt_name + '_' + num + '.mat'
         
-        filePath = os.path.join(matlab_dir,fname)
+        file_path = os.path.join(matlab_dir,fname)
         
         # Convert variable names to a MATLAB-friendly format.
         # Save the variables that have been actually used.
@@ -692,7 +699,7 @@ class Experiment(object):
         
         # Create dictionary that will be saved to a .mat file.
         saveDict = {'Time': time.asctime(),
-                    'Name': ExptName + '_' + num,
+                    'Name': expt_name + '_' + num,
                     'ExptVars': matVars,
                     'Data': matData,
                     'Comments': self.information['Comments']}
@@ -704,7 +711,7 @@ class Experiment(object):
         if matDataDepend:
             saveDict['Depend'] = matDataDepend
 
-        sio.savemat(filePath, {saveDict['Name']: saveDict})                
+        sio.savemat(file_path, {saveDict['Name']: saveDict})                
 
     def _save_data(self, data):
         """
@@ -743,11 +750,11 @@ class Experiment(object):
                 data[key]['Dependencies'] = [var for var 
                         in data[key]['Dependencies'] if var not in rm_vars]
         
-        self._text_save(data)
+        self._txt_save(data)
         self._mat_save(data)
         print('The data has been saved.')
     
-    ###UTILITIES###################################################################################
+    ###UTILITIES########################################################
     def get_units(self, v, brackets=False):
         """
         Return variable units.
@@ -821,7 +828,7 @@ class Experiment(object):
         """
         Return variable units.
         
-        Input(s):
+        Inputs:
             val: value of a physical quantity or a unitless number.
             brackets (optional): boolean that specifies whether the variable units
                 should be enclosed in brackets (default: False).
@@ -865,7 +872,7 @@ class Experiment(object):
 
         return result
 
-    ###EXPERIMENT CONTROL METHODS##################################################################
+    ###EXPERIMENT CONTROL METHODS#######################################
     def value(self, var, value=None, output=True):
         """
         Get or set a single variable in the experiment variables 
@@ -907,16 +914,30 @@ class Experiment(object):
                 "' is set to " + self.val2str(value) + ".")
             return value
 
-    ###EXPERIMENT RUN FUNCTIONS####################################################################
+    ###EXPERIMENT RUN FUNCTIONS#########################################
+    def load_once(self):
+        """
+        This method is called before run_once by the sweep method and
+       could be used to reduce the overhead
+        caused by the need to set the FPGA boards and other devices
+        when multiple runs of the same experiment have to be executed.
+        
+        Input: 
+            None.
+        Output:
+            None.
+        """
+        pass
+
     def run_once(self):
         """
-        Basic run method. In Experiment this does nothing, and should be
-        what is modified in each specific inherited experiment class.
-        run_once will be called by each of the sweep running methods so
-        that these don't have to be redefined in each method. In the 
-        inherited classes this should run one experiment (i.e. one set
-        of RF/memory/SRAM commands) with the variables as currently 
-        defined in the experiment variable dictionary.
+        Basic run method. This method should be modified in each 
+        inherited class. The method is called by the sweep method. 
+        In the inherited classes run_once should define the logic
+        and basic data structure of a signle experiment. Method
+        load_once could be used to reduce the overhead
+        caused by the need to set the FPGA boards and other devices
+        when multiple runs of the same experiment have to be executed.
         
         Input: 
             None.
@@ -925,7 +946,7 @@ class Experiment(object):
         """
         pass
         
-    def run_multiple_times_then_average(self, runs):
+    def run_n_times(self, runs):
         """
         This method is similar to run_once with the exception that 
         the experiment defined by run_once method will be called
@@ -947,7 +968,7 @@ class Experiment(object):
                 for key in run_data:
                     if ('Value' in data[key] and 'Type' in data[key]
                             and data[key]['Type'] == 'Dependent'):
-                        data[key]['Value'] = (np.zeros((runs,) +
+                        data[key]['Value'] = (np.empty((runs,) +
                                 np.shape(run_data[key]['Value'])))
             for key in data:
                 if ('Value' in data[key] and 'Type' in data[key]
@@ -1133,12 +1154,14 @@ class Experiment(object):
                 for p_idx in range(len(names)):
                     self.value(names[p_idx][0], values[p_idx][0][idx], False)
 
+                # Load the board settings and set the instruments.
+                self.load_once()
                 if runs == 1:
                     # Run the experiment once.
                     run_data = self.run_once()
                 else:
                     # Run the same experiment multiple times.
-                    run_data = self.run_multiple_times_then_average(runs)
+                    run_data = self.run_n_times(runs)
                 
                 self._sweep_pts_acquired = self._sweep_pts_acquired + 1 
 
@@ -1336,7 +1359,7 @@ class Experiment(object):
         Examples:
             run.sweep([['RF Frequency'], ['RF Frequency']],
                       [[np.array([1e9, 2e9, 3e9] * GHz)], 
-                       [np.array([1e9, 2e9, 3e9] * Ghz)]], 
+                       [np.array([1e9, 2e9, 3e9] * GHz)]], 
                       save=True, print_data=['Pa', 'Pb'],
                       plot_data=['Pa', 'Pb'], 
                       dependencies=[['Pa'], ['Pb']])
@@ -1541,12 +1564,24 @@ class Experiment(object):
                 raise SweepError('Dependency specifications could not be' +
                 ' unambigiously matched to sweep variables.')
 
+        # Save the current sweep variables values. This allows running
+        # several sweeps in a row without worring about the sweep
+        # variables too much. For example, one can start a frequency
+        # sweep followed by a bias voltage sweep. Instead of leaving the
+        # frequency at the last value of the sweep range, we want it to
+        # return at the initial value. Ussually, initally value is
+        # an important special case (could be, for instance, a resonance
+        # frequncy) and without the code below it may be required
+        # to reset the value manually, which is often annoying.
+        unique_names = set([name for sublist in names for name in sublist])
+        prev_vals = {name: self.value(name) for name in unique_names}
+                
         self._run_status= ''            # E.g. 'abort' or 'abort-and-save'.
         self._run_message = '';
         self._sweep_dimension = len(names[0])   # Dimension of the sweep.
         self._sweep_start_time = time.time()    # Start time for the finish 
                                                 # time estimation.
-        self._sweep_number_of_pts = 1   # Total number of measurement points.
+        self._sweep_number_of_pts = 1   # Total number of sweep points.
         for val in values[0]:
             self._sweep_number_of_pts = len(val) * self._sweep_number_of_pts
         self._sweep_pts_acquired = 0    # Number of the acquired data points.
@@ -1600,8 +1635,12 @@ class Experiment(object):
                 self._save_data(data)
             else:
                 print('There is no data to save!')
- 
-    ###KEYBOARD LISTENERS##########################################################################
+       
+        # Restore previous sweep variable values.
+        for name in unique_names:
+            self.value(name, prev_vals[name], output=False)
+
+    ###KEYBOARD LISTENERS###############################################
     def _listen_to_keyboard(self, 
             recog_keys=[27, 83, 115, 84, 116, 79, 111, 88, 120],
             clear_buffer=True):
@@ -1653,7 +1692,7 @@ class Experiment(object):
             while kbhit():
                 getch()
 
-    ###PLOTTING METHODS############################################################################
+    ###PLOTTING METHODS#################################################
     def _init_1d_plot(self, names, values, data, plot_data_vars):  
         # Make a list of the data variables that should be plotted.
         if plot_data_vars is not None:

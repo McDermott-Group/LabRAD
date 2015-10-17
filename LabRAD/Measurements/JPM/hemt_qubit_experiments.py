@@ -34,7 +34,7 @@ import labrad.units as units
 import LabRAD.Measurements.General.experiment as expt
 import LabRAD.Measurements.General.pulse_shapes as pulse
 import LabRAD.Servers.Instruments.GHzBoards.command_sequences as seq
-import data_processing
+import data_processing as dp
 
 
 class HEMTExperiment(expt.Experiment):        
@@ -55,6 +55,7 @@ class HEMTExperiment(expt.Experiment):
         previous_adc_mode = self.boards.get_adc_setting('RunMode', adc)
         self.boards.set_adc_setting('RunMode', 'demodulate', adc)
         
+        self.load_once()
         data = self._process_data(self.run_once())
         
         self.boards.set_adc_setting('RunMode', previous_adc_mode, adc)
@@ -103,7 +104,8 @@ class HEMTExperiment(expt.Experiment):
         adc = self.boards.get_adc(adc)
         previous_adc_mode = self.boards.get_adc_setting('RunMode', adc)
         self.boards.set_adc_setting('RunMode', 'average', adc)
-            
+        
+        self.load_once()
         data = self._process_data(self.run_once())
 
         # Make a list of data variables that should be plotted.
@@ -171,18 +173,142 @@ class HEMTExperiment(expt.Experiment):
     def _plot_iqs(self, data):
         plt.ion()
         plt.figure(13)
-        plt.plot(data['Single Shot Is']['Value'], data['Single Shot Qs']['Value'], 'b.')
-        plt.xlabel('I [ADC units]')
-        plt.ylabel('Q [ADC units]')
+        plt.plot(data['Is']['Value'], data['Qs']['Value'], 'b.')
+        plt.xlabel('I [ADC Units]')
+        plt.ylabel('Q [ADC Units]')
         plt.title('Single Shot Is and Qs')
         plt.draw()
 
+    def run_once(self, adc=None): 
+        ###DATA POST-PROCESSING####################################################################
+        self.send_request('Temperature')
+        result = self.boards.run(self.value('Reps'))
+        Is, Qs = result[0] 
+        Is = np.array(Is)
+        Qs = np.array(Qs)
 
+        if self.boards.get_adc_setting('RunMode', adc) == 'demodulate':
+            I = np.mean(Is)
+            Q = np.mean(Qs)
+            return {
+                    'Is': { 
+                        'Value': Is * units.ADCUnits,
+                        'Dependencies': ['Rep Iteration'],
+                        'Preferences':  {'linestyle': 'b.'}},
+                    'Qs': { 
+                        'Value': Qs * units.ADCUnits,
+                        'Dependencies': ['Rep Iteration'],
+                        'Preferences':  {'linestyle': 'g.'}},
+                    'I': {
+                        'Value': I * units.ADCUnits,
+                        'Distribution': 'normal',
+                        'Preferences':  {'linestyle': 'b-'}},
+                    'Q': { 
+                        'Value': Q * units.ADCUnits,
+                        'Distribution': 'normal',
+                        'Preferences':  {'linestyle': 'g-'}}, 
+                    'I Std Dev': { 
+                        'Value': np.std(Is) * units.ADCUnits},
+                    'Q Std Dev': { 
+                        'Value': np.std(Qs) * units.ADCUnits},
+                    'ADC Amplitudes': { 
+                        'Value': np.sqrt(Is**2 + Qs**2) * units.ADCUnits,
+                        'Preferences':  {'linestyle': 'r.'}},
+                    'ADC Amplitude': { 
+                        'Value': np.sqrt(I**2 + Q**2) * units.ADCUnits,
+                        'Preferences':  {'linestyle': 'r-'}},
+                    'Mean Abs ADC Amplitude': { 
+                        'Value': np.mean(np.sqrt(Is**2 + Qs**2)) * units.ADCUnits,
+                        'Preferences':  {'linestyle': 'm-'}},
+                    'Mean Abs ADC Amplitude Std Dev': { 
+                        'Value': np.std(np.sqrt(Is**2 + Qs**2)) * units.ADCUnits},
+                    'ADC Phases': { # numpy.arctan2(y, x) expects reversed arguments.
+                        'Value': np.arctan2(Qs, Is) * units.rad,
+                        'Dependencies': ['Rep Iteration'],
+                        'Preferences':  {'linestyle': 'k.'}},
+                    'ADC Phase': { # numpy.arctan2(y, x) expects reversed arguments.
+                        'Value': np.arctan2(Q, I) * units.rad,
+                        'Preferences':  {'linestyle': 'k-'}},
+                    'Rep Iteration': {
+                        'Value': np.linspace(1, len(Is), len(Is)),
+                        'Type': 'Independent'},
+                    'Temperature': {
+                        'Value': self.acknowledge_request('Temperature')}
+                   }
+        elif self.boards.get_adc_setting('RunMode', adc) == 'average':
+            self.value('Reps', 1, output=False)
+            time = np.linspace(0, 2 * (len(Is) - 1), len(Is))
+            I, Q = dp.software_demod(time, demod_freq, Is, Qs)
+            return {
+                    'I': { 
+                        'Value': Is * units.ADCUnits,
+                        'Dependencies': ['ADC Time'],
+                        'Preferences':  {'linestyle': 'b-'}},
+                    'Q': { 
+                        'Value': Qs * units.ADCUnits,
+                        'Dependencies': ['ADC Time'],
+                        'Preferences':  {'linestyle': 'g-'}},
+                    'Software Demod I': { 
+                        'Value': I * units.ADCUnits,
+                        'Preferences':  {'linestyle': 'b.'}},
+                    'Software Demod Q': { 
+                        'Value': Q * units.ADCUnits,
+                        'Preferences':  {'linestyle': 'g.'}}, 
+                    'Software Demod ADC Amplitude': { 
+                        'Value': np.sqrt(I**2 + Q**2) * units.ADCUnits,
+                        'Preferences':  {'linestyle': 'r.'}},
+                    'Software Demod ADC Phase': { 
+                        'Value': np.arctan2(Q, I) * units.rad,
+                        'Preferences':  {'linestyle': 'k.'}},
+                    'ADC Time': {
+                        'Value': time * units.ns,
+                        'Type': 'Independent'},
+                    'Temperature': {
+                        'Value': self.acknowledge_request('Temperature')}
+                   }
+
+    def average_data(self, data):
+        for key in data:
+            if key in ['I', 'Q']:
+                if key + 's' in data:
+                    data[key]['Value'] = np.mean(data[key + 's']['Value'])
+                    data[key + ' Std Dev']['Value'] = np.std(data[key + 's']['Value'])
+                else:
+                    data[key]['Value'] = np.mean(data[key]['Value'], axis=0)
+                    data[key]['Distribution'] = 'normal'
+                    data[key + ' Std Dev']['Value'] = np.std(data[key]['Value'], axis=0)
+            elif key in ['Software Demod I', 'Software Demod Q', 'Temperature']:
+                data[key]['Value'] = np.mean(data[key]['Value'], axis=0)
+                data[key]['Distribution'] = 'normal'
+                data[key + ' Std Dev']['Value'] = np.std(data[key]['Value'], axis=0)
+        
+        for key in data:      
+            if key == 'ADC Amplitude':
+                data['ADC Amplitude']['Value'] = np.sqrt(data['I']['Value']**2 + 
+                                                         data['Q']['Value']**2)
+            elif key = 'Mean Abs ADC Amplitude': { 
+                data['Mean Abs ADC Amplitude']['Value'] = np.mean(np.sqrt(data['Is']['Value']**2 + 
+                                                                          data['Qs']['Value']**2))
+            elif key = 'Mean Abs ADC Amplitude Std Dev': { 
+                data['Mean Abs ADC Amplitude Std Dev']['Value'] = np.std(np.sqrt(data['Is']['Value']**2 + 
+                                                                                 data['Qs']['Value']**2))
+            elif key == 'ADC Phase':
+                data['ADC Phase']['Value'] = np.arctan2(data['Q']['Value'], data['I']['Value'])
+            
+            elif key == 'Software Demod ADC Amplitude':
+                data['Software Demod ADC Amplitude']['Value'] = np.sqrt(data['Software Demod I']**2 + 
+                                                                        data['Software Demod Q']**2)
+            elif key == 'Software Demod ADC Phase':
+                data['Software Demod ADC Phase']['Value'] = np.arctan2(data['Software Demod Q'],
+                                                                       data['Software Demod I']) 
+        return data
+        
+        
 class HEMTQubitReadout(HEMTExperiment):
     """
     Read out a qubit connected to a resonator.
     """
-    def run_once(self, adc=None, plot_waveforms=False):
+    def load_once(self, adc=None, plot_waveforms=False):
         #QUBIT VARIABLES###########################################################################
         self.send_request('Qubit Attenuation')                          # qubit attenuation
         self.send_request('Qubit Power')                                # qubit power
@@ -267,117 +393,14 @@ class HEMTQubitReadout(HEMTExperiment):
         
         ###RUN#####################################################################################
         self.acknowledge_requests()
-        self.send_request('Temperature')
-        result = self.boards.load_and_run(dac_srams, mems, self.value('Reps'))
-        
-        ###DATA POST-PROCESSING####################################################################
-        Is, Qs = result[0] 
-        Is = np.array(Is)
-        Qs = np.array(Qs)
-
-        if self.boards.get_adc_setting('RunMode', adc) == 'demodulate':
-            I = np.mean(Is)
-            Q = np.mean(Qs)
-            return {
-                    'Single Shot Is': { 
-                        'Value': Is * units.ADCUnits,
-                        'Dependencies': ['Rep Iteration'],
-                        'Preferences':  {'linestyle': 'b.'}},
-                    'Single Shot Qs': { 
-                        'Value': Qs * units.ADCUnits,
-                        'Dependencies': ['Rep Iteration'],
-                        'Preferences':  {'linestyle': 'g.'}},
-                    'I': {
-                        'Value': I * units.ADCUnits,
-                        'Distribution': 'normal',
-                        'Preferences':  {'linestyle': 'b-'}},
-                    'Q': { 
-                        'Value': Q * units.ADCUnits,
-                        'Distribution': 'normal',
-                        'Preferences':  {'linestyle': 'g-'}}, 
-                    'I Std Dev': { 
-                        'Value': np.std(Is) * units.ADCUnits},
-                    'Q Std Dev': { 
-                        'Value': np.std(Qs) * units.ADCUnits},
-                    'ADC Amplitude': { 
-                        'Value': np.sqrt(I**2 + Q**2) * units.ADCUnits,
-                        'Preferences':  {'linestyle': 'r-'}},
-                    'ADC Phase': { # numpy.arctan2(y, x) expects reversed arguments.
-                        'Value': np.arctan2(Q, I) * units.rad,
-                        'Preferences':  {'linestyle': 'k-'}},
-                    'Rep Iteration': {
-                        'Value': np.linspace(1, len(Is), len(Is)),
-                        'Type': 'Independent'},
-                    'Temperature': {
-                        'Value': self.acknowledge_request('Temperature')}
-                   }
-        elif self.boards.get_adc_setting('RunMode', adc) == 'average':
-            self.value('Reps', 1, output=False)
-            time = np.linspace(0, 2 * (len(Is) - 1), len(Is))
-            I, Q = data_processing.software_demod(time, demod_freq, Is, Qs)
-            return {
-                    'I': { 
-                        'Value': Is * units.ADCUnits,
-                        'Dependencies': ['ADC Time'],
-                        'Preferences':  {'linestyle': 'b-'}},
-                    'Q': { 
-                        'Value': Qs * units.ADCUnits,
-                        'Dependencies': ['ADC Time'],
-                        'Preferences':  {'linestyle': 'g-'}},
-                    'Software Demod I': { 
-                        'Value': I * units.ADCUnits,
-                        'Preferences':  {'linestyle': 'b.'}},
-                    'Software Demod Q': { 
-                        'Value': Q * units.ADCUnits,
-                        'Preferences':  {'linestyle': 'g.'}}, 
-                    'Software Demod ADC Amplitude': { 
-                        'Value': np.sqrt(I**2 + Q**2) * units.ADCUnits,
-                        'Preferences':  {'linestyle': 'r.'}},
-                    'Software Demod ADC Phase': { 
-                        'Value': np.arctan2(Q, I) * units.rad,
-                        'Preferences':  {'linestyle': 'k.'}},
-                    'ADC Time': {
-                        'Value': time * units.ns,
-                        'Type': 'Independent'},
-                    'Temperature': {
-                        'Value': self.acknowledge_request('Temperature')}
-                   }
-
-    def average_data(self, data):
-        for key in data:
-            if key in ['I', 'Q']:
-                if 'Single Shot ' + key + 's' in data:
-                    data[key]['Value'] = np.mean(data['Single Shot ' + key + 's']['Value'])
-                    data[key + ' Std Dev']['Value'] = np.std(data['Single Shot ' + key + 's']['Value'])
-                else:
-                    data[key]['Value'] = np.mean(data[key]['Value'], axis=0)
-                    data[key]['Distribution'] = 'normal'
-                    data[key + ' Std Dev']['Value'] = np.std(data[key]['Value'], axis=0)
-            elif key in ['Software Demod I', 'Software Demod Q']:
-                data[key]['Value'] = np.mean(data[key]['Value'], axis=0)
-                data[key]['Distribution'] = 'normal'
-                data[key + ' Std Dev']['Value'] = np.std(data[key]['Value'], axis=0)
-        
-        for key in data:      
-            if key == 'ADC Amplitude':
-                data['ADC Amplitude']['Value'] = np.sqrt(data['I']['Value']**2 + data['Q']['Value']**2)
-            elif key == 'ADC Phase':
-                data['ADC Phase']['Value'] = np.arctan2(data['Q']['Value'], data['I']['Value'])
-            
-            elif key == 'Software Demod ADC Amplitude':
-                data['Software Demod ADC Amplitude']['Value'] = np.sqrt(data['Software Demod I']**2 + 
-                                                                        data['Software Demod Q']**2)
-            elif key == 'Software Demod ADC Phase':
-                data['Software Demod ADC Phase']['Value'] = np.arctan2(data['Software Demod Q'],
-                                                                       data['Software Demod I']) 
-        return data
+        result = self.boards.load(dac_srams, mems)
         
 
 class HEMTCavityJPM(HEMTExperiment):
     """
     Probe a resonator that is driven by a switching JPM with a HEMT.
     """
-    def run_once(self, adc=None, plot_waveforms=False):
+    def load_once(self, adc=None, plot_waveforms=False):
         #RF DRIVE (READOUT) VARIABLES##############################################################
         self.send_request('RF Attenuation')                             # RF attenuation
         self.send_request('RF Power')                                   # RF power
@@ -447,87 +470,4 @@ class HEMTCavityJPM(HEMTExperiment):
         
         ###RUN#####################################################################################
         self.acknowledge_requests()
-        self.send_request('Temperature')
-        result = self.boards.load_and_run(dac_srams, mems, self.value('Reps'))
-
-        ###DATA POST-PROCESSING####################################################################
-        Is, Qs = result[0]
-        Is = np.array(Is)
-        Qs = np.array(Qs)
-
-        if self.boards.get_adc_setting('RunMode', adc) == 'demodulate':
-            I = np.mean(Is)
-            Q = np.mean(Qs)
-            return {
-                    'Single Shot Is': { 
-                        'Value': Is * units.ADCUnits,
-                        'Dependencies': ['Rep Iteration'],
-                        'Preferences':  {'linestyle': 'b.'}},
-                    'Single Shot Qs': { 
-                        'Value': Qs * units.ADCUnits,
-                        'Dependencies': ['Rep Iteration'],
-                        'Preferences':  {'linestyle': 'g.'}},
-                    'I': {
-                        'Value': I * units.ADCUnits,
-                        'Distribution': 'normal',
-                        'Preferences':  {'linestyle': 'b-'}},
-                    'Q': { 
-                        'Value': Q * units.ADCUnits,
-                        'Distribution': 'normal',
-                        'Preferences':  {'linestyle': 'g-'}}, 
-                    'I Std Dev': { 
-                        'Value': np.std(Is) * units.ADCUnits},
-                    'Q Std Dev': { 
-                        'Value': np.std(Qs) * units.ADCUnits},
-                    'Mean ADC Amplitude': { 
-                        'Value': np.mean(np.sqrt(Is**2 + Qs**2)) * units.ADCUnits,
-                        'Distribution': 'normal',
-                        'Preferences':  {'linestyle': 'r-'}},
-                    'Mean ADC Amplitude Std Dev': { 
-                        'Value': np.std(np.sqrt(Is**2 + Qs**2)) * units.ADCUnits},
-                    'ADC Phases': { # numpy.arctan2(y, x) expects reversed arguments.
-                        'Value': np.arctan2(Qs, Is) * units.rad,
-                        'Dependencies': ['Rep Iteration'],
-                        'Preferences':  {'linestyle': 'k-'}},
-                    'Rep Iteration': {
-                        'Value': np.linspace(1, len(Is), len(Is)),
-                        'Type': 'Independent'},
-                    'Temperature': {
-                        'Value': self.acknowledge_request('Temperature')}
-                   }
-        elif self.boards.get_adc_setting('RunMode', adc) == 'average':
-            self.value('Reps', 1, output=False)
-            time = np.linspace(0, 2 * (len(Is) - 1), len(Is))
-            I, Q = data_processing.software_demod(time, 0, Is, Qs)
-            return {
-                    'I': { 
-                        'Value': Is * units.ADCUnits,
-                        'Dependencies': ['ADC Time'],
-                        'Preferences':  {'linestyle': 'b-'}},
-                    'Q': { 
-                        'Value': Qs * units.ADCUnits,
-                        'Dependencies': ['ADC Time'],
-                        'Preferences':  {'linestyle': 'g-'}},
-                    'Software Demod I': { 
-                        'Value': I * units.ADCUnits,
-                        'Preferences':  {'linestyle': 'b.'}},
-                    'Software Demod Q': { 
-                        'Value': Q * units.ADCUnits,
-                        'Preferences':  {'linestyle': 'g.'}}, 
-                    'Software Demod ADC Amplitude': { 
-                        'Value': np.sqrt(I**2 + Q**2) * units.ADCUnits,
-                        'Preferences':  {'linestyle': 'r.'}},
-                    'Software Demod ADC Phase': { 
-                        'Value': np.arctan2(Q, I) * units.rad,
-                        'Preferences':  {'linestyle': 'k.'}},
-                    'ADC Time': {
-                        'Value': time * units.ns,
-                        'Type': 'Independent'},
-                    'Temperature': {
-                        'Value': self.acknowledge_request('Temperature')}
-                   }
-
-    def average_data(self, data):
-        raise NotImplementedError("Proper averaging of multiple runs " +
-            "is not implemented for this specific experiment to avoid" +
-            " any misinterpretation of the results.")
+        self.boards.load(dac_srams, mems)

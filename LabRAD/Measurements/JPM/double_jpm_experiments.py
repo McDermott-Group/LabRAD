@@ -119,27 +119,6 @@ class DoubleJPMCorrelation(JPMExperiment):
         # Create a memory command list.
         # The format is described in Servers.Instruments.GHzBoards.command_sequences.
         mem_lists = self.boards.init_mem_lists()
-       
-        # mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0, 'Mode': 'Fast'})
-        # mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0, 'Mode': 'Fast'})
-        # mem_lists[0].append({'Type': 'Delay', 'Time': self.value('Init Time')['us']})
-        # mem_lists[0].append({'Type': 'Bias', 'Channel': 1,
-                # 'Voltage': self.value('JPM A Bias Voltage')['V']})
-        # mem_lists[0].append({'Type': 'Bias', 'Channel': 2,
-                # 'Voltage': self.value('JPM B Bias Voltage')['V']})
-        # mem_lists[0].append({'Type': 'Delay', 'Time': 7})
-        # mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Mode': 'Fine',
-                # 'Voltage': self.value('JPM A Bias Voltage')['V']})
-        # mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Mode': 'Fine',
-                # 'Voltage': self.value('JPM B Bias Voltage')['V']})
-        # mem_lists[0].append({'Type': 'Delay', 'Time': self.value('Bias Time')['us']})
-        # mem_lists[0].append({'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay})
-        # mem_lists[0].append({'Type': 'Timer', 'Time': self.value('Measure Time')['us']})
-        # mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
-        # mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0})
-        # mem_lists[0].append({'Type': 'Delay', 'Time': 6})
-        # mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0, 'Mode': 'Fast'})
-        # mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0, 'Mode': 'Fast'})
 
         mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0, 'Mode': 'Fast'})
         mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0, 'Mode': 'Fast'})

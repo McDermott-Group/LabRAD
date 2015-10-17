@@ -417,6 +417,8 @@ class GHzFPGABoards(object):
                             adc + "' 'RunMode' setting " +
                             "should be either 'average'" +
                             " or 'demodulate'.")
+            for dac in self._data_dacs:
+                timing_order_list.append(dac)
             p.timing_order(timing_order_list)
             self._results.append(p.send(wait=False))
             self.load_adcs()
@@ -456,8 +458,8 @@ class GHzFPGABoards(object):
         
         Inputs:
             sram: list of DAC SRAM waves. Use 
-                ghz_self.boards_control.waves2sram method to get the right 
-                format.
+                ghz_self.boards_control.waves2sram method to get the 
+                right format.
             memory: list of memory commands. Use memory tools in
                 DAC_control to build a memory sequence.
             reps: number of repetitions in the sequence (default: 1020).
