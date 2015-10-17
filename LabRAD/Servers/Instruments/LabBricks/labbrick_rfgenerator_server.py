@@ -195,6 +195,30 @@ class LBRFGenServer(LabradServer):
         if 'SN' in c:
             del c['SN']
             
+    @setting(711, 'Get RF Output State', returns='s')
+    def getRfOutputState(self, c):
+        '''Gets RF generator output state'''
+    	DID = ctypes.c_uint(self.getDeviceDID(c))
+    	yield self.VNXdll.fnLMS_InitDevice(DID)
+        outputState = (yield self.VNXdll.fnLMS_GetRF_On(DID))
+        yield self.VNXdll.fnLMS_CloseDevice(DID)
+        if outputState ==1:
+            returnValue("On")
+        elif outputState ==0:
+            returnValue("Off")
+        else:
+            returnValeu("Error")
+        
+    @setting(713, 'Set RF Output State On', state ='b', returns='')
+    def setRfOutputStateOn(self, c, state):
+        '''Gets RF generator output state'''
+    	DID = ctypes.c_uint(self.getDeviceDID(c))
+    	yield self.VNXdll.fnLMS_InitDevice(DID)
+        yield self.VNXdll.fnLMS_SetRFOn(DID, ctypes.c_bool(state))
+        outputState = (yield self.VNXdll.fnLMS_GetRF_On(DID))
+        yield self.VNXdll.fnLMS_CloseDevice(DID)
+        return
+          
     @setting(532, 'Frequency', freq=['v[Hz]'], returns=['v[Hz]'])
     def frequency(self, c, freq=None):
     	'''Set or get RF generator output frequency'''
