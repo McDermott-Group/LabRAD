@@ -60,6 +60,7 @@ with some_experiment.SomeExperiment() as expt:
 """
 
 import os
+import sys
 import time
 import warnings
 from msvcrt import kbhit, getch
@@ -586,33 +587,31 @@ class Experiment(object):
             # when a parallel scan was run with the same variable name.
             for key in data:
                 if ('Type' in data[key] and 'Value' in data[key] and 
-                    data[key]['Type'] == 'Independent'):
-                        outfile.write(key + 
-                                self.get_units(data[key]['Value'], 
-                                True) + '\n')
-                        outfile.write('Type: independent\n')
-                        outfile.write('Size: ' +
-                                str(np.shape(data[key]['Value']))[1:-1] +
-                                '\n')
-                        self._ndarray_txt_save(outfile, 
-                                self.strip_units(data[key]['Value']))
+                        data[key]['Type'] == 'Independent'):
+                    outfile.write("Name: '" + key + "'\n")
+                    outfile.write('Units: ' + self.get_units(data[key]['Value']) + '\n')
+                    outfile.write('Type: independent\n')
+                    outfile.write('Size: ' +
+                            str(list(np.shape(data[key]['Value'])))[1:-1] +
+                            '\n')
+                    self._ndarray_txt_save(outfile, 
+                            self.strip_units(data[key]['Value']))
 
             outfile.write('====Data Variables====\n');
             for key in data:
                 if ('Type' in data[key] and 'Value' in data[key] and 
-                    data[key]['Type'] == 'Dependent'):
-                    outfile.write(key + 
-                                self.get_units(data[key]['Value'], 
-                                True) + '\n')
+                        data[key]['Type'] == 'Dependent'):
+                    outfile.write("Name: '" + key + "'\n")
+                    outfile.write('Units: ' + self.get_units(data[key]['Value']) + '\n')
                     outfile.write('Type: dependent\n')
                     if 'Dependencies' in data[key]:
                         outfile.write('Dependencies: ' +
-                                str(data[key]['Dependencies']) + '\n')
+                                str(data[key]['Dependencies'])[1:-1] + '\n')
                     if 'Distribution' in data[key]:
                         outfile.write('Distribution: ' +
                                 data[key]['Distribution'] + '\n')
                     outfile.write('Size: ' +
-                                str(np.shape(data[key]['Value']))[1:-1] +
+                                str(list(np.shape(data[key]['Value'])))[1:-1] +
                                 '\n')
                     self._ndarray_txt_save(outfile, 
                             self.strip_units(data[key]['Value']))                
@@ -629,7 +628,11 @@ class Experiment(object):
             None.
         """
         if array.ndim == 1 or array.ndim == 2:
-            np.savetxt(outfile, array, fmt = '%-7.6f', delimiter='\t')
+            if (array == array.astype(int)).all():
+                format = '%d'
+            else:
+                format = '%-7.6f'
+            np.savetxt(outfile, array, fmt=format, delimiter='\t')
         elif array.ndim > 2:
             for idx in range(array.shape[0]):
                 self._ndarray_text_save(outfile, array[idx])
@@ -749,6 +752,21 @@ class Experiment(object):
             if 'Dependencies' in data[key]:
                 data[key]['Dependencies'] = [var for var 
                         in data[key]['Dependencies'] if var not in rm_vars]
+        
+        # Remove 'Rep Iteration' and 'Run Iteration' independent 
+        # variables if they are not actually used. This may happen when
+        # the data dimensions are truncated.
+        
+        # Create a list containing all independent variable.
+        indep_vars = []
+        for key in data:
+            if 'Value' in data[key] and 'Dependencies' in data[key]:
+                indep_vars = indep_vars + data[key]['Dependencies']
+        # Remove unnecessary independent variables.
+        for var in ['Rep Iteration', 'Run Iteration']:
+            if var not in indep_vars:
+                data.pop(var, None)
+            self._vars.pop(var, None)
         
         self._txt_save(data)
         self._mat_save(data)
@@ -945,7 +963,7 @@ class Experiment(object):
             None.
         """
         pass
-        
+
     def run_n_times(self, runs):
         """
         This method is similar to run_once with the exception that 
@@ -962,20 +980,27 @@ class Experiment(object):
         for idx in range(runs):
             run_data = self.run_once()
             if idx == 0:
-                data = self._process_data(run_data)
                 if self._standard_output:
-                    sys.stdout.write('Progress at the current data point: 0%')
-                for key in run_data:
-                    if ('Value' in data[key] and 'Type' in data[key]
-                            and data[key]['Type'] == 'Dependent'):
-                        data[key]['Value'] = (np.empty((runs,) +
-                                np.shape(run_data[key]['Value'])))
-            for key in data:
-                if ('Value' in data[key] and 'Type' in data[key]
-                        and data[key]['Type'] == 'Dependent'):
-                    data[key]['Value'][idx] = run_data[key]['Value']
+                    sys.stdout.write('Progress at the current point: 0%')
+                if self._sweep_pts_acquired == 0:
+                    self._run_n_data = self._process_data(run_data)
+                    for key in run_data:
+                        if ('Value' in self._run_n_data[key] and 
+                                'Type' in self._run_n_data[key] and 
+                                self._run_n_data[key]['Type'] == 'Dependent'):
+                            self._run_n_data[key]['Value'] = self._init_entry(
+                                (runs,) + np.shape(run_data[key]['Value']),
+                                run_data[key]['Value'])
+                    self._run_n_data['Run Iteration'] = {'Value': 
+                        np.linspace(1, runs, runs),
+                        'Type': 'Independent'} 
+            for key in self._run_n_data:
+                if ('Value' in self._run_n_data[key] and 
+                        'Type' in self._run_n_data[key] and
+                        self._run_n_data[key]['Type'] == 'Dependent'):
+                    self._run_n_data[key]['Value'][idx] = run_data[key]['Value']
             self._listen_to_keyboard()
-            if self._run_status == 'abort':
+            if self._sweep_status == 'abort':
                 if standard_output_flag:
                     sys.stdout.write(str(round(100 * (idx + 1) / float(runs), 1)) + '%\n')
                 break
@@ -984,11 +1009,11 @@ class Experiment(object):
                 if idx == runs - 1:
                     sys.stdout.write('100%\n')  
 
-        return self.average_data(data)
+        return self.average_data(self._run_n_data)
 
     def average_data(self, data):
         """
-        Average the data returned by run_once method.
+        Average the data returned by the run_once method.
 
         Inputs:
             data: data dictionary.
@@ -999,12 +1024,34 @@ class Experiment(object):
             if ('Value' in data[key] and 'Type' in data[key]
                     and data[key]['Type'] == 'Dependent'):
                 avg_data[key]['Distribution'] = 'normal'
-                avg_data[key]['Value'] = np.mean(data[key]['Value'], axis=0)
+                avg_data[key]['Value'] = (np.mean(data[key]['Value'], axis=0) *
+                        units.Unit(self.get_units(data[key]['Value'])))
                 avg_data[key + ' Std Dev'] = data[key].copy()
                 avg_data[key + ' Std Dev']['Value'] = np.std(data[key]['Value'],
-                        axis=0)
+                        axis=0) * units.Unit(self.get_units(data[key]['Value']))
 
         return avg_data
+
+    def _init_entry(self, entry_shape, entry_val):
+        """
+        Initialize an empyt array of the specified size using
+        proper units.
+        
+        Inputs:
+            entry_shape: shape of the empty array.
+            entry_val: entry values that could be used to deduce the
+                array element type.
+        
+        Output:
+            empty_array: array of the requested size.
+        """
+        if isinstance(entry_val, units.Value):
+            return np.empty(entry_shape) * units.Unit(entry_val)
+        elif (isinstance(entry_val, np.ndarray) and
+              isinstance(entry_val.flatten()[0], units.Value)):
+            return np.empty(entry_shape) * units.Unit(entry_val.flatten()[0])
+        else:
+            return np.empty(entry_shape)
 
     def _process_data(self, raw_data):
         """
@@ -1036,6 +1083,8 @@ class Experiment(object):
             data[key] = raw_data[key].copy()
         for key in data:
             if 'Dependencies' in data[key]:
+                if isinstance(data[key]['Dependencies'], str):
+                    data[key]['Dependencies'] = [data[key]['Dependencies']]
                 for dep in data[key]['Dependencies']:
                     if dep not in data:
                         raise DataError("Independent data variable '" +
@@ -1061,10 +1110,8 @@ class Experiment(object):
                     and data[key]['Value'].size > 1):
                     if 'Dependencies' not in data[key]:
                         raise DataError("Data variable '" + str(key) + 
-                        "' is returned without a dependency specification.")
-                    elif isinstance(data[key]['Dependencies'], str):
-                        data[key]['Dependencies'] = [data[key]['Dependencies']]
-                    elif isinstance(data[key]['Dependencies'], list):
+                        "' is given without a dependency specification.")
+                    if isinstance(data[key]['Dependencies'], list):
                         if not all([isinstance(name, str) for name in 
                                 data[key]['Dependencies']]):
                             raise DataError("Data variable '" + str(key) + 
@@ -1075,14 +1122,15 @@ class Experiment(object):
                         expected_shape = expected_shape + np.shape(data[dep]['Value'])
                     if np.shape(data[key]['Value']) != expected_shape:
                         raise DataError("Data variable '" + str(key) + 
-                        "' size does not match to sizes of the " +
-                        "independent variables.")
+                        "' size " + str(np.shape(data[key]['Value'])) +
+                        " differs from the sizes of the independent " +
+                        "variables " + str(expected_shape) + ".")
                 elif 'Dependencies' not in data[key]:
                     data[key]['Dependencies'] = []
                 elif len(data[key]['Dependencies']) > 0:
                     raise DataError("Data variable '" + str(key) + 
-                        "' is not a numpy array with more than one " +
-                        "element and, thus, should not have any " +
+                        "' is not a numpy array containing more than " +
+                        "one element and, thus, should not have any " +
                         "dependencies explicitly specified.")
         
         # Ensure that the types are assigned correctly.
@@ -1140,14 +1188,6 @@ class Experiment(object):
         Output:
             None.
         """
-        def _init_entry(entry_shape, entry_val):
-            if isinstance(entry_val, units.Value):
-                return np.empty(entry_shape) * units.Unit(entry_val)
-            elif (isinstance(entry_val, np.ndarray) and
-                  isinstance(entry_val.flatten()[0], units.Value)):
-                return np.empty(entry_shape) * units.Unit(entry_val.flatten()[0])
-            else:
-                return np.empty(entry_shape)
         
         if len(names[0]) == 1:      # Run a 1D sweep.
             for idx in range(values[0][0].size):
@@ -1176,7 +1216,7 @@ class Experiment(object):
                             entry_shape = (np.shape(values[0][0]) + 
                                     np.shape(data[key]['Value']))
                             if len(entry_shape) <= max_data_dim:
-                                data[key]['Value'] = _init_entry(entry_shape, data[key]['Value'])
+                                data[key]['Value'] = self._init_entry(entry_shape, data[key]['Value'])
                             else:
                                 data[key].pop('Value')
 
@@ -1219,7 +1259,7 @@ class Experiment(object):
                         data[key]['Value'][idx] = run_data[key]['Value']
 
                 # Print experiment and data variables to the standard output.
-                if self._standard_output and self._run_status!= 'abort':
+                if self._standard_output and self._sweep_status!= 'abort':
                     for var in print_expt_vars:
                         print(var + ' = ' + 
                                 self.val2str(self._vars[var]['Value']))
@@ -1231,15 +1271,15 @@ class Experiment(object):
                 if plot_data_vars is not None:
                     self._update_1d_plot(names, values, data, plot_data_vars, idx)
 
-                if self._run_status == '':
+                if self._sweep_status == '':
                     # Check whether any key is pressed.
                     self._listen_to_keyboard()
-                if self._run_message != '':
-                    print(self._run_message)
-                    self._run_message = ''
-                if self._run_status == 'abort':
+                if self._sweep_msg != '':
+                    print(self._sweep_msg)
+                    self._sweep_msg = ''
+                if self._sweep_status == 'abort':
                     break
-                elif self._run_status == 'abort-and-save':
+                elif self._sweep_status == 'abort-and-save':
                     # The scan has been aborted.
                     # Delete unused sweep variable values.
                     for p_idx in range(len(values)):
@@ -1285,7 +1325,7 @@ class Experiment(object):
                             else:
                                 data[key].pop('Value')
 
-                if self._run_status == 'abort-and-save':
+                if self._sweep_status == 'abort-and-save':
                     if idx0 == 0:
                         # The experiment was aborted during 
                         # the acquisition of the first slice.
@@ -1315,7 +1355,7 @@ class Experiment(object):
                                 data[key]['Value'] = np.delete(data[key]['Value'], 
                                         np.s_[idx0:], 0)
                     break
-                elif self._run_status == 'abort':
+                elif self._sweep_status == 'abort':
                     break
                 
                 # Add the newly acquired data to the data set.
@@ -1576,8 +1616,8 @@ class Experiment(object):
         unique_names = set([name for sublist in names for name in sublist])
         prev_vals = {name: self.value(name) for name in unique_names}
                 
-        self._run_status= ''            # E.g. 'abort' or 'abort-and-save'.
-        self._run_message = '';
+        self._sweep_status= ''            # E.g. 'abort' or 'abort-and-save'.
+        self._sweep_msg = '';
         self._sweep_dimension = len(names[0])   # Dimension of the sweep.
         self._sweep_start_time = time.time()    # Start time for the finish 
                                                 # time estimation.
@@ -1601,8 +1641,8 @@ class Experiment(object):
         data, values = self._sweep(names, values, print_expt_vars,
                 print_data, plot_data, max_data_dim, runs)
 
-        if ((save and self._run_status!= 'abort') or
-            self._run_status == 'abort-and-save'):
+        if ((save and self._sweep_status!= 'abort') or
+            self._sweep_status == 'abort-and-save'):
             # If there is at least one point to save then...
             if values[0][0].size > 0:
                 # Fully specify dependencies of
@@ -1661,12 +1701,12 @@ class Experiment(object):
             if ord(key) in recog_keys:
                 if ord(key) == 27:
                     # [ESC] is pressed.
-                    self._run_status= 'abort'
-                    self._run_message = 'The experiment has been aborted!'
+                    self._sweep_status= 'abort'
+                    self._sweep_msg = 'The experiment has been aborted!'
                 elif ord(key) == 83 or ord(key) == 115:
                     # Either [S] or [s] is pressed.
-                    self._run_status= 'abort-and-save'
-                    self._run_message = 'The experiment has been aborted!'
+                    self._sweep_status= 'abort-and-save'
+                    self._sweep_msg = 'The experiment has been aborted!'
                 elif ord(key) == 84 or ord(key) == 116:
                     # Either [T] or [t] is pressed.
                     if self._sweep_pts_acquired > 0:
@@ -1674,18 +1714,18 @@ class Experiment(object):
                                       self._sweep_number_of_pts * 
                                       (time.time() - self._sweep_start_time) /
                                       self._sweep_pts_acquired)
-                        self._run_message = ('The estimated finish time is ' + 
+                        self._sweep_msg = ('The estimated finish time is ' + 
                         time.strftime("%H:%M:%S", finish_time) + ' on ' + 
                         time.strftime("%m/%d/%Y", finish_time) + '.')
                     else:
-                        self._run_message = ('No data has been acquired ' +
+                        self._sweep_msg = ('No data has been acquired ' +
                         ' yet to allow any time estimation.')
                 elif ord(key) == 79 or ord(key) == 111:
                     # Either [O] or [o] is pressed.
                      self._standard_output = not self._standard_output
                 elif ord(key) == 88 or ord(key) == 120:
                     # Either [X] or [x] is pressed.
-                     self._run_message = 'Hey, stop wondering! Get back to work!'
+                     self._sweep_msg = 'Hey, stop wondering! Get back to work!'
         
         # Clear the keyboard buffer if requested.
         if clear_buffer:
@@ -1699,7 +1739,7 @@ class Experiment(object):
             for var in self._combine_strs(plot_data_vars):
                 if var not in data:
                     print("Warning: variable '" + var + 
-                    "' is found among the data dictionary keys: " + 
+                    "' is not found among the data dictionary keys: " + 
                     str(data.keys()) + ". This data will not be plotted.")
             plot_data_vars = [var for var in self._combine_strs(plot_data_vars) 
                     if var in data and 
