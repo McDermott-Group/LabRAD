@@ -19,13 +19,12 @@ Resources = [
                 { # SIM Voltage Source.
                     'Interface': 'Network Analyzer',
                     'Variables': {'NA Center Frequency': {'Setting': 'Center Frequency'},
-                                  'NA Frequency Span': {'Setting': 'Span Frequency'},      
-                                  'NA Source Power': {'Setting': 'Source Power'},  
-                                  'NA Frequency Points': {'Setting': 'Frequency Points'},  
-                                  'NA Average Points': {'Setting': 'Average Points'},  
-                                  'NA Start Frequency': {'Setting': 'Start Frequency'},  
+                                  'NA Frequency Span': {'Setting': 'Span Frequency'},
+                                  'NA Source Power': {'Setting': 'Source Power'},
+                                  'NA Frequency Points': {'Setting': 'Frequency Points'},
+                                  'NA Average Points': {'Setting': 'Average Points'},
+                                  'NA Start Frequency': {'Setting': 'Start Frequency'},
                                   'NA Stop Frequency': {'Setting': 'Stop Frequency'},
-                                  'NA Average Mode': {'Setting': 'Average Mode'}, 
                                   'Trace': {'Setting': 'Get Trace'}}
                 },
                 { # Leiden

@@ -42,9 +42,6 @@ class QubitNAExperiment(expt.Experiment):
         self.send_request('NA Source Power')
         self.send_request('NA Frequency Points')
         self.send_request('NA Average Points')
-        if self.value('NA Average Points') > 1:
-            self.value('Average Mode', True, output=False)
-            self.send_request('Average Mode')
         
         NA_centerFreq = self.value('NA Center Frequency')
         NA_freqSpan = self.value('NA Frequency Span')

@@ -780,8 +780,6 @@ class NetworkAnalyzer(GPIBInterface):
             self._setting = 'Frequency Points'
         elif self._var.lower().find('average points') != -1:
             self._setting = 'Average Points'
-        elif self._var.lower().find('average mode') != -1:
-            self._setting = 'Average Mode'
         elif self._var.lower().find('trace') != -1:
             self._setting = 'Get Trace'
         else:
@@ -789,7 +787,26 @@ class NetworkAnalyzer(GPIBInterface):
                     "variable '" + self._var + "' is not specified " +
                     "in the experiment resource: " + 
                     str(self._res) + ".")
-            
+    
+    def send_request(self, value=None):
+        """Send a request to set a setting."""
+        if self._initialized:
+            p = self.server.packet()
+            if not self._single_device:
+                p.select_device(self.address)
+            if self._setting is not None:
+                p[self._setting](value)
+            if self._setting = 'Average Points' and value is not None:
+                if value > 1:
+                    p['Average Mode'](True)
+                else
+                    p['Average Mode'](False)
+            self._result = p.send(wait=False)
+            self._request_sent = True
+        else:
+            raise ResourceDefinitionError("Resource '" +
+                    str(self._res) + "' is not properly initialized.")     
+
 
 class LabBrickAttenuator(BasicInterface):
     """
