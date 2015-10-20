@@ -16,8 +16,8 @@
 """
 ### BEGIN NODE INFO
 [info]
-name = Agilent 5230A Network Analyzer.
-version = 0.10.1
+name = Agilent N5230A Network Analyzer
+version = 0.10.2
 description = Four channel 5230A PNA-L network analyzer server
 
 [startup]
@@ -48,8 +48,8 @@ import labrad.units as units
 
 from LabRAD.Servers.Utilities.nonblocking import sleep
 
-class Agilent5230AServer(GPIBManagedServer):
-    name = 'Agilent 5230A Network Analyzer'
+class AgilentN5230AServer(GPIBManagedServer):
+    name = 'Agilent N5230A Network Analyzer'
     deviceName = 'AGILENT TECHNOLOGIES N5230A'
     deviceWrapper = GPIBDeviceWrapper
     

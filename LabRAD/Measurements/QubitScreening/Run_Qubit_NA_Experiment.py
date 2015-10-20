@@ -16,17 +16,25 @@ Resources = [
                                 ' GPIB Bus - GPIB0::26::INSTR::SIM900::3'),
                     'Variables': 'Qubit Flux Bias Voltage'
                 },
+                { # SIM Voltage Source.
+                    'Interface': 'Network Analyzer',
+                    'Variables': {'NA Center Frequency': {'Setting': 'Center Frequency'},
+                                  'NA Frequency Span': {'Setting': 'Span Frequency'},      
+                                  'NA Source Power': {'Setting': 'Source Power'},  
+                                  'NA Frequency Points': {'Setting': 'Frequency Points'},  
+                                  'NA Average Points': {'Setting': 'Average Points'},  
+                                  'NA Start Frequency': {'Setting': 'Start Frequency'},  
+                                  'NA Stop Frequency': {'Setting': 'Stop Frequency'},
+                                  'NA Average Mode': {'Setting': 'Average Mode'}, 
+                                  'Trace': {'Setting': 'Get Trace'}}
+                },
                 { # Leiden
                     'Interface': 'Leiden',
                     'Variables': {'Temperature': {'Setting': 'Mix Temperature'}}
                 },
                 { # Readings entered manually, software parameters.
                     'Interface': None,
-                    'Variables': ['NA Center Frequency',
-                                    'NA Frequency Span',      
-                                    'NA Source Power',
-                                    'NA Frequency Points',
-                                    'NA Average Points']
+                    'Variables': []
                 }
             ]
 

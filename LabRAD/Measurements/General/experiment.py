@@ -442,7 +442,7 @@ class Experiment(object):
         
     def interface(self, var, res=None):
         """
-        Get the interface responsible for a given variable.
+        Get or set the interface responsible for a given variable.
         
         Input:
             var: name of the experiment variable.
@@ -635,7 +635,7 @@ class Experiment(object):
             np.savetxt(outfile, array, fmt=format, delimiter='\t')
         elif array.ndim > 2:
             for idx in range(array.shape[0]):
-                self._ndarray_text_save(outfile, array[idx])
+                self._ndarray_txt_save(outfile, array[idx])
                 
     def _mat_save(self, data):
         """
@@ -981,7 +981,7 @@ class Experiment(object):
             run_data = self.run_once()
             if idx == 0:
                 if self._standard_output:
-                    sys.stdout.write('Progress at the current point: 0%')
+                    sys.stdout.write('Current point progress: 0%')
                 if self._sweep_pts_acquired == 0:
                     self._run_n_data = self._process_data(run_data)
                     for key in run_data:
@@ -1015,22 +1015,24 @@ class Experiment(object):
         """
         Average the data returned by the run_once method.
 
-        Inputs:
+        Input:
             data: data dictionary.
         """
-        avg_data = {}
+        if self._sweep_pts_acquired == 0:
+            self._avg_data = {key: data[key].copy() for key in data}
+
         for key in data:
-            avg_data[key] = data[key].copy()
             if ('Value' in data[key] and 'Type' in data[key]
                     and data[key]['Type'] == 'Dependent'):
-                avg_data[key]['Distribution'] = 'normal'
-                avg_data[key]['Value'] = (np.mean(data[key]['Value'], axis=0) *
+                self._avg_data[key]['Distribution'] = 'normal'
+                self._avg_data[key]['Value'] = (np.mean(data[key]['Value'], axis=0) *
                         units.Unit(self.get_units(data[key]['Value'])))
-                avg_data[key + ' Std Dev'] = data[key].copy()
-                avg_data[key + ' Std Dev']['Value'] = np.std(data[key]['Value'],
+                self._avg_data[key + ' Std Dev'] = data[key].copy()
+                self._avg_data[key + ' Std Dev']['Distribution'] = ''
+                self._avg_data[key + ' Std Dev']['Value'] = np.std(data[key]['Value'],
                         axis=0) * units.Unit(self.get_units(data[key]['Value']))
 
-        return avg_data
+        return self._avg_data
 
     def _init_entry(self, entry_shape, entry_val):
         """

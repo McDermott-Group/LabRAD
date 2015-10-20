@@ -569,10 +569,18 @@ class BasicInterface(object):
             else:
                 return self._result.wait()
 
+
 class GPIBInterface(BasicInterface):
     """
     Simplified GPIB interface class.
     """
+    @inlineCallbacks
+    def __exit__(self, type, value, traceback):
+        """Deselect a device."""
+        if hasattr(self, 'address'):
+            p = self.server.packet()
+            yield p.deselect_device().send()
+            
     @inlineCallbacks
     def _init_resource(self):
         """Initialize a GPIB resource."""
@@ -594,6 +602,8 @@ class GPIBInterface(BasicInterface):
         
         if len(devices) == 1:
             self._single_device = True
+            p = self.server.packet()
+            yield p.select_device(self.address).send()
         else:
             self._single_device = False
             
@@ -660,7 +670,9 @@ class RFGenerator(GPIBInterface):
                     str(self._res) + ".")
         
         p = self.server.packet()
-        yield p.select_device(self.address).reset().send()
+        if not self._single_device:
+            p.select_device(self.address)
+        yield p.reset().send()
         self._output_set = False
 
     def send_request(self, value):
@@ -707,9 +719,6 @@ class SIM928VoltageSource(GPIBInterface):
     @inlineCallbacks
     def _init_gpib_resource(self):
         """Initialize a voltage source."""
-        if self._single_device:
-            p = self.server.packet()
-            yield p.select_device(self.address).send()
         self._output_set = False
         
     def send_request(self, voltage):
@@ -729,6 +738,58 @@ class SIM928VoltageSource(GPIBInterface):
             raise ResourceDefinitionError("Resource " +
                     str(self._res) + " is not properly initialized.")
 
+                    
+class NetworkAnalyzer(GPIBInterface):
+    """
+    Network analyzer simplified interface.
+    """    
+    def _get_server(self, cxn):       
+        """Get server connection object."""
+        if 'Server' in self._res:
+            server_name = self._res['Server']
+        else:
+            server_name = 'Agilent N5230A Network Analyzer'
+            try:
+                return cxn[server_name]
+            except:
+                try:
+                    return cxn['Agilent 8720ET Network Analyzer']
+                except:
+                    raise ResourceDefinitionError("Could not find a " +
+                        "network analyzer server.")
+
+    @inlineCallbacks
+    def _init_gpib_resource(self):
+        """Initialize a network analyzer generator."""
+        if ('Variables' in self._res and 
+                self._var in self._res['Variables'] and 
+                isinstance(self._res['Variables'], dict) and 
+                'Setting' in self._res['Variables'][self._var]):
+            self._setting = self._res['Variables'][self._var]['Setting']
+        elif self._var.lower().find('center') != -1:
+            self._setting = 'Center Frequency'
+        elif self._var.lower().find('span') != -1:
+            self._setting = 'Frequency Span'
+        elif self._var.lower().find('start') != -1:
+            self._setting = 'Start Frequency'
+        elif self._var.lower().find('stop') != -1:
+            self._setting = 'Stop Frequency'
+        elif self._var.lower().find('power') != -1:
+            self._setting = 'Source Power'
+        elif self._var.lower().find('frequency points') != -1:
+            self._setting = 'Frequency Points'
+        elif self._var.lower().find('average points') != -1:
+            self._setting = 'Average Points'
+        elif self._var.lower().find('average mode') != -1:
+            self._setting = 'Average Mode'
+        elif self._var.lower().find('trace') != -1:
+            self._setting = 'Get Trace'
+        else:
+            raise ResourceDefinitionError("Setting responsible for " +
+                    "variable '" + self._var + "' is not specified " +
+                    "in the experiment resource: " + 
+                    str(self._res) + ".")
+            
 
 class LabBrickAttenuator(BasicInterface):
     """
@@ -796,7 +857,7 @@ class LabBrickAttenuator(BasicInterface):
 
 class ADR3(BasicInterface):
     """
-    ADR3 simplified interface for temperature monitoring.
+    Simplified interface for ADR3 temperature monitoring.
     """
     def _get_server(self, cxn):       
         """Get server connection object."""
@@ -846,7 +907,7 @@ class ADR3(BasicInterface):
 
 class Leiden(BasicInterface):
     """
-    Leiden simplified interface for temperature monitoring.
+    Simplified interface for Leiden fridge temperature monitoring.
     """        
     def _get_server(self, cxn):       
         """Get server connection object."""
@@ -872,10 +933,10 @@ class Leiden(BasicInterface):
         self._setting = None
         if var_dict and 'Setting' in self._res['Variables'][self._var]:
             self._setting = self._res['Variables'][self._var]['Setting']
-        elif 'Chamber' in self._res:
-            if self._res['Chamber'].lower().find('exch') != -1:
+        elif 'Stage' in self._res:
+            if self._res['Stage'].lower().find('exch') != -1:
                 self._setting = 'Exhange Temperature'
-            elif self._res['Chamber'].lower().find('still') != -1:
+            elif self._res['Stage'].lower().find('still') != -1:
                 self._setting = 'Still Temperature'
         if self._setting is None:
             self._setting = 'Mix Temperature'

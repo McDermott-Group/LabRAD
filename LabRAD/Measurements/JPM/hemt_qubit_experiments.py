@@ -269,57 +269,56 @@ class HEMTExperiment(expt.Experiment):
                    }
 
     def average_data(self, data):
-        avg_data = {}
-        for key in data:
-            avg_data[key] = data[key].copy()
+        if self._sweep_pts_acquired == 0:
+            self._avg_data = {key: data[key].copy() for key in data}
         
         for key in data:
             if key in ['I', 'Q']:
                 if key + 's' in data:
-                    avg_data[key]['Value'] = (np.mean(data[key + 's']['Value']) *
+                    self._avg_data[key]['Value'] = (np.mean(data[key + 's']['Value']) *
                             units.ADCUnits)
-                    avg_data[key + ' Std Dev']['Value'] = (np.std(data[key + 's']['Value']) *
+                    self._avg_data[key + ' Std Dev']['Value'] = (np.std(data[key + 's']['Value']) *
                             units.ADCUnits)
                 else:
-                    avg_data[key]['Value'] = np.mean(data[key]['Value'],
+                    self._avg_data[key]['Value'] = np.mean(data[key]['Value'],
                             axis=0) * units.ADCUnits
-                    avg_data[key]['Distribution'] = 'normal'
-                    avg_data[key + ' Std Dev']['Value'] = np.std(data[key]['Value'],
+                    self._avg_data[key]['Distribution'] = 'normal'
+                    self._avg_data[key + ' Std Dev']['Value'] = np.std(data[key]['Value'],
                             axis=0) * units.ADCUnits
             elif key in ['Software Demod I', 'Software Demod Q']:
-                avg_data[key]['Value'] = (np.mean(data[key]['Value'], axis=0) *
+                self._avg_data[key]['Value'] = (np.mean(data[key]['Value'], axis=0) *
                         units.ADCUnits)
-                avg_data[key]['Distribution'] = 'normal'
-                avg_data[key + ' Std Dev'] = {'Value':
+                self._avg_data[key]['Distribution'] = 'normal'
+                self._avg_data[key + ' Std Dev'] = {'Value':
                         np.std(data[key]['Value'], axis=0) * units.ADCUnits}
         
         for key in data:      
             if key == 'Amplitude':
-                avg_data['Amplitude']['Value'] = np.sqrt(avg_data['I']['Value']**2 + 
-                        avg_data['Q']['Value']**2) * units.ADCUnits
+                self._avg_data['Amplitude']['Value'] = np.sqrt(self._avg_data['I']['Value']**2 + 
+                        self._avg_data['Q']['Value']**2) * units.ADCUnits
             elif key == 'Mean Absolute Amplitude': 
-                avg_data['Mean Absolute Amplitude']['Value'] = np.mean(np.sqrt(data['Is']['Value']**2 + 
+                self._avg_data['Mean Absolute Amplitude']['Value'] = np.mean(np.sqrt(data['Is']['Value']**2 + 
                         data['Qs']['Value']**2)) * units.ADCUnits
             elif key == 'Mean Absolute Amplitude Std Dev':
-                avg_data['Mean Absolute Amplitude Std Dev']['Value'] = np.std(np.sqrt(data['Is']['Value']**2 + 
+                self._avg_data['Mean Absolute Amplitude Std Dev']['Value'] = np.std(np.sqrt(data['Is']['Value']**2 + 
                         data['Qs']['Value']**2)) * units.ADCUnits
             elif key == 'Phase':
-                avg_data['Phase']['Value'] = np.arctan2(avg_data['Q']['Value'], 
-                        avg_data['I']['Value']) * units.rad
+                self._avg_data['Phase']['Value'] = np.arctan2(self._avg_data['Q']['Value'], 
+                        self._avg_data['I']['Value']) * units.rad
             elif key == 'Software Demod Amplitude':
-                avg_data['Software Demod Amplitude']['Value'] = np.sqrt(avg_data['Software Demod I']**2 + 
-                        avg_data['Software Demod Q']**2) * units.ADCUnits
+                self._avg_data['Software Demod Amplitude']['Value'] = np.sqrt(self._avg_data['Software Demod I']**2 + 
+                        self._avg_data['Software Demod Q']**2) * units.ADCUnits
             elif key == 'Software Demod Phase':
-                avg_data['Software Demod Phase']['Value'] = np.arctan2(avg_data['Software Demod Q'],
-                        avg_data['Software Demod I']) * units.rad
+                self._avg_data['Software Demod Phase']['Value'] = np.arctan2(self._avg_data['Software Demod Q'],
+                        self._avg_data['Software Demod I']) * units.rad
             elif key == 'Temperature':
-                avg_data[key]['Value'] = (np.mean(data[key]['Value']) * 
+                self._avg_data[key]['Value'] = (np.mean(data[key]['Value']) * 
                         units.Unit(self.get_units(data[key]['Value'])))
             else:
                 if key in ['Is', 'Qs', 'Amplitudes', 'Phases']:
-                    avg_data[key]['Dependencies'] = ['Run Iteration'] + data[key]['Dependencies']
+                    self._avg_data[key]['Dependencies'] = ['Run Iteration'] + data[key]['Dependencies']
 
-        return avg_data
+        return self._avg_data
         
         
 class HEMTQubitReadout(HEMTExperiment):
