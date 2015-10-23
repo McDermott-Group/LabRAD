@@ -98,29 +98,29 @@ class JPMQubitReadout(JPMExperiment):
         BV_step_time = self.value('Bias Voltage Step Time')['us']       # bias voltage step time 
     
         #QUBIT VARIABLES###########################################################################
-        self.send_request('Qubit Attenuation')                          # qubit attenuation
-        self.send_request('Qubit Power')                                # qubit power
+        self.set('Qubit Attenuation')                          # qubit attenuation
+        self.set('Qubit Power')                                # qubit power
         if self.value('Qubit Frequency') is not None:
             if self.value('Qubit SB Frequency') is not None:            # qubit frequency
-                self.send_request('Qubit Frequency',
-                        value=self.value('Qubit Frequency') + 
-                              self.value('Qubit SB Frequency'))
+                self.set('Qubit Frequency',
+                        self.value('Qubit Frequency') + 
+                        self.value('Qubit SB Frequency'))
             else:
-                self.send_request('Qubit Frequency')
+                self.set('Qubit Frequency')
     
         #RF DRIVE (READOUT) VARIABLES##############################################################
-        self.send_request('Readout Attenuation')                        # readout attenuation
-        self.send_request('Readout Power')                              # readout power
+        self.set('Readout Attenuation')                        # readout attenuation
+        self.set('Readout Power')                              # readout power
         if self.value('Readout Frequency') is not None:
             if self.value('Readout SB Frequency') is not None:          # readout frequency
-                self.send_request('Readout Frequency',
-                        value=self.value('Readout Frequency') + 
-                              self.value('Readout SB Frequency'))
+                self.set('Readout Frequency',
+                        self.value('Readout Frequency') + 
+                        self.value('Readout SB Frequency'))
             else:
-                self.send_request('Readout Frequency')
+                self.set('Readout Frequency')
 
         #DC BIAS VARIABLES#########################################################################
-        self.send_request('Qubit Flux Bias Voltage')
+        self.set('Qubit Flux Bias Voltage')
 
         #CAVITY DRIVE (READOUT) VARIABLES##########################################################
         RO_SB_freq = self.value('Readout SB Frequency')['GHz']          # readout sideband frequency
@@ -235,7 +235,7 @@ class JPMQubitReadout(JPMExperiment):
         
         ###RUN#####################################################################################
         self.acknowledge_requests()
-        self.send_request('Temperature')
+        self.get('Temperature')
         P = self.boards.load_and_run(dac_srams, mems, self.value('Reps'))
 
         ###EXTRA EXPERIMENT PARAMETERS TO SAVE#####################################################

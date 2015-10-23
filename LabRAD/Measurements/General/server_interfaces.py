@@ -594,12 +594,12 @@ class GPIBInterface(BasicInterface):
                 raise ResourceDefinitionError("Device with address '" +
                     str(self._res['Address']) + "' is not found.")
         elif len(devices) == 1:
-            self.address = devices[0][0]
+            self.address = devices[0]
         else:
             raise ResourceDefinitionError("'Address' field is absent " +
                     " in the experiment resource: " +
                     str(self._res) + ".")
-        
+
         if len(devices) == 1:
             self._single_device = True
             p = self.server.packet()
@@ -716,7 +716,6 @@ class SIM928VoltageSource(GPIBInterface):
             raise ResourceDefinitionError("Could not connect to " +
                 "server '" + server_name + "'.")
 
-    @inlineCallbacks
     def _init_gpib_resource(self):
         """Initialize a voltage source."""
         self._output_set = False
@@ -758,7 +757,6 @@ class NetworkAnalyzer(GPIBInterface):
                     raise ResourceDefinitionError("Could not find a " +
                         "network analyzer server.")
 
-    @inlineCallbacks
     def _init_gpib_resource(self):
         """Initialize a network analyzer generator."""
         if ('Variables' in self._res and 
@@ -796,10 +794,10 @@ class NetworkAnalyzer(GPIBInterface):
                 p.select_device(self.address)
             if self._setting is not None:
                 p[self._setting](value)
-            if self._setting = 'Average Points' and value is not None:
+            if self._setting == 'Average Points' and value is not None:
                 if value > 1:
                     p['Average Mode'](True)
-                else
+                else:
                     p['Average Mode'](False)
             self._result = p.send(wait=False)
             self._request_sent = True

@@ -353,9 +353,9 @@ class Experiment(object):
     
     def _set_variables(self, variables):
         """
-        Sets experiment variables.
+        Set experiment variables.
         
-        Inputs:
+        Input:
             variables: experiment variable dictionary 
                 in the {'Variable Name': Value,...} format.
         Output:
@@ -458,7 +458,7 @@ class Experiment(object):
             self._check_var(var, check_value=False)
         return self._vars[var]['Interface']
         
-    def send_request(self, var, value=None):
+    def set(self, var, value=None):
         """
         Send a non-blocking request to a server to set an experiment
         variable.
@@ -481,6 +481,22 @@ class Experiment(object):
             interface.send_request(self.value(var, value, output=False))
             # Restore the previous value.
             self.value(var, prev_val, output=False)
+            
+    def get(self, var):
+        """
+        Send a non-blocking get request to a server.
+        
+        Input: 
+            var: variable or setting name
+        Output: 
+            None.
+        """
+        try:
+            interface = self.interface(var)
+        except:
+            return None
+        if interface is not None and hasattr(interface, 'send_request'):
+            interface.send_request(None)
         
     def acknowledge_request(self, var):
         """

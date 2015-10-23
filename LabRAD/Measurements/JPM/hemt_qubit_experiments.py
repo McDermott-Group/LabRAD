@@ -181,7 +181,7 @@ class HEMTExperiment(expt.Experiment):
 
     def run_once(self, adc=None): 
         ###DATA POST-PROCESSING####################################################################
-        self.send_request('Temperature')
+        self.get('Temperature')
         result = self.boards.run(self.value('Reps'))
         Is, Qs = result[0] 
         Is = np.array(Is)
@@ -327,29 +327,29 @@ class HEMTQubitReadout(HEMTExperiment):
     """
     def load_once(self, adc=None, plot_waveforms=False):
         #QUBIT VARIABLES###########################################################################
-        self.send_request('Qubit Attenuation')                          # qubit attenuation
-        self.send_request('Qubit Power')                                # qubit power
+        self.set('Qubit Attenuation')                          # qubit attenuation
+        self.set('Qubit Power')                                # qubit power
         if self.value('Qubit Frequency') is not None:
             if self.value('Qubit SB Frequency') is not None:            # qubit frequency
-                self.send_request('Qubit Frequency',
+                self.set('Qubit Frequency',
                         value=self.value('Qubit Frequency') + 
                               self.value('Qubit SB Frequency'))
             else:
-                self.send_request('Qubit Frequency')
+                self.set('Qubit Frequency')
     
         #RF DRIVE (READOUT) VARIABLES##############################################################
-        self.send_request('Readout Attenuation')                        # readout attenuation
-        self.send_request('Readout Power')                              # readout power
+        self.set('Readout Attenuation')                        # readout attenuation
+        self.set('Readout Power')                              # readout power
         if self.value('Readout Frequency') is not None:
             if self.value('Readout SB Frequency') is not None:          # readout frequency
-                self.send_request('Readout Frequency',
+                self.set('Readout Frequency',
                         value=self.value('Readout Frequency') + 
                               self.value('Readout SB Frequency'))
             else:
-                self.send_request('Readout Frequency')
+                self.set('Readout Frequency')
 
         #DC BIAS VARIABLES#########################################################################
-        self.send_request('Qubit Flux Bias Voltage')
+        self.set('Qubit Flux Bias Voltage')
 
         #CAVITY DRIVE (READOUT) VARIABLES##########################################################
         RO_SB_freq = self.value('Readout SB Frequency')['GHz']       # readout sideband frequency
@@ -418,18 +418,18 @@ class HEMTCavityJPM(HEMTExperiment):
     """
     def load_once(self, adc=None, plot_waveforms=False):
         #RF DRIVE (READOUT) VARIABLES##############################################################
-        self.send_request('RF Attenuation')                             # RF attenuation
-        self.send_request('RF Power')                                   # RF power
+        self.set('RF Attenuation')                             # RF attenuation
+        self.set('RF Power')                                   # RF power
         if self.value('RF Frequency') is not None:
             if self.value('RF SB Frequency') is not None:               # RF frequency
-                self.send_request('RF Frequency',
-                        value= self.value('RF Frequency') + 
-                               self.value('RF SB Frequency'))
+                self.set('RF Frequency',
+                        self.value('RF Frequency') + 
+                        self.value('RF SB Frequency'))
             else:
-                self.send_request('RF Frequency')
+                self.set('RF Frequency')
 
         #DC BIAS VARIABLES#########################################################################
-        self.send_request('Qubit Flux Bias Voltage')
+        self.set('Qubit Flux Bias Voltage')
 
         #RF VARIABLES##############################################################################
         ADC_wait_time = self.value('ADC Wait Time')['ns']               # delay from the start of the fast pulse to the start of the demodulation
