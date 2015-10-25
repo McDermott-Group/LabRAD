@@ -193,7 +193,7 @@ with jpm_qubit_experiments.JPMQubitReadout() as run:
             # save=True, print_data='Switching Probability', plot_data='Switching Probability')
     
     run.sweep(['Readout Attenuation', 'Readout Frequency'], 
-            [np.linspace(10, 40, 11) * dB, np.linspace(4.4, 5.1, 351) * GHz],
+            [np.linspace(10, 40, 6) * dB, np.linspace(4.4, 5.1, 351) * GHz],
             save=True, print_data=['Switching Probability'])
             
     # run.sweep(['Qubit Flux Bias Voltage', 'Readout Frequency'], 
