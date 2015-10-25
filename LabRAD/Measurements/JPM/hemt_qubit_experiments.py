@@ -408,8 +408,8 @@ class HEMTQubitReadout(HEMTExperiment):
                 for k, dac in enumerate(self.boards.dacs)]
         
         ###RUN#####################################################################################
-        self.acknowledge_requests()
         result = self.boards.load(dac_srams, mems)
+        self.acknowledge_requests()
         
 
 class HEMTCavityJPM(HEMTExperiment):

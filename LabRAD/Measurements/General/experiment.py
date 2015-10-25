@@ -1339,7 +1339,7 @@ class Experiment(object):
                             entry_shape = (np.shape(values[0][0]) + 
                                     np.shape(data[key]['Value']))
                             if len(entry_shape) <= max_data_dim:
-                                data[key]['Value'] = _init_entry(entry_shape, data[key]['Value'])
+                                data[key]['Value'] = self._init_entry(entry_shape, data[key]['Value'])
                             else:
                                 data[key].pop('Value')
 
