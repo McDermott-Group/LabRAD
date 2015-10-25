@@ -23,7 +23,7 @@ Resources = [   {
                                         'Data': True
                                        },
                 'Leiden Board DAC 4': {
-                                        'DAC A': 'None',
+                                        'DAC A': 'Readout Q',
                                         'DAC B': 'Readout I',
                                        },
                 'Variables': {  # Default values.
@@ -70,7 +70,7 @@ Resources = [   {
                 # },
                 { # GPIB RF Generator.
                     'Interface': 'RF Generator',
-                    'Address': comp_name + ' GPIB Bus - GPIB0::19::INSTR',
+                    'Address': comp_name + ' GPIB Bus - GPIB0::20::INSTR',
                     'Variables': {
                                     'Readout Power': {'Setting': 'Power'}, 
                                     'Readout Frequency': {'Setting': 'Frequency'}
@@ -78,7 +78,7 @@ Resources = [   {
                 },
                 { # GPIB RF Generator.
                     'Interface': 'RF Generator',
-                    'Address': comp_name + ' GPIB Bus - GPIB0::20::INSTR',
+                    'Address': comp_name + ' GPIB Bus - GPIB0::19::INSTR',
                     'Variables': {
                                     'Qubit Power': {'Setting': 'Power'}, 
                                     'Qubit Frequency': {'Setting': 'Frequency'}
@@ -91,12 +91,12 @@ Resources = [   {
                 # },
                 { # Lab Brick Attenuator.
                     'Interface': 'Lab Brick Attenuator',
-                    'Serial Number': 7032,
+                    'Serial Number': 7031,
                     'Variables': ['Readout Attenuation']
                 },
                 { # Lab Brick Attenuator.
                     'Interface': 'Lab Brick Attenuator',
-                    'Serial Number': 7031,
+                    'Serial Number': 7032,
                     'Variables': ['Qubit Attenuation']
                 },
                 { # SIM Voltage Source.

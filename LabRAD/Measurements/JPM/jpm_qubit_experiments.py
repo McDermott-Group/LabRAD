@@ -412,9 +412,9 @@ class JPMTwoPhotonSpectroscopy(JPMExperiment):
         DAC_ZERO_PAD_LEN = self.boards.consts['DAC_ZERO_PAD_LEN']['ns']
         
         JPM_smoothed_FP = pulse.GaussPulse(JPM_FPT, JPM_FPW, JPM_FPA)
-                total_time = max(max(0, -RF1toRF2) + RF1_time, 
-                        max(0, RF1toRF2) + RF2_time, 
-                        max(0, RF1toRF2)+ RF2toFP + JPM_smoothed_FP.size)
+        total_time = max(max(0, -RF1toRF2) + RF1_time, 
+                         max(0, RF1toRF2) + RF2_time, 
+                         max(0, RF1toRF2)+ RF2toFP + JPM_smoothed_FP.size)
         
         waveforms = {}
         if 'None' in self.boards.requested_waveforms:
@@ -423,7 +423,7 @@ class JPMTwoPhotonSpectroscopy(JPMExperiment):
         if 'JPM Fast Pulse' in self.boards.requested_waveforms:
             waveforms['JPM Fast Pulse'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN + max(0, RF1toRF2) + RF2toFP, 0),
                                                      JPM_smoothed_FP,
-                                                     pulse.DC(total_time - max(0, RF1toRF2) - RF2toFP - JPM_smoothed_FP.size      
+                                                     pulse.DC(total_time - max(0, RF1toRF2) - RF2toFP - JPM_smoothed_FP.size)])  
 
         if 'RF1 I' in self.boards.requested_waveforms: 
             waveforms['RF1 I'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN + max(0, -RF1toRF2), 0),

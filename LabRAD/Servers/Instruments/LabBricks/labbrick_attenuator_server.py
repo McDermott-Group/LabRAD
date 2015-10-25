@@ -17,7 +17,7 @@
 ### BEGIN NODE INFO
 [info]
 name = Lab Brick Attenuators
-version = 1.2.1
+version = 1.2.2
 description =  Gives access to Lab Brick attenuators. This server self-refreshes.
 instancename = %LABRADNODE% Lab Brick Attenuators
 
@@ -43,6 +43,7 @@ from labrad.units import dB, s
 
 MAX_NUM_ATTEN = 64      # maximum number of connected attenuators
 MAX_MODEL_NAME = 32     # maximum length of Lab Brick model name
+
 
 class LBAttenuatorServer(LabradServer):
     name='%LABRADNODE% Lab Brick Attenuators'
@@ -86,7 +87,7 @@ class LBAttenuatorServer(LabradServer):
         # Number of the currently connected devices.
         self._num_devs = 0
 
-        # Create a dictionary that maps serial numbers to Device ID's.
+        # Create a dictionary that maps serial numbers to device IDs.
         self.SerialNumberDict = dict()
         # Create a dictionary that keeps track of last set attenuation.
         self.LastAttenuation = dict()   
@@ -152,8 +153,9 @@ class LBAttenuatorServer(LabradServer):
                 max_attn = yield self.max_attenuation(self._pseudo_context)
                 self.LastAttenuation.update({SN: attn_dB})
                 self.MinMaxAttenuation.update({SN: (min_attn, max_attn)})
-                print('Found a Lab Brick Attenuator with ' + MODNAME.raw[0:NameLength] + ', serial number: ' + 
-                    str(SN) + ', current attenuation: ' + str(self.LastAttenuation[SN]))
+                print('Found a Lab Brick Attenuator with ' + MODNAME.raw[0:NameLength] +
+                        ', serial number: ' + str(SN) +
+                        ', current attenuation: ' + str(self.LastAttenuation[SN]))
 
     def getDeviceDID(self, c):
         if 'SN' not in c:
@@ -174,7 +176,11 @@ class LBAttenuatorServer(LabradServer):
         
     @setting(5, 'Select Attenuator', SN='w', returns='')
     def select_attenuator(self, c, SN):
-        '''Select attenuator by its serial number. Since the serial numbers are unique by definition, no extra information is necessary to select a device.'''
+        '''
+        Select attenuator by its serial number. Since the serial
+        numbers are unique by definition, no extra information is
+        necessary to select a device.
+        '''
         c['SN'] = SN
         
     @setting(6, 'Deselect Attenuator', returns='')
@@ -192,7 +198,8 @@ class LBAttenuatorServer(LabradServer):
                 atten = self.MinMaxAttenuation[c['SN']][0]
             elif atten > self.MinMaxAttenuation[c['SN']][1]:
                 atten = self.MinMaxAttenuation[c['SN']][1]
-            if self.LastAttenuation[c['SN']] == atten:      # Check to make sure it needs to be changed.
+            # Check to make sure it needs to be changed.
+            if self.LastAttenuation[c['SN']] == atten:
                 returnValue(atten)
 
         DID = ctypes.c_uint(SN)
@@ -230,7 +237,9 @@ class LBAttenuatorServer(LabradServer):
         NameLength = yield self.VNXdll.fnLDA_GetModelName(self.getDeviceDID(c), MODNAME)
         returnValue(''.join(MODNAME.raw[0:NameLength]))
 
+
 __server__ = LBAttenuatorServer()
+
 
 if __name__ == '__main__':
     from labrad import util
