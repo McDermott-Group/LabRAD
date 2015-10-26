@@ -98,9 +98,9 @@ ExptInfo = {
  
 # Experiment Variables
 ExptVars = {
-            'Reps': 10000, # should not exceed ~50,000
+            'Reps': 500, # should not exceed ~50,000
 
-            'Qubit Flux Bias Voltage': 0 * V,
+            'Qubit Flux Bias Voltage': 1.0 * V,
 
             'RF Frequency': 4.821 * GHz,
             'RF SB Frequency': 30 * MHz,
@@ -126,5 +126,6 @@ with hemt_qubit_experiments.HEMTCavityJPM() as run:
     # run.single_shot_osc(save=False, plot_data=['I', 'Q'])
     # run.avg_osc(save=False, plot_data=['I', 'Q'], runs=250)
 
-    run.sweep('RF Frequency', np.linspace(4.50, 5.00, 1001) * GHz, 
-                save=True, print_data = ['I', 'Q'], max_data_dim=1)
+    run.sweep('RF Frequency', np.linspace(4.50, 5.00, 11) * GHz, 
+                save=True, print_data = ['I', 'Q'], 
+                plot_data = ['I', 'Q', 'Mean Absolute Amplitude'], max_data_dim=2, runs=1)

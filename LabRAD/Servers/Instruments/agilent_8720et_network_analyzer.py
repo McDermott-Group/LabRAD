@@ -30,11 +30,14 @@ timeout = 5
 ### END NODE INFO
 """
 
-import os.path
+import os
 if __file__ in [f for f in os.listdir('.') if os.path.isfile(f)]:
-    SCRIPT_PATH = os.path.dirname(os.getcwd())  # This will be executed when the script is loaded by the labradnode.
+    # This is executed when the script is loaded by the labradnode.
+    SCRIPT_PATH = os.path.dirname(os.getcwd())
 else:
-    SCRIPT_PATH = os.path.dirname(__file__)     # This will be executed if the script is started by clicking or in a command line.
+    # This is executed if the script is started by clicking or
+    # from a command line.
+    SCRIPT_PATH = os.path.dirname(__file__)
 LABRAD_PATH = os.path.join(SCRIPT_PATH.rsplit('LabRAD', 1)[0])
 import sys
 if LABRAD_PATH not in sys.path:
@@ -47,6 +50,7 @@ from labrad.server import setting, returnValue
 import labrad.units as units
 
 from LabRAD.Servers.Utilities.nonblocking import sleep
+
 
 class Agilent8720ETServer(GPIBManagedServer):
     name = 'Agilent 8720ET Network Analyzer'
@@ -110,8 +114,9 @@ class Agilent8720ETServer(GPIBManagedServer):
 
     @setting(436, 'Sweep Points', pn=['w'], returns=['w'])
     def sweep_points(self, c, pn=None):
-        """Set or get number of points in a sweep. The number will be automatically 
-        coarsen to 3, 11, 21, 26, 51, 101, 201, 401, 801, or 1601 by the network analyzer."""
+        """Set or get number of points in a sweep. The number will be 
+        automatically coarsen to 3, 11, 21, 26, 51, 101, 201, 401, 801,
+        or 1601 by the network analyzer."""
         dev = self.selectedDevice(c)
         if pn is None:
             resp = yield dev.query('POIN?')
@@ -119,7 +124,8 @@ class Agilent8720ETServer(GPIBManagedServer):
         else:
             yield dev.write('POIN%i' %pn)
             t = yield dev.query('SWET?')
-            yield sleep(2 * float(t)) # Be sure to wait for two sweep times as required in 8270ET docs.
+            yield sleep(2 * float(t)) # Be sure to wait for two sweep
+                                      # times as required in 8270ET docs.
         returnValue(pn)   
     
     @setting(437, 'Average Mode', avg=['b'], returns=['b'])
@@ -172,11 +178,13 @@ class Agilent8720ETServer(GPIBManagedServer):
         
     @setting(450, 'Get Trace', returns=['*c[]'])
     def get_trace(self, c):
-        """Get network analyzer trace. The output is complex and depends on the display format:
+        """Get network analyzer trace. The output is complex and depends
+        on the display format:
             "LOGMAG" - real: dB, imag: N/A;
             "LINMAG" - real: linear units, imag: N/A;
             "PHASE"  - real: degrees, imag: N/A;
-            "REIM"   - real: real part (linear), imag: imaginary part (linear).
+            "REIM"   - real: real part (linear), imag: imaginary part\
+                (linear).
         """
         dev = self.selectedDevice(c)
         yield dev.write('FORM5')

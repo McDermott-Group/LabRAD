@@ -32,56 +32,41 @@ from labrad.units import V, GHz, MHz, mK, dB, dBm
 
 import LabRAD.Measurements.General.experiment as expt
 
-class QubitNAExperiment(expt.Experiment):
 
+class QubitNAExperiment(expt.Experiment):
+    """Qubit spectroscopy with a network analyzer."""
     def run_once(self):
-        if self.value('Qubit Flux Bias Voltage') is not None:
-            self.send_request('Qubit Flux Bias Voltage')
+        self.set('Qubit Flux Bias Voltage')
         
         # Network analyzer variables.
+        self.set('NA Source Power')
+        self.set('NA Sweep Points')
+        self.set('NA Average Points')
+        
         NA_centerFreq = self.value('NA Center Frequency')
         NA_freqSpan = self.value('NA Frequency Span')
-        NA_srcPower = self.value('NA Source Power')
-        NA_freqPoints = self.value('NA Frequency Points')
-        NA_avgPoints = self.value('NA Average Points')
-            
-        # Select a network analyzer.
-        na_server = self.cxn.agilent_5230a_network_analyzer()
-        dev = na_server.list_devices()
-        na_server.select_device(dev[0][0])
-        
-        start_freq  = NA_centerFreq - NA_freqSpan/2.
-        stop_freq   = NA_centerFreq + NA_freqSpan/2.
-        
-        frequency = np.linspace(start_freq['GHz'], stop_freq['GHz'],
-                NA_freqPoints) * GHz
-        
-        na_server.start_frequency(start_freq)
-        na_server.stop_frequency(stop_freq)
-        na_server.sweep_points(NA_freqPoints)
-        na_server.average_points(NA_avgPoints)
-        na_server.source_power(NA_srcPower)
-        
-        if NA_avgPoints > 1:
-            na_server.average_mode(True)
-            
+        self.value('NA Start Frequency', NA_centerFreq - NA_freqSpan / 2.,
+            output=False)
+        self.value('NA Stop Frequency', NA_centerFreq + NA_freqSpan / 2.,
+            output=False)
+        self.set('Start Frequency')
+        self.set('Stop Frequency')
+
         self.acknowledge_requests()
-        if self.get_interface('Temperature') is not None:
-            self.send_request('Temperature')
-        
-        S21data = na_server.get_trace()
-        na_server.deselect_device()
+        self.get('Temperature')
+        self.get('Trace')
+        self.get('NA Sweep Points')
         
         data = {
                 'Transmission': {
-                    'Value': self.strip_units(S21data)*dB,
+                    'Value': self.strip_units(self.acknowledge_request('Trace')) * dB,
                     'Dependencies': ['RF Frequency']},
                 'RF Frequency': {
-                        'Value': frequency,
-                        'Type': 'Independent'}
+                        'Value': np.linspace(self.value('NA Start Frequency')['GHz'], 
+                                             self.value('NA Stop Frequency')['GHz'],
+                                             self.acknowledge_request('NA Sweep Points')) * GHz,
+                        'Type': 'Independent'},
+                'Temperature': {'Value': self.acknowledge_request('Temperature')}
                 }
-        
-        if self.get_interface('Temperature') is not None:
-            data['Temperature'] = {'Value': self.acknowledge_request('Temperature')}
-            
+
         return data

@@ -16,8 +16,8 @@
 """
 ### BEGIN NODE INFO
 [info]
-name = Agilent 5230A Network Analyzer.
-version = 0.10.1
+name = Agilent N5230A Network Analyzer
+version = 0.10.2
 description = Four channel 5230A PNA-L network analyzer server
 
 [startup]
@@ -48,8 +48,9 @@ import labrad.units as units
 
 from LabRAD.Servers.Utilities.nonblocking import sleep
 
-class Agilent5230AServer(GPIBManagedServer):
-    name = 'Agilent 5230A Network Analyzer'
+
+class AgilentN5230AServer(GPIBManagedServer):
+    name = 'Agilent N5230A Network Analyzer'
     deviceName = 'AGILENT TECHNOLOGIES N5230A'
     deviceWrapper = GPIBDeviceWrapper
     
@@ -165,7 +166,9 @@ class Agilent5230AServer(GPIBManagedServer):
     
     @setting(610, 'Average Points', count=['w'], returns=['w'])
     def average_points(self, c, count=None):
-    	"""Set or get the number of measurements to combine for an average."""
+    	"""
+        Set or get the number of measurements to combine for an average.
+        """
     	dev = self.selectedDevice(c)
     	if count is None:
     		resp = yield dev.query('SENSe1:AVER:COUN?')
@@ -201,22 +204,22 @@ class Agilent5230AServer(GPIBManagedServer):
     		resp = yield dev.query('SENSe1:SWEep:POINts?')
     		points = int(float(resp))
     	else:
-    		yield dev.write('SENSe1:SWEep:POINts %i'% points)
+    		yield dev.write('SENSe1:SWEep:POINts %i'%points)
     	returnValue(points)
     		    	
     @setting(614, 'Measurement Setup', meas=['s'])
     def measurement_setup(self, c, meas='S21'):
-    	"""Set the measurement parameters. Use a string of the form Sxx (S21, S11...) for
-    		the measurement type.
+    	"""Set the measurement parameters. Use a string of the form Sxx
+            (S21, S11...) for the measurement type.
     	"""
-    	if meas not in ('S11', 'S12', 'S13', 'S14', 'S21', 'S22', 'S23', 'S24', 
-    					 'S31', 'S32', 'S33', 'S34', 'S41', 'S42', 'S43', 'S44'):
-    		raise ValueError('Illegal measurment definition: %s'% str(meas))
+    	if meas not in ('S11', 'S12', 'S13', 'S14', 'S21', 'S22', 'S23', 
+                'S24', 'S31', 'S32', 'S33', 'S34', 'S41', 'S42', 'S43', 'S44'):
+    		raise ValueError('Illegal measurment definition: %s'%str(meas))
 
         dev = self.selectedDevice(c)            
     	yield dev.write('CALC:PAR:DEL:ALL')
     	yield dev.write('DISPlay:WINDow1:STATE ON')
-    	yield dev.write('CALCulate:PARameter:DEFine:EXT "MyMeas" ,%s'% meas)
+    	yield dev.write('CALCulate:PARameter:DEFine:EXT "MyMeas",%s'%meas)
     	yield dev.write('DISPlay:WINDow1:TRACe1:FEED "MyMeas"')
     	yield dev.write('CALC:PAR:SEL "MyMeas"')
         yield dev.write('SENSe1:SWEep:TIME:AUTO ON')
@@ -233,7 +236,6 @@ class Agilent5230AServer(GPIBManagedServer):
         
         avgMode = yield self.average_mode(c)
         if avgMode:
-            
             avgCount = yield self.average_points(c)
             yield self.restart_averaging(c)
             yield dev.write('SENS:SWE:GRO:COUN %i'%avgCount)
@@ -241,15 +243,12 @@ class Agilent5230AServer(GPIBManagedServer):
             yield dev.query('*OPC?')
             yield dev.write('CALC1:DATA? FDATA')
             ascii_data = yield dev.read()
-        
         else:
             yield dev.write('ABORT;:INITIATE:IMMEDIATE')
-            yield dev.query('*OPC?')        #wait for measurement to finish
+            yield dev.query('*OPC?') # Wait for the measurement to finish.
             yield dev.write('CALC1:DATA? FDATA')
             ascii_data = yield dev.read()
-            
-        #ascii_data = yield dev.query('CALC1:DATA? FDATA');
-        
+
     	data = numpy.array([x for x in ascii_data.split(',')], dtype=float)
     	returnValue(data)
     	
@@ -260,7 +259,7 @@ class Agilent5230AServer(GPIBManagedServer):
         yield self.preset(c)
 
 
-__server__ = Agilent5230AServer()
+__server__ = AgilentN5230AServer()
 
 
 if __name__ == '__main__':

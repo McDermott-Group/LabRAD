@@ -1,4 +1,4 @@
-# Copyright (C) 2015 Guilhem Ribeill, Ivan Pechenezhskiy
+# Copyright (C) 2015 Test User
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

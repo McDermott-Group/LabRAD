@@ -17,7 +17,7 @@
 ### BEGIN NODE INFO
 [info]
 name = Lab Brick Attenuators
-version = 1.2.1
+version = 1.2.2
 description =  Gives access to Lab Brick attenuators. This server self-refreshes.
 instancename = %LABRADNODE% Lab Brick Attenuators
 
@@ -44,9 +44,10 @@ from labrad.units import dB, s
 MAX_NUM_ATTEN = 64      # maximum number of connected attenuators
 MAX_MODEL_NAME = 32     # maximum length of Lab Brick model name
 
+
 class LBAttenuatorServer(LabradServer):
     name='%LABRADNODE% Lab Brick Attenuators'
-    refreshInterval = 60
+    refreshInterval = 60 * s
     defaultTimeout = 0.1 * s
     
     @inlineCallbacks
@@ -56,7 +57,7 @@ class LBAttenuatorServer(LabradServer):
         yield reg.cd(['', 'Servers', 'Lab Brick Attenuators'], True)
         dirs, keys = yield reg.dir()
         if 'Lab Brick Attenuator DLL Path' not in keys:
-            self.DLL_path = 'Z:\mcdermott-group\LabRAD\LabBricks\VNX_atten.dll'
+            self.DLL_path = r'Z:\mcdermott-group\LabRAD\LabBricks\VNX_atten.dll'
         else:
             self.DLL_path = yield reg.get('Lab Brick Attenuator DLL Path')
         print("Lab Brick Attenuator DLL Path is set to " + str(self.DLL_path))
@@ -86,7 +87,7 @@ class LBAttenuatorServer(LabradServer):
         # Number of the currently connected devices.
         self._num_devs = 0
 
-        # Create a dictionary that maps serial numbers to Device ID's.
+        # Create a dictionary that maps serial numbers to device IDs.
         self.SerialNumberDict = dict()
         # Create a dictionary that keeps track of last set attenuation.
         self.LastAttenuation = dict()   
@@ -98,17 +99,17 @@ class LBAttenuatorServer(LabradServer):
         if self.autoRefresh:
             callLater(0.1, self.startRefreshing)
         else:
-            self.refreshAttenuators()
+            yield self.refreshAttenuators()
 
     def startRefreshing(self):
         """Start periodically refreshing the list of devices.
 
         The start call returns a deferred which we save for later.
         When the refresh loop is shutdown, we will wait for this
-        deferred to fire to indicate that it has termin_attnted.
+        deferred to fire to indicate that it has terminated.
         """
         self.refresher = LoopingCall(self.refreshAttenuators)
-        self.refresherDone = self.refresher.start(self.refreshInterval, now=True)
+        self.refresherDone = self.refresher.start(self.refreshInterval['s'], now=True)
         
     @inlineCallbacks
     def stopServer(self):
@@ -119,7 +120,7 @@ class LBAttenuatorServer(LabradServer):
         self.killAttenuatorConnections()
             
     def killAttenuatorConnections(self):
-        for DID in self.SerialNumberDict.itervalues():
+        for DID in self.SerialNumberDict.values():
             try:
                 self.VNXdll.fnLDA_CloseDevice(ctypes.c_uint(DID))
             except Exception:
@@ -152,8 +153,9 @@ class LBAttenuatorServer(LabradServer):
                 max_attn = yield self.max_attenuation(self._pseudo_context)
                 self.LastAttenuation.update({SN: attn_dB})
                 self.MinMaxAttenuation.update({SN: (min_attn, max_attn)})
-                print('Found a Lab Brick Attenuator with ' + MODNAME.raw[0:NameLength] + ', serial number: ' + 
-                    str(SN) + ', current attenuation: ' + str(self.LastAttenuation[SN]))
+                print('Found a Lab Brick Attenuator with ' + MODNAME.raw[0:NameLength] +
+                        ', serial number: ' + str(SN) +
+                        ', current attenuation: ' + str(self.LastAttenuation[SN]))
 
     def getDeviceDID(self, c):
         if 'SN' not in c:
@@ -165,7 +167,7 @@ class LBAttenuatorServer(LabradServer):
     @setting(1, 'Refresh Device List')
     def refresh_device_list(self, c):
         '''Manually refresh attenuator list.'''
-        self.refreshAttenuators
+        yield self.refreshAttenuators()
         
     @setting(2, 'List Devices', returns='*w')
     def list_devices(self, c):
@@ -174,7 +176,11 @@ class LBAttenuatorServer(LabradServer):
         
     @setting(5, 'Select Attenuator', SN='w', returns='')
     def select_attenuator(self, c, SN):
-        '''Select attenuator by its serial number. Since the serial numbers are unique by definition, no extra information is necessary to select a device.'''
+        '''
+        Select attenuator by its serial number. Since the serial
+        numbers are unique by definition, no extra information is
+        necessary to select a device.
+        '''
         c['SN'] = SN
         
     @setting(6, 'Deselect Attenuator', returns='')
@@ -186,21 +192,20 @@ class LBAttenuatorServer(LabradServer):
     @setting(10, 'Attenuation', atten='v[dB]', returns='v[dB]')
     def attenuation(self, c, atten=None):
         '''Get or set attenuation.'''
-        SN = self.getDeviceDID(c)
         if atten is not None:
             if atten < self.MinMaxAttenuation[c['SN']][0]:
                 atten = self.MinMaxAttenuation[c['SN']][0]
             elif atten > self.MinMaxAttenuation[c['SN']][1]:
                 atten = self.MinMaxAttenuation[c['SN']][1]
-            if self.LastAttenuation[c['SN']] == atten:      # Check to make sure it needs to be changed.
+            # Check to make sure it needs to be changed.
+            if self.LastAttenuation[c['SN']] == atten:
                 returnValue(atten)
 
-        DID = ctypes.c_uint(SN)
+        DID = ctypes.c_uint(self.getDeviceDID(c))
         yield self.VNXdll.fnLDA_InitDevice(DID)
-        if atten is None:
-            atten = 0.25 * (yield self.VNXdll.fnLDA_GetAttenuation(DID)) * dB
-        else:
+        if atten is not None:
             yield self.VNXdll.fnLDA_SetAttenuation(DID, ctypes.c_int(int(4. * atten['dB'])))
+        atten = 0.25 * (yield self.VNXdll.fnLDA_GetAttenuation(DID)) * dB
         self.LastAttenuation[c['SN']] = atten
         yield self.VNXdll.fnLDA_CloseDevice(DID)
         returnValue(atten)
@@ -229,6 +234,7 @@ class LBAttenuatorServer(LabradServer):
         MODNAME = ctypes.create_string_buffer(MAX_MODEL_NAME)
         NameLength = yield self.VNXdll.fnLDA_GetModelName(self.getDeviceDID(c), MODNAME)
         returnValue(''.join(MODNAME.raw[0:NameLength]))
+
 
 __server__ = LBAttenuatorServer()
 

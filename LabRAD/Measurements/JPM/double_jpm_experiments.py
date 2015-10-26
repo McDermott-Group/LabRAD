@@ -45,20 +45,20 @@ class DoubleJPMCorrelation(JPMExperiment):
         #DC BIAS VARIABLES#########################################################################
         if (self.value('DC Bias Voltage') is not None and
             abs(self.value('DC Bias Voltage')['mV']) <= 30):
-            self.send_request('DC Bias Voltage')
+            self.set('DC Bias Voltage')
         else:
             raise Exception("'DC Bias Voltage' should not exceed 30 mV.")
 
         #RF VARIABLES##############################################################################
-        self.send_request('RF Attenuation')                             # RF attenuation
-        self.send_request('RF Power')                                   # RF power
+        self.set('RF Attenuation')                             # RF attenuation
+        self.set('RF Power')                                   # RF power
         if self.value('RF Frequency') is not None:
             if self.value('RF SB Frequency') is not None:               # RF frequency
-                self.send_request('RF Frequency',                
-                        value=self.value('RF Frequency') + 
-                              self.value('RF SB Frequency'))
+                self.set('RF Frequency',                
+                        self.value('RF Frequency') + 
+                        self.value('RF SB Frequency'))
             else:
-                self.send_request('RF Frequency')
+                self.set('RF Frequency')
  
         #RF DRIVE VARIABLES########################################################################
         RF_SB_freq = self.value('RF SB Frequency')['GHz']               # readout sideband frequency
@@ -119,27 +119,6 @@ class DoubleJPMCorrelation(JPMExperiment):
         # Create a memory command list.
         # The format is described in Servers.Instruments.GHzBoards.command_sequences.
         mem_lists = self.boards.init_mem_lists()
-       
-        # mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0, 'Mode': 'Fast'})
-        # mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0, 'Mode': 'Fast'})
-        # mem_lists[0].append({'Type': 'Delay', 'Time': self.value('Init Time')['us']})
-        # mem_lists[0].append({'Type': 'Bias', 'Channel': 1,
-                # 'Voltage': self.value('JPM A Bias Voltage')['V']})
-        # mem_lists[0].append({'Type': 'Bias', 'Channel': 2,
-                # 'Voltage': self.value('JPM B Bias Voltage')['V']})
-        # mem_lists[0].append({'Type': 'Delay', 'Time': 7})
-        # mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Mode': 'Fine',
-                # 'Voltage': self.value('JPM A Bias Voltage')['V']})
-        # mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Mode': 'Fine',
-                # 'Voltage': self.value('JPM B Bias Voltage')['V']})
-        # mem_lists[0].append({'Type': 'Delay', 'Time': self.value('Bias Time')['us']})
-        # mem_lists[0].append({'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay})
-        # mem_lists[0].append({'Type': 'Timer', 'Time': self.value('Measure Time')['us']})
-        # mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
-        # mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0})
-        # mem_lists[0].append({'Type': 'Delay', 'Time': 6})
-        # mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0, 'Mode': 'Fast'})
-        # mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0, 'Mode': 'Fast'})
 
         mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0, 'Mode': 'Fast'})
         mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0, 'Mode': 'Fast'})
@@ -168,7 +147,7 @@ class DoubleJPMCorrelation(JPMExperiment):
         
         ###RUN#####################################################################################
         self.acknowledge_requests()
-        self.send_request('Temperature')
+        self.get('Temperature')
         P = self.boards.load_and_run(dac_srams, mems, self.value('Reps'))
 
         ###EXTRA EXPERIMENT PARAMETERS TO SAVE#####################################################
