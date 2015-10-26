@@ -2,6 +2,9 @@ import wavepulse as wp
 import numpy as np
 
 class WaveForm ():
+    ############################################################
+    ####### MORE DETAILED DOCUMENTATION IN wavepulse.py ########
+    ############################################################
     # initializing the wave form takes the most time
     # so do it outside of the run once method
     # 
