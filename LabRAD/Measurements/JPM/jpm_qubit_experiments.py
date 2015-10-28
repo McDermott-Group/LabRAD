@@ -62,6 +62,7 @@ class JPMExperiment(expt.Experiment):
         plt.ylabel('Counts')
         plt.xlim(0, preamp_timeout) 
         plt.draw()
+        plt.pause(0.05)
         
     def run_once(self, histogram=False):
         ###RUN#####################################################################################
@@ -109,6 +110,17 @@ class JPMQubitReadout(JPMExperiment):
     a displacement (reset) pulses.
     """
     def load_once(self, plot_waveforms=False):
+        #RF VARIABLES##############################################################################
+        self.set('RF Attenuation')                                      # RF attenuation
+        self.set('RF Power')                                            # RF power
+        if self.value('RF Frequency') is not None:
+            if self.value('RF SB Frequency') is not None:               # RF frequency
+                self.set('RF Frequency',
+                        self.value('RF Frequency') + 
+                        self.value('RF SB Frequency'))
+            else:
+                self.set('RF Frequency')
+
         #QUBIT VARIABLES###########################################################################
         self.set('Qubit Attenuation')                                   # qubit attenuation
         self.set('Qubit Power')                                         # qubit power
