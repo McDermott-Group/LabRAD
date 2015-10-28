@@ -1225,20 +1225,22 @@ class Experiment(object):
                 self._sweep_pts_acquired = self._sweep_pts_acquired + 1 
 
                 if idx == 0:
-                    # Initialize the data dictionary.
-                    # Check that the dictionary is properly defined.
-                    data = self._process_data(run_data)
-                    # Preallocate the memory resources.
-                    for key in data:
-                        if ('Value' in data[key] and 'Type' in data[key]
-                            and data[key]['Type'] == 'Dependent'):
-                            entry_shape = (np.shape(values[0][0]) + 
-                                    np.shape(data[key]['Value']))
-                            if len(entry_shape) <= max_data_dim:
-                                data[key]['Value'] = self._init_entry(entry_shape,
-                                        data[key]['Value'])
-                            else:
-                                data[key].pop('Value')
+                    if self._sweep_pts_acquired == 1:
+                        # Initialize the data dictionary.
+                        # Check that the dictionary is properly defined.
+                        self._1d_data = self._process_data(run_data)
+                        # Preallocate the memory resources.
+                        for key in self._1d_data:
+                            if ('Value' in self._1d_data[key] and 
+                                 'Type' in self._1d_data[key] and
+                                 self._1d_data[key]['Type'] == 'Dependent'):
+                                entry_shape = (np.shape(values[0][0]) + 
+                                        np.shape(self._1d_data[key]['Value']))
+                                if len(entry_shape) <= max_data_dim:
+                                    self._1d_data[key]['Value'] = self._init_entry(entry_shape,
+                                             self._1d_data[key]['Value'])
+                                else:
+                                    self._1d_data[key].pop('Value')
 
                     # Make a list of the sweep variables that should be 
                     # printed to the standard output.
@@ -1270,13 +1272,14 @@ class Experiment(object):
                                 np.size(run_data[var]) == 1]
                         
                     plot_data_vars = self._init_1d_plot(names, values, 
-                            data, plot_data_vars)
+                            self._1d_data, plot_data_vars)
 
                 # Add the newly acquired data to the data set.
-                for key in data:
-                    if ('Value' in data[key] and 'Type' in data[key]
-                            and data[key]['Type'] == 'Dependent'):
-                        data[key]['Value'][idx] = run_data[key]['Value']
+                for key in self._1d_data:
+                    if ('Value' in self._1d_data[key] and
+                         'Type' in self._1d_data[key] and 
+                         self._1d_data[key]['Type'] == 'Dependent'):
+                        self._1d_data[key]['Value'][idx] = run_data[key]['Value']
 
                 # Print experiment and data variables to the standard output.
                 if self._standard_output and self._sweep_status!= 'abort':
@@ -1287,9 +1290,10 @@ class Experiment(object):
                         print(var + ' = ' + 
                                 self.val2str(run_data[var]['Value']))
                 
-                # Update the plot when it makes sense to do so.
+                # Update the plot if anyhting is being plotted.
                 if plot_data_vars is not None:
-                    self._update_1d_plot(names, values, data, plot_data_vars, idx)
+                    self._update_1d_plot(names, values, self._1d_data,
+                                         plot_data_vars, idx)
 
                 if self._sweep_status == '':
                     # Check whether any key is pressed.
@@ -1307,14 +1311,15 @@ class Experiment(object):
                                 np.s_[idx+1:], None)]
                     # Delete unfilled data points since the data 
                     # has been previously initialize with np.empty.
-                    for key in data:
-                        if ('Value' in data[key] and 'Type' in data[key]
-                                and data[key]['Type'] == 'Dependent'):
-                            data[key]['Value'] = np.delete(data[key]['Value'],
+                    for key in self._1d_data:
+                        if ('Value' in self._1d_data[key] and 
+                             'Type' in self._1d_data[key] and 
+                             self._1d_data[key]['Type'] == 'Dependent'):
+                            self._1d_data[key]['Value'] = np.delete(self._1d_data[key]['Value'],
                                     np.s_[idx+1:], 0)
                     break
 
-            return data, values
+            return self._1d_data, values
         else:   # Recurrent implementation of the multidimensional sweeps.
             run_names = []
             run_vals = []

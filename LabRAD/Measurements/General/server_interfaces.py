@@ -292,7 +292,7 @@ class GHzFPGABoards(object):
             p = self.server.packet()
             p.select_device(dac)
             p.memory(memory[k])
-            # p.start_delay(self.dac_settings[k]['CalibDelay'])
+            p.start_delay(self.dac_settings[k]['CalibDelay'])
             # Handle dual block calls here, in a different way than Sank
             # did. This should be compatible.
             if len(sram[k]) > self.consts['SRAM_LEN']:

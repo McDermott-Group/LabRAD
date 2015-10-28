@@ -178,6 +178,7 @@ class HEMTExperiment(expt.Experiment):
         plt.ylabel('Q [ADC Units]')
         plt.title('Single Shot Is and Qs')
         plt.draw()
+        plt.pause(0.05)
 
     def run_once(self, adc=None): 
         ###DATA POST-PROCESSING####################################################################
@@ -418,8 +419,8 @@ class HEMTCavityJPM(HEMTExperiment):
     """
     def load_once(self, adc=None, plot_waveforms=False):
         #RF DRIVE (READOUT) VARIABLES##############################################################
-        self.set('RF Attenuation')                             # RF attenuation
-        self.set('RF Power')                                   # RF power
+        self.set('RF Attenuation')                                      # RF attenuation
+        self.set('RF Power')                                            # RF power
         if self.value('RF Frequency') is not None:
             if self.value('RF SB Frequency') is not None:               # RF frequency
                 self.set('RF Frequency',
