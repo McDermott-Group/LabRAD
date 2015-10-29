@@ -53,16 +53,17 @@ ExptInfo = {
  
 # Experiment Variables
 ExptVars = {
-            'Reps': 3010, # should not exceed ~50,000
+            'Reps': 301, # should not exceed ~50,000
 
             'Init Time': 500 * us,
-            'Bias Time': 100 * us,
+            'Bias Time': 10000 * us,
           
-            'Bias Voltage': 500 * mV,
+            'Bias Voltage': 100 * mV,
            }
 
 with fim_experiment.FIM() as run:
     run.set_experiment(ExptInfo, Resources, ExptVars)
     
-    run.sweep('Bias Time', np.linspace(100, 1100, 11) * us,
-        save=True, print_data=['Temperature'], plot_data=['Temperature'])   
+    run.sweep('Bias Voltage', np.linspace(48, 50, 11) * mV,
+        save=True, print_data=['Temperature'], plot_data=['Temperature'],
+        runs=100, max_data_dim=1)   

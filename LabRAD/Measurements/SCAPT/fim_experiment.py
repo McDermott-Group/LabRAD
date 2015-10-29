@@ -34,7 +34,6 @@ import LabRAD.Measurements.General.experiment as expt
 import LabRAD.Measurements.General.pulse_shapes as pulse
 import LabRAD.Servers.Instruments.GHzBoards.command_sequences as seq
 
-DAC_ZERO_PAD_LEN = 10
 
 class FIM(expt.Experiment):
     """
@@ -59,11 +58,11 @@ class FIM(expt.Experiment):
         mem_lists[0].append({'Type': 'Timer', 'Time': 0})
 
         mems = [seq.mem_from_list(mem_list) for mem_list in mem_lists]
-        
-        self.send_request('Temperature')
+
+        self.get('Temperature')
         P = self.boards.load_and_run(dac_srams, mems, self.value('Reps'))
         self.add_var('Actual Reps', len(P[0]))
-
+                
         return {
                 'Temperature': {'Value': self.acknowledge_request('Temperature')}
                }

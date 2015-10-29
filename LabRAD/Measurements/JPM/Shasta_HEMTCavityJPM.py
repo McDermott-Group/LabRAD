@@ -92,16 +92,16 @@ Resources = [ {
 
 # Experiment Information
 ExptInfo = {
-            'Device Name': 'Test',
+            'Device Name': 'ShastaTest',
             'User': 'Ivan Pechenezhskiy',
             'Base Path': r'Z:\mcdermott-group\Data\Matched JPM Photon Counting\Leiden DR 2015-10-02 - Cavity Excitation by JPM',
-            'Experiment Name': 'ShastaTest',
+            'Experiment Name': 'Test',
             'Comments': 'Test.' 
            }
  
 # Experiment Variables
 ExptVars = {
-            'Reps': 25000, # should not exceed ~50,000
+            'Reps': 10000, # should not exceed ~50,000
 
             'Qubit Flux Bias Voltage': 0 * V,
 
@@ -129,5 +129,5 @@ with hemt_qubit_experiments.HEMTCavityJPM() as run:
     # run.single_shot_osc(save=False, plot_data=['I', 'Q'])
     # run.avg_osc(save=False, plot_data=['I', 'Q'], runs=250)
 
-    run.sweep('RF Frequency', np.linspace(4.50, 5.00, 501) * GHz,
+    run.sweep('RF Frequency', np.linspace(4.50, 5.00, 1001) * GHz,
               plot_data=['I', 'Q', 'Mean ADC Amplitude'], save=True, max_data_dim=1)
