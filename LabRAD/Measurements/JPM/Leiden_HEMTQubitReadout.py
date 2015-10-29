@@ -4,7 +4,7 @@ import os
 import numpy as np
 from datetime import datetime
 
-from labrad.units import (us, ns, V, GHz, MHz, rad, mK, dB, dBm,
+from labrad.units import (us, ns, V, GHz, MHz, rad, dB, dBm,
                           DACUnits, PreAmpTimeCounts)
 
 import hemt_qubit_experiments
@@ -103,7 +103,7 @@ ExptInfo = {
             'Device Name': 'MH060',
             'User': 'Ivan Pechenezhskiy',
             'Base Path': 'Z:\mcdermott-group\Data\Syracuse Qubits\Leiden DR 2015-10-22 - Qubits and JPMs',
-            'Experiment Name': 'ROAttnFreq2D',
+            'Experiment Name': 'Test',
             'Comments': '' 
            }
  
@@ -139,15 +139,15 @@ with hemt_qubit_experiments.HEMTQubitReadout() as run:
     
     run.set_experiment(ExptInfo, Resources, ExptVars)
 
-    # run.single_shot_iqs(save=False, plot_data=True)
-    # run.single_shot_osc(save=False, plot_data=['I', 'Q'])
-    # run.avg_osc(save=True, plot_data=['I', 'Q'], runs=250)
+    run.single_shot_iqs(save=False, plot_data=True)
+    run.single_shot_osc(save=False, plot_data=['I', 'Q'])
+    run.avg_osc(save=True, plot_data=['I', 'Q'], runs=250)
 
-    # run.sweep('Readout Frequency', np.linspace(4.9, 4.93, 301) * GHz,
-              # plot_data=['I', 'Q', 'Amplitude'], save=True)
+    run.sweep('Readout Frequency', np.linspace(4.9, 4.93, 301) * GHz,
+              plot_data=['I', 'Q', 'Amplitude'], save=True, runs=1)
               
     run.sweep(['Readout Attenuation', 'Readout Frequency'], 
         [np.linspace(1, 63, 63) * dB, np.linspace(4.9, 4.93, 301) * GHz],
-        save=False, print_data='Amplitude')
+        save=False, print_data='Amplitude', runs=1)
         
 print('Execution time: ' + str(datetime.now() - start_time) + '.')

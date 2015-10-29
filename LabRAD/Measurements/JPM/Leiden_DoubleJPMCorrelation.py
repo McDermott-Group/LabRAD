@@ -3,7 +3,7 @@
 import os
 import numpy as np
 
-from labrad.units import (us, ns, V, mV, GHz, MHz, rad, mK, dB, dBm,
+from labrad.units import (us, ns, V, mV, GHz, MHz, rad, dB, dBm,
                           DACUnits, PreAmpTimeCounts)
 
 import double_jpm_experiments

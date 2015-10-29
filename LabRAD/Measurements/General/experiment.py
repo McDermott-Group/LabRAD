@@ -118,12 +118,27 @@ class Experiment(object):
         Safely disconnect from the LabRAD manager.
         Catch exceptions if needed.
         """
+        # Close the resources/interfaces properly.
         for var in self._vars:
             if ('Interface' in self._vars[var] and
                     hasattr(self._vars[var]['Interface'], '__exit__')):
                 self._vars[var]['Interface'].__exit__(type, value, traceback)
+        
+        # Disconnect from LabRAD.
         if hasattr(self, 'cxn'):
             self.cxn.disconnect()
+        
+        # Delete empty folders.
+        if hasattr(self, '_save_path'):
+            for subdir in ['TextData', 'MATLABData']:
+                subpath = os.path.join(self._save_path, subdir)
+                if os.path.exists(subpath) and not os.listdir(subpath):
+                    os.rmdir(subpath)
+            for idx in range(5):
+                subpath = os.path.split(subpath)[0]
+                if os.path.exists(subpath) and not os.listdir(subpath):
+                    os.rmdir(subpath)
+                
         print('The instrument resources have been safely terminated! ' + 
               'Have a nice day.')
   
@@ -252,13 +267,6 @@ class Experiment(object):
 
         self.information = information
         
-        # Make the base path if it does not exist.
-        if not os.path.exists(information['Base Path']):
-            try:
-                os.makedirs(information['Base Path'])
-            except:
-                raise IOError('Could not create base path! Is AFS on?')
-        
         # Get today's date in MM-DD-YY format, and make the save path.
         today = time.strftime("%m-%d-%y", time.localtime())
         self._save_path = os.path.join(information['Base Path'],
@@ -266,6 +274,8 @@ class Experiment(object):
                                        information['Device Name'],
                                        today,
                                        information['Experiment Name'])
+        
+        # Make the save path if it does not exist.
         if not os.path.exists(self._save_path):
             try:
                 os.makedirs(self._save_path)
@@ -473,13 +483,18 @@ class Experiment(object):
         except:
             return None
         if interface is not None and hasattr(interface, 'send_request'):
-            # Save the current variable value in case a correction to 
-            # the value is made, i.e. a side-band frequency offset or 
-            # bias zero-voltage offset are added.
-            prev_val = self.value(var)
-            interface.send_request(self.value(var, value, output=False))
-            # Restore the previous value.
-            self.value(var, prev_val, output=False)
+            if value is None:
+                interface.send_request(self.value(var))
+            else:
+                # Save the current variable value, just in case if 
+                # a correction to the value was made.
+                # This is useful when a side-band frequency offset or
+                # a bias voltage offset is added but the orginal number
+                # is a more preferable value to refer to.
+                prev_val = self.value(var)
+                interface.send_request(self.value(var, value, output=False))
+                # Restore the previous value.
+                self.value(var, prev_val, output=False)
             
     def get(self, var):
         """
@@ -578,7 +593,7 @@ class Experiment(object):
             fname = expt_name + '_' + num + '.txt'
         
         # Create the file path.
-        file_path = os.path.join(text_dir,fname)
+        file_path = os.path.join(text_dir, fname)
         
         # Build a header for the file.
         h = ['Format Version: 0.1', expt_name, time.asctime()]
@@ -604,7 +619,8 @@ class Experiment(object):
                 if ('Type' in data[key] and 'Value' in data[key] and 
                         data[key]['Type'] == 'Independent'):
                     outfile.write("Name: '" + key + "'\n")
-                    outfile.write('Units: ' + self.get_units(data[key]['Value']) + '\n')
+                    outfile.write('Units: ' + self.get_units(data[key]['Value'])
+                            + '\n')
                     outfile.write('Type: independent\n')
                     outfile.write('Size: ' +
                             str(list(np.shape(data[key]['Value'])))[1:-1] +
@@ -617,12 +633,13 @@ class Experiment(object):
                 if ('Type' in data[key] and 'Value' in data[key] and 
                         data[key]['Type'] == 'Dependent'):
                     outfile.write("Name: '" + key + "'\n")
-                    outfile.write('Units: ' + self.get_units(data[key]['Value']) + '\n')
+                    outfile.write('Units: ' + self.get_units(data[key]['Value'])
+                            + '\n')
                     outfile.write('Type: dependent\n')
-                    if 'Dependencies' in data[key]:
+                    if 'Dependencies' in data[key] and data[key]['Dependencies']:
                         outfile.write('Dependencies: ' +
                                 str(data[key]['Dependencies'])[1:-1] + '\n')
-                    if 'Distribution' in data[key]:
+                    if 'Distribution' in data[key] and data[key]['Distribution']:
                         outfile.write('Distribution: ' +
                                 data[key]['Distribution'] + '\n')
                     outfile.write('Size: ' +
@@ -804,15 +821,33 @@ class Experiment(object):
                 return ' [' + unit + ']'
             else:
                 return unit
+
         if v is None:
             return ''
-        if isinstance(v, (int, long, float, complex)):
-            return ''
+        
         if isinstance(v, units.Value):
             return _place_in_brackets(str(units.Unit(v)))
+        
+        if isinstance(v, list):
+            if len(v) == 1 and isinstance(v[0], str):
+                v = v[0]
+            elif all([isinstance(val, np.ndarray) for val in v]):
+                v = np.array(v)
+            elif all([isinstance(val, units.Value) for val in v]):
+                unit = list(set([units.Unit(val) for val in v]))
+                if len(unit) == 1:
+                    return _place_in_brackets(str(units.Unit(unit[0])))
+                else:
+                    raise Exception("More than one physical unit is" +
+                                    " found: " + str(unit) + ".")
+            # Be careful: isinstance(0 * units.K, float) is actually True...
+            elif all([isinstance(val, (int, long, float, complex))
+                    for val in v]):
+                return ''
+        
         if isinstance(v, np.ndarray):
-            if any([isinstance(val, units.Value) for val in v.flatten()]):
-                unit = list(set([units.Unit(val) for val in v.flatten()]))
+            if all([isinstance(val, (np.ndarray, units.Value)) for val in v.flatten()]):
+                unit = list(set([self.get_units(val) for val in v.flatten()]))
                 if len(unit) == 1:
                     return _place_in_brackets(str(units.Unit(unit[0])))
                 else:
@@ -820,6 +855,7 @@ class Experiment(object):
                                     " found: " + str(unit) + ".")
             else:
                 return ''
+        
         if isinstance(v, str):
             self._check_var(v, check_interface=False)
             value = self._vars[v]['Value']
@@ -827,6 +863,11 @@ class Experiment(object):
                 return _place_in_brackets(str(units.Unit(value)))
             else:
                 return ''
+        
+        # Be careful: isinstance(1 * units.GHz, float) is actually True...
+        if isinstance(v, (int, long, float, complex)):
+            return ''
+        
         raise Exception("No units can be obtained for '" + str(v) + 
                         "' of type '" + str(type(v)) + "'.")
             
@@ -840,10 +881,10 @@ class Experiment(object):
         Output:
             number: numerical value of the variable. 
         """
-        if isinstance(v, (int, long, float, complex)):
-            return v
         if isinstance(v, units.Value):
             return v[units.Unit(v)]
+        if isinstance(v, (int, long, float, complex)):
+            return v
         if isinstance(v, np.ndarray):
             return np.vectorize(self.strip_units)(v)
         if isinstance(v, list):
@@ -856,6 +897,23 @@ class Experiment(object):
                 return self._vars[v]['Value']
         raise Exception("Units could not be stripped from '" + str(v) + 
                 "', which is of type '" + str(type(v)) + "'.")
+                
+    def unit_factor(self, values):
+        """
+        Determine the unit multiplier for an object that contains
+        variable or data values.
+        
+        Input:
+            values: values that should be used to determine units.
+        Output:
+            unit_multiplier: units.Unit object or 1 for unitless 
+                numbers.
+        """
+        unit = units.Unit(self.get_units(values))
+        if unit == units.Unit(''):
+            return 1
+        else:
+            return unit
     
     def val2str(self, val, brackets=False):
         """
@@ -938,9 +996,9 @@ class Experiment(object):
                      or
                     (isinstance(value, units.Value) and not
                      value.isCompatible(units.Unit(self._vars[var]['Value'])))):
-                    raise Exception("An attempt to change the variable '" +
-                            str(var) + "' unit type is detected. Check " +
-                            "the value reassignments.")
+                    raise Exception("An attempt to change the '" +
+                            str(var) + "' units is detected. Check " +
+                            " the variable value reassignments.")
             self._vars[var]['Value'] = value
             self._vars[var]['Save'] = True
             if output:
@@ -1000,26 +1058,37 @@ class Experiment(object):
                     sys.stdout.write('Current point progress: 0%')
                 if self._sweep_pts_acquired == 0:
                     self._run_n_data = self._process_data(run_data)
-                    for key in run_data:
-                        if ('Value' in self._run_n_data[key] and 
-                                'Type' in self._run_n_data[key] and 
-                                self._run_n_data[key]['Type'] == 'Dependent'):
-                            self._run_n_data[key]['Value'] = self._init_entry(
-                                (runs,) + np.shape(run_data[key]['Value']),
-                                run_data[key]['Value'])
+                    self._run_n_data_deps = [key for key in run_data
+                            if ('Value' in self._run_n_data[key] and 
+                                 'Type' in self._run_n_data[key] and 
+                                self._run_n_data[key]['Type'] == 'Dependent')]
+                    for key in self._run_n_data_deps:
+                        entry_shape = (runs,) + np.shape(run_data[key]['Value'])
+                        if self.get_units(run_data[key]['Value']) != '':
+                            self._run_n_data[key]['Value'] = np.empty(entry_shape,
+                                                dtype=units.Value)
+                        else:
+                            self._run_n_data[key]['Value'] = np.empty(entry_shape)
                     self._run_n_data['Run Iteration'] = {'Value': 
                         np.linspace(1, runs, runs),
                         'Type': 'Independent'} 
-            for key in self._run_n_data:
-                if ('Value' in self._run_n_data[key] and 
-                        'Type' in self._run_n_data[key] and
-                        self._run_n_data[key]['Type'] == 'Dependent'):
-                    self._run_n_data[key]['Value'][idx] = run_data[key]['Value']
+            for key in self._run_n_data_deps:
+                self._run_n_data[key]['Value'][idx] = run_data[key]['Value']
             self._listen_to_keyboard()
             if self._sweep_status == 'abort':
                 if standard_output_flag:
                     sys.stdout.write(str(round(100 * (idx + 1) / 
                             float(runs), 1)) + '%\n')
+                    # Delete unrun 'Run Iterations'.
+                    self._run_n_data['Run Iteration']['Value'] = np.delete(
+                            self._run_n_data['Run Iteration']['Value'],
+                            np.s_[idx+1:], None)
+                    # Delete unfilled data points.
+                    for key in self._run_n_data_deps:
+                        self._run_n_data[key]['Value'] = np.delete(
+                                self._run_n_data[key]['Value'],
+                                np.s_[idx+1:], 0)
+                    break
                 break
             if standard_output_flag:
                 sys.stdout.write('.')
@@ -1043,34 +1112,13 @@ class Experiment(object):
                     and data[key]['Type'] == 'Dependent'):
                 self._avg_data[key]['Distribution'] = 'normal'
                 self._avg_data[key]['Value'] = (np.mean(data[key]['Value'], axis=0) *
-                        units.Unit(self.get_units(data[key]['Value'])))
+                        self.unit_factor(data[key]['Value']))
                 self._avg_data[key + ' Std Dev'] = data[key].copy()
                 self._avg_data[key + ' Std Dev']['Distribution'] = ''
                 self._avg_data[key + ' Std Dev']['Value'] = np.std(data[key]['Value'],
-                        axis=0) * units.Unit(self.get_units(data[key]['Value']))
+                        axis=0) * self.unit_factor(data[key]['Value'])
 
         return self._avg_data
-
-    def _init_entry(self, entry_shape, entry_val):
-        """
-        Initialize an empyt array of the specified size using
-        proper units.
-        
-        Inputs:
-            entry_shape: shape of the empty array.
-            entry_val: entry values that could be used to deduce the
-                array element type.
-        
-        Output:
-            empty_array: array of the requested size.
-        """
-        if isinstance(entry_val, units.Value):
-            return np.empty(entry_shape) * units.Unit(entry_val)
-        elif (isinstance(entry_val, np.ndarray) and
-              isinstance(entry_val.flatten()[0], units.Value)):
-            return np.empty(entry_shape) * units.Unit(entry_val.flatten()[0])
-        else:
-            return np.empty(entry_shape)
 
     def _process_data(self, raw_data):
         """
@@ -1091,8 +1139,8 @@ class Experiment(object):
 
         if any([not isinstance(raw_data[entry], dict) for entry in raw_data]):
             raise DataError("Each element of the data dictionary " +
-                    "should be dictionary by itself. Use 'Value' " +
-                    "keys inside the subdictionaries " +
+                    "should be dictionary by itself. Use key 'Value' " +
+                    "inside the subdictionaries " +
                     "to specify actual data values.")  
             
         # Assign 'Type' to be 'Independent' if the variable
@@ -1182,7 +1230,7 @@ class Experiment(object):
         return data
             
     def _sweep(self, names, values, 
-               print_expt_vars=None, print_data_vars=None, 
+               print_expt_vars=None, print_data_vars=None,
                plot_data_vars=None, max_data_dim=2, runs=1):
         """
         Run an N-dimensional sweep over a given set of variables. In the
@@ -1229,6 +1277,11 @@ class Experiment(object):
                         # Initialize the data dictionary.
                         # Check that the dictionary is properly defined.
                         self._1d_data = self._process_data(run_data)
+                        
+                        # Dependent variables, values of which should
+                        # be kept in memory and, potentially, saved.
+                        self._1d_data_deps = []
+                        
                         # Preallocate the memory resources.
                         for key in self._1d_data:
                             if ('Value' in self._1d_data[key] and 
@@ -1237,8 +1290,12 @@ class Experiment(object):
                                 entry_shape = (np.shape(values[0][0]) + 
                                         np.shape(self._1d_data[key]['Value']))
                                 if len(entry_shape) <= max_data_dim:
-                                    self._1d_data[key]['Value'] = self._init_entry(entry_shape,
-                                             self._1d_data[key]['Value'])
+                                    if self.get_units(self._1d_data[key]['Value']) != '':
+                                        self._1d_data[key]['Value'] = np.empty(entry_shape,
+                                                dtype=units.Value)
+                                    else:
+                                        self._1d_data[key]['Value'] = np.empty(entry_shape)
+                                    self._1d_data_deps.append(key)
                                 else:
                                     self._1d_data[key].pop('Value')
 
@@ -1275,11 +1332,8 @@ class Experiment(object):
                             self._1d_data, plot_data_vars)
 
                 # Add the newly acquired data to the data set.
-                for key in self._1d_data:
-                    if ('Value' in self._1d_data[key] and
-                         'Type' in self._1d_data[key] and 
-                         self._1d_data[key]['Type'] == 'Dependent'):
-                        self._1d_data[key]['Value'][idx] = run_data[key]['Value']
+                for key in self._1d_data_deps:
+                    self._1d_data[key]['Value'][idx] = run_data[key]['Value']
 
                 # Print experiment and data variables to the standard output.
                 if self._standard_output and self._sweep_status!= 'abort':
@@ -1311,12 +1365,9 @@ class Experiment(object):
                                 np.s_[idx+1:], None)]
                     # Delete unfilled data points since the data 
                     # has been previously initialize with np.empty.
-                    for key in self._1d_data:
-                        if ('Value' in self._1d_data[key] and 
-                             'Type' in self._1d_data[key] and 
-                             self._1d_data[key]['Type'] == 'Dependent'):
-                            self._1d_data[key]['Value'] = np.delete(self._1d_data[key]['Value'],
-                                    np.s_[idx+1:], 0)
+                    for key in self._1d_data_deps:
+                        self._1d_data[key]['Value'] = np.delete(self._1d_data[key]['Value'],
+                                np.s_[idx+1:], 0)
                     break
 
             return self._1d_data, values
@@ -1340,14 +1391,21 @@ class Experiment(object):
                     data = {}
                     for key in run_data:    # Make a deep copy.
                         data[key] = run_data[key].copy()
-                    for key in data:
-                        if ('Value' in data[key] and 'Type' in data[key]
-                                and data[key]['Type'] == 'Dependent'):
+                    
+                    data_deps = []
+                    for key in data: 
+                        if ('Value' in data[key] and 
+                             'Type' in data[key] and
+                             data[key]['Type'] == 'Dependent'):
                             entry_shape = (np.shape(values[0][0]) + 
                                     np.shape(data[key]['Value']))
                             if len(entry_shape) <= max_data_dim:
-                                data[key]['Value'] = self._init_entry(entry_shape,
-                                        data[key]['Value'])
+                                if self.get_units(data[key]['Value']) != '':
+                                    data[key]['Value'] = np.empty(entry_shape,
+                                            dtype=units.Value)
+                                else:
+                                    data[key]['Value'] = np.empty(entry_shape)
+                                data_deps.append(key)
                             else:
                                 data[key].pop('Value')
 
@@ -1356,7 +1414,8 @@ class Experiment(object):
                         # The experiment was aborted during 
                         # the acquisition of the first slice.
                         for p_idx in range(len(values)):
-                            values[p_idx] = ([np.array([values[p_idx][0][0]])] +
+                            values[p_idx] = ([np.array([values[p_idx][0][0]]) *
+                                    self.unit_factor(values[p_idx][0][0])] +
                                     vals[p_idx])
                         data = run_data
                     elif np.shape(vals[0][0]) == np.shape(values[0][1]):
@@ -1364,31 +1423,26 @@ class Experiment(object):
                         for p_idx in range(len(values)):
                             values[p_idx] = [np.delete(values[p_idx][0], 
                                     np.s_[idx0+1:], None)] + values[p_idx][1:]
-                        for key in data:
-                            if ('Value' in data[key] and 'Type' in data[key]
-                                    and data[key]['Type'] == 'Dependent'):
-                                data[key]['Value'][idx0] = run_data[key]['Value']
-                                data[key]['Value'] = np.delete(data[key]['Value'], 
-                                        np.s_[idx0+1:], 0)
+                        for key in data_deps:
+                            data[key]['Value'][idx0] = run_data[key]['Value']
+                            data[key]['Value'] = np.delete(data[key]['Value'], 
+                                    np.s_[idx0+1:], 0)
                     else:
-                        # The current slice hasn't been fully acquired.
+                        # At least one slice has been acquired but the 
+                        # current slice hasn't been finished.
                         for p_idx in range(len(values)):
                             values[p_idx] = [np.delete(values[p_idx][0],
                                     np.s_[idx0:], None)] + values[p_idx][1:]
-                        for key in data:
-                            if ('Value' in data[key] and 'Type' in data[key]
-                                    and data[key]['Type'] == 'Dependent'):
-                                data[key]['Value'] = np.delete(data[key]['Value'], 
-                                        np.s_[idx0:], 0)
+                        for key in data_deps:
+                            data[key]['Value'] = np.delete(data[key]['Value'], 
+                                    np.s_[idx0:], 0)
                     break
                 elif self._sweep_status == 'abort':
                     break
                 
                 # Add the newly acquired data to the data set.
-                for key in data:
-                    if ('Value' in data[key] and 'Type' in data[key]
-                            and data[key]['Type'] == 'Dependent'):
-                        data[key]['Value'][idx0] = run_data[key]['Value']
+                for key in data_deps:
+                    data[key]['Value'][idx0] = run_data[key]['Value']
 
             return data, values
 
@@ -1480,7 +1534,7 @@ class Experiment(object):
                         self._check_var(name, check_interface=False)
                     # Check that the variables are unique.
                     if len(name_list) > len(set(name_list)):
-                        raise SweepError('sweep method was called with' + 
+                        raise SweepError('Sweep method was called with' + 
                         ' repeated variable names.')
                 # Check that there are no repeated variable names along
                 # different scan axes.
@@ -1642,7 +1696,7 @@ class Experiment(object):
         unique_names = set([name for sublist in names for name in sublist])
         prev_vals = {name: self.value(name) for name in unique_names}
                 
-        self._sweep_status= ''            # E.g. 'abort' or 'abort-and-save'.
+        self._sweep_status= ''          # E.g. 'abort' or 'abort-and-save'.
         self._sweep_msg = '';
         self._sweep_dimension = len(names[0])   # Dimension of the sweep.
         self._sweep_start_time = time.time()    # Start time for the finish 

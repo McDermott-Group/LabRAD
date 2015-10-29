@@ -3,7 +3,7 @@
 import os
 import numpy as np
 
-from labrad.units import (us, ns, V, GHz, MHz, rad, mK, dB, dBm,
+from labrad.units import (us, ns, V, GHz, MHz, rad, dB, dBm,
                           DACUnits, PreAmpTimeCounts)
 
 import hemt_qubit_experiments
