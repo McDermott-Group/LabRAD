@@ -1,5 +1,5 @@
 # Copyright (C) 2008  Matthew Neeley
-#           (C) 2015  Chris Wilen, Ivan Pechenezhskiy 
+#           (C) 2015  Chris Wilen, Ivan Pechenezhskiy, Joseph Suttle 
 #          
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -102,11 +102,33 @@ class GPIBBusServer(LabradServer):
                     self.sendDeviceMessage('GPIB Device Connect', addr)
                 except Exception, e:
                     print('Failed to add ' + addr + ':' + str(e))
-            for addr in deletions:
-                del self.mydevices[addr]
+            for addr in deletions: #Because pyvisa's list_resources() command doesn't list TCPIP addresses, we need to make sure we don't delete them everytime we refresh the address list
+                if not(addr.startswith('TCPIP')):  
+                    del self.mydevices[addr]
                 self.sendDeviceMessage('GPIB Device Disconnect', addr)
         except Exception, e:
             print('Problem while refreshing devices: ' + str(e))
+    
+    @setting(27,tcpAddr='s')    
+    def addTCPIPDevice(self,c,tcpAddr=None):
+        """refreshDevices fails to find TCPIP VISA objects, so you need to
+        add them manually.  This function allows you to do that. The address should look like this:
+        'TCPIP::10.128.226.234::INSTR'
+        ---Suttle
+        """
+        try:
+            self.rm = visa.ResourceManager()
+            try:
+                instr = self.rm.open_resource(tcpAddr, open_timeout=10.0)
+                # instr.write_termination = u'\r\n'
+                print(instr.query('*IDN?'))
+                instr.clear()
+                self.mydevices[tcpAddr] = instr
+                self.sendDeviceMessage('GPIB Device Connect', tcpAddr)
+            except Exception, e:
+                print('Failed to add ' + tcpAddr + '    .... ' + str(e))
+        except Exception, e:
+            print('Problem while adding TCPIP Address: ' + str(e))
 
     def getSocketsList(self):
         """Get a list of all connected devices.
