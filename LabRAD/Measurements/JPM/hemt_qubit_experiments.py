@@ -96,79 +96,85 @@ class HEMTExperiment(expt.Experiment):
         Output:
             None.
         """
-        print('\nCollecting the ADC data...\n')
-              
-        self._run_status= ''
-        self._run_message = ''
+        self._sweep_status= ''
+        self._sweep_msg = ''
         
         adc = self.boards.get_adc(adc)
         previous_adc_mode = self.boards.get_adc_setting('RunMode', adc)
         self.boards.set_adc_setting('RunMode', 'average', adc)
+        
+        if self.value('Reps') is not None:
+            prev_reps = self.value('Reps')
         
         self.load_once()
         data = self._process_data(self.run_once())
 
         # Make a list of data variables that should be plotted.
         if plot_data is not None:
-            for var in self._combine_strs(plot_data):
+            for var in self._comb_strs(plot_data):
                 if var not in data:
                     print("Warning: variable '" + var + 
                     "' is not found among the data dictionary keys: " + 
                     str(data.keys()) + ".")
             plot_data = [var for var in
-                    self._combine_strs(plot_data) if var in data]
+                    self._comb_strs(plot_data) if var in data]
         if plot_data:
             self._init_1d_plot([['Time']], [[data['Time']['Value']]],
                     data, plot_data)
  
-        if runs > 1:        # Run multiple measurement shots.
-            print('\t[ESC]:\tAbort the run.' + 
+        if runs > 1:        # Run multiple measurements (shots).
+            print('\n\t[ESC]:\tAbort the run.' + 
                   '\n\t[S]:\tAbort the run but [s]ave the data.\n')
-            sys.stdout.write('Progress: 0%')
             self.add_var('Runs', runs)
-            stepsize = max(int(round(runs / 25)), 1)
+            sys.stdout.write('Progress: %5.1f%%\r' %(100. / runs))
             data_to_plot = {}
             for key in data:
                 data_to_plot[key] = data[key].copy()
             for r in range(runs - 1):
-                # Check if the specified keys are pressed.
+                # Check if the specific keys are pressed.
                 self._listen_to_keyboard(recog_keys=[27, 83, 115], 
                         clear_buffer=False)
-                if self._run_status in ['abort', 'abort-and-save']:
-                    self.value('Runs', r + 1, output=False)
-                    sys.stdout.write(str(round(100 * self.value('Runs') / float(runs), 1)) + '%\n')
-                    print(self._run_message)
+                if self._sweep_status in ['abort', 'abort-and-save']:
+                    self.value('Runs', r + 1)
+                    print(self._sweep_msg)
                     break  
                 run_data = self.run_once()
+                sys.stdout.write('Progress: %5.1f%%\r' %(100. * (r + 2) / runs))
                 for key in data:
                     if data[key]['Type'] == 'Dependent':
                         # Accumulate the data values.
                         # These values should be divided by the actual
                         # number of Reps to get the average values.
-                        data[key]['Value'] = data[key]['Value'] + run_data[key]['Value']
-                if np.mod(r, stepsize) == 0:
-                    sys.stdout.write('.')
+                        data[key]['Value'] = (data[key]['Value'] +
+                                         run_data[key]['Value'])
+                if np.mod(r, 10) == 0:
                     if plot_data:
                         for key in plot_data:
-                            data_to_plot[key]['Value'] = data[key]['Value'] / float(r + 1)
-                        self._update_1d_plot([['Time']], [[data['Time']['Value']]],
-                                data_to_plot, plot_data, np.size(data['Time']['Value']) - 1)
-                if r == runs - 2:
-                    sys.stdout.write('100%\n')
+                            data_to_plot[key]['Value'] = (data[key]['Value'] /
+                                                          float(r + 1))
+                        self._update_1d_plot([['Time']],
+                                [[data['Time']['Value']]], data_to_plot,
+                                plot_data, np.size(data['Time']['Value']) - 1)
             for key in data:
                 if 'Value' in data[key] and data[key]['Type'] == 'Dependent':
                     data[key]['Value'] = data[key]['Value'] / float(runs)
         
-        if plot_data:        # Save the data.
+        if plot_data:        # Refresh the plot.
             self._update_1d_plot([['Time']], [[data['Time']['Value']]],
                     data, plot_data, np.size(data['Time']['Value']) - 1)
         
         self.boards.set_adc_setting('RunMode', previous_adc_mode, adc)
-        
+
         # Save the data.
-        if ((save and self._run_status != 'abort') or
-            self._run_status == 'abort-and-save'):
+        if ((save and self._sweep_status != 'abort') or
+            self._sweep_status == 'abort-and-save'):
             self._save_data(data)
+         
+        self.rm_var('Runs')
+        if 'prev_reps' in locals(): 
+            self.add_var('Reps', prev_reps)
+        
+        print('The data collection has been succesfully finished.')
         
     def _plot_iqs(self, data):
         plt.ion()
@@ -180,6 +186,14 @@ class HEMTExperiment(expt.Experiment):
         plt.draw()
         plt.pause(0.05)
 
+    def init_expt(self):
+        if self.value('Reps') is not None:
+            self._prev_reps = self.value('Reps')
+    
+    def exit_expt(self):
+        if hasattr(self, '_prev_reps'):
+            self.value('Reps', self._prev_reps)
+        
     def run_once(self, adc=None): 
         ###DATA POST-PROCESSING####################################################################
         self.get('Temperature')
@@ -187,10 +201,11 @@ class HEMTExperiment(expt.Experiment):
         Is, Qs = result[0] 
         Is = np.array(Is)
         Qs = np.array(Qs)
-
+                
         if self.boards.get_adc_setting('RunMode', adc) == 'demodulate':
             I = np.mean(Is)
             Q = np.mean(Qs)
+            As = np.hypot(Is, Qs)
             return {
                     'Is': { 
                         'Value': Is * units.ADCUnits,
@@ -200,6 +215,14 @@ class HEMTExperiment(expt.Experiment):
                         'Value': Qs * units.ADCUnits,
                         'Dependencies': 'Rep Iteration',
                         'Preferences':  {'linestyle': 'g.'}},
+                    'Amplitudes': { 
+                        'Value': As * units.ADCUnits,
+                        'Dependencies': 'Rep Iteration',
+                        'Preferences':  {'linestyle': 'r.'}},
+                    'Phases': { # numpy.arctan2(y, x) expects reversed arguments.
+                        'Value': np.arctan2(Qs, Is) * units.rad,
+                        'Dependencies': 'Rep Iteration',
+                        'Preferences':  {'linestyle': 'k.'}},
                     'I': {
                         'Value': I * units.ADCUnits,
                         'Distribution': 'normal',
@@ -212,25 +235,17 @@ class HEMTExperiment(expt.Experiment):
                         'Value': np.std(Is) * units.ADCUnits},
                     'Q Std Dev': { 
                         'Value': np.std(Qs) * units.ADCUnits},
-                    'Amplitudes': { 
-                        'Value': np.sqrt(Is**2 + Qs**2) * units.ADCUnits,
-                        'Dependencies': 'Rep Iteration',
-                        'Preferences':  {'linestyle': 'r.'}},
                     'Amplitude': { 
-                        'Value': np.sqrt(I**2 + Q**2) * units.ADCUnits,
+                        'Value': np.hypot(I, Q) * units.ADCUnits,
                         'Preferences':  {'linestyle': 'r-'}},
-                    'Mean Absolute Amplitude': { 
-                        'Value': np.mean(np.sqrt(Is**2 + Qs**2)) * units.ADCUnits,
-                        'Preferences':  {'linestyle': 'm-'}},
-                    'Mean Absolute Amplitude Std Dev': { 
-                        'Value': np.std(np.sqrt(Is**2 + Qs**2)) * units.ADCUnits},
-                    'Phases': { # numpy.arctan2(y, x) expects reversed arguments.
-                        'Value': np.arctan2(Qs, Is) * units.rad,
-                        'Dependencies': 'Rep Iteration',
-                        'Preferences':  {'linestyle': 'k.'}},
                     'Phase': { # numpy.arctan2(y, x) expects reversed arguments.
                         'Value': np.arctan2(Q, I) * units.rad,
                         'Preferences':  {'linestyle': 'k-'}},
+                    'Mean Absolute Amplitude': { 
+                        'Value': np.mean(As) * units.ADCUnits,
+                        'Preferences':  {'linestyle': 'm-'}},
+                    'Mean Absolute Amplitude Std Dev': { 
+                        'Value': np.std(As) * units.ADCUnits},
                     'Rep Iteration': {
                         'Value': np.linspace(1, len(Is), len(Is)),
                         'Type': 'Independent'},
@@ -238,7 +253,7 @@ class HEMTExperiment(expt.Experiment):
                         'Value': self.acknowledge_request('Temperature')}
                    }
         elif self.boards.get_adc_setting('RunMode', adc) == 'average':
-            self.value('Reps', 1, output=False)
+            self.value('Reps', 1)
             time = np.linspace(0, 2 * (len(Is) - 1), len(Is))
             I, Q = dp.software_demod(time, self.boards.get_adc_setting('DemodFreq', adc), Is, Qs)
             return {
@@ -257,7 +272,7 @@ class HEMTExperiment(expt.Experiment):
                         'Value': Q * units.ADCUnits,
                         'Preferences':  {'linestyle': 'g.'}}, 
                     'Software Demod Amplitude': { 
-                        'Value': np.sqrt(I**2 + Q**2) * units.ADCUnits,
+                        'Value': np.hypot(I, Q) * units.ADCUnits,
                         'Preferences':  {'linestyle': 'r.'}},
                     'Software Demod Phase': { 
                         'Value': np.arctan2(Q, I) * units.rad,
@@ -272,52 +287,53 @@ class HEMTExperiment(expt.Experiment):
     def average_data(self, data):
         if self._sweep_pts_acquired == 0:
             self._avg_data = {key: data[key].copy() for key in data}
-        
-        for key in data:
-            if key in ['I', 'Q']:
-                if key + 's' in data:
-                    self._avg_data[key]['Value'] = (np.mean(data[key + 's']['Value']) *
-                            units.ADCUnits)
-                    self._avg_data[key + ' Std Dev']['Value'] = (np.std(data[key + 's']['Value']) *
-                            units.ADCUnits)
-                else:
-                    self._avg_data[key]['Value'] = np.mean(data[key]['Value'],
-                            axis=0) * units.ADCUnits
-                    self._avg_data[key]['Distribution'] = 'normal'
-                    self._avg_data[key + ' Std Dev']['Value'] = np.std(data[key]['Value'],
-                            axis=0) * units.ADCUnits
-            elif key in ['Software Demod I', 'Software Demod Q']:
-                self._avg_data[key]['Value'] = (np.mean(data[key]['Value'], axis=0) *
-                        units.ADCUnits)
-                self._avg_data[key]['Distribution'] = 'normal'
-                self._avg_data[key + ' Std Dev'] = {'Value':
-                        np.std(data[key]['Value'], axis=0) * units.ADCUnits}
-        
-        for key in data:      
-            if key == 'Amplitude':
-                self._avg_data['Amplitude']['Value'] = np.sqrt(self._avg_data['I']['Value']**2 + 
-                        self._avg_data['Q']['Value']**2) * units.ADCUnits
-            elif key == 'Mean Absolute Amplitude': 
-                self._avg_data['Mean Absolute Amplitude']['Value'] = np.mean(np.sqrt(data['Is']['Value']**2 + 
-                        data['Qs']['Value']**2)) * units.ADCUnits
-            elif key == 'Mean Absolute Amplitude Std Dev':
-                self._avg_data['Mean Absolute Amplitude Std Dev']['Value'] = np.std(np.sqrt(data['Is']['Value']**2 + 
-                        data['Qs']['Value']**2)) * units.ADCUnits
-            elif key == 'Phase':
-                self._avg_data['Phase']['Value'] = np.arctan2(self._avg_data['Q']['Value'], 
-                        self._avg_data['I']['Value']) * units.rad
-            elif key == 'Software Demod Amplitude':
-                self._avg_data['Software Demod Amplitude']['Value'] = np.sqrt(self._avg_data['Software Demod I']**2 + 
-                        self._avg_data['Software Demod Q']**2) * units.ADCUnits
-            elif key == 'Software Demod Phase':
-                self._avg_data['Software Demod Phase']['Value'] = np.arctan2(self._avg_data['Software Demod Q'],
-                        self._avg_data['Software Demod I']) * units.rad
-            elif key == 'Temperature':
-                self._avg_data[key]['Value'] = (np.mean(data[key]['Value']) * 
-                        units.Unit(self.get_units(data[key]['Value'])))
-            else:
-                if key in ['Is', 'Qs', 'Amplitudes', 'Phases']:
-                    self._avg_data[key]['Dependencies'] = ['Run Iteration'] + data[key]['Dependencies']
+            for key in ['Is', 'Qs', 'Amplitudes', 'Phases']:
+                if key in data:
+                    self._avg_data[key]['Dependencies'] = (['Run Iteration'] +
+                            data[key]['Dependencies'])
+
+        if 'Is' in data and 'Qs' in data:
+            Is = self.strip_units(self._avg_data['Is']['Value'])
+            Qs = self.strip_units(self._avg_data['Qs']['Value'])
+            self._avg_data['I']['Value'] = np.mean(Is) * units.ADCUnits
+            self._avg_data['Q']['Value'] = np.mean(Qs) * units.ADCUnits
+            self._avg_data['I Std Dev']['Value'] = np.std(Is) * units.ADCUnits
+            self._avg_data['Q Std Dev']['Value'] = np.std(Qs) * units.ADCUnits
+            
+            As = np.hypot(Is, Qs)
+            self._avg_data['Mean Absolute Amplitude']['Value'] = np.mean(As) * units.ADCUnits
+            self._avg_data['Mean Absolute Amplitude Std Dev']['Value'] = np.std(As) * units.ADCUnits
+            
+            I = self.strip_units(self._avg_data['I']['Value'])
+            Q = self.strip_units(self._avg_data['Q']['Value'])
+            self._avg_data['Amplitude']['Value'] = np.hypot(I, Q) * units.ADCUnits
+            self._avg_data['Phase']['Value'] = np.arctan2(Q, I) * units.rad
+        else:
+            It = data['I']['Value']
+            Qt = data['Q']['Value']
+            self._avg_data['I']['Value'] = np.mean(It, axis=0) * units.ADCUnits
+            self._avg_data['Q']['Value'] = np.mean(Qt, axis=0) * units.ADCUnits
+            self._avg_data['I']['Distribution'] = 'normal'
+            self._avg_data['Q']['Distribution'] = 'normal'
+            self._avg_data['I Std Dev']['Value'] = np.std(It, axis=0) * units.ADCUnits
+            self._avg_data['Q Std Dev']['Value'] = np.std(Qt, axis=0) * units.ADCUnits
+
+            Id = self.strip_units(data['Software Demod I']['Value'])
+            Qd = self.strip_units(data['Software Demod Q']['Value'])
+            self._avg_data['Software Demod I']['Value'] = np.mean(Id) * units.ADCUnits
+            self._avg_data['Software Demod Q']['Value'] = np.mean(Qd) * units.ADCUnits
+            self._avg_data['Software Demod I']['Distribution'] = 'normal'
+            self._avg_data['Software Demod Q']['Distribution'] = 'normal'
+            self._avg_data['Software Demod I Std Dev'] = {'Value': np.std(Id) * units.ADCUnits}
+            self._avg_data['Software Demod Q Std Dev'] = {'Value': np.std(Qd) * units.ADCUnits}
+            
+            self._avg_data['Software Demod Amplitude']['Value'] = np.hypot(Id, Qd) * units.ADCUnits
+            self._avg_data['Software Demod Phase']['Value'] = np.arctan2(Qd, Id) * units.rad
+
+        if 'Temperature' in data:
+            T = self.strip_units(data['Temperature']['Value'])
+            self._avg_data['Temperature']['Value'] = (np.mean(T) *
+                    self.unit_factor(data['Temperature']['Value']))
 
         return self._avg_data
         
@@ -328,8 +344,8 @@ class HEMTQubitReadout(HEMTExperiment):
     """
     def load_once(self, adc=None, plot_waveforms=False):
         #QUBIT VARIABLES###########################################################################
-        self.set('Qubit Attenuation')                          # qubit attenuation
-        self.set('Qubit Power')                                # qubit power
+        self.set('Qubit Attenuation')                                   # qubit attenuation
+        self.set('Qubit Power')                                         # qubit power
         if self.value('Qubit Frequency') is not None:
             if self.value('Qubit SB Frequency') is not None:            # qubit frequency
                 self.set('Qubit Frequency',
@@ -339,8 +355,8 @@ class HEMTQubitReadout(HEMTExperiment):
                 self.set('Qubit Frequency')
     
         #RF DRIVE (READOUT) VARIABLES##############################################################
-        self.set('Readout Attenuation')                        # readout attenuation
-        self.set('Readout Power')                              # readout power
+        self.set('Readout Attenuation')                                 # readout attenuation
+        self.set('Readout Power')                                       # readout power
         if self.value('Readout Frequency') is not None:
             if self.value('Readout SB Frequency') is not None:          # readout frequency
                 self.set('Readout Frequency',
@@ -353,18 +369,18 @@ class HEMTQubitReadout(HEMTExperiment):
         self.set('Qubit Flux Bias Voltage')
 
         #CAVITY DRIVE (READOUT) VARIABLES##########################################################
-        RO_SB_freq = self.value('Readout SB Frequency')['GHz']       # readout sideband frequency
-        RO_amp = self.value('Readout Amplitude')['DACUnits']         # amplitude of the sideband modulation
-        RO_time = self.value('Readout Time')['ns']                   # length of the readout pulse
+        RO_SB_freq = self.value('Readout SB Frequency')['GHz']          # readout sideband frequency
+        RO_amp = self.value('Readout Amplitude')['DACUnits']            # amplitude of the sideband modulation
+        RO_time = self.value('Readout Time')['ns']                      # length of the readout pulse
         
         #QUBIT DRIVE VARIABLES#####################################################################
-        QB_SB_freq = self.value('Qubit SB Frequency')['GHz']         # qubit sideband frequency
-        QB_amp = self.value('Qubit Amplitude')['DACUnits']           # amplitude of the sideband modulation
-        QB_time = self.value('Qubit Time')['ns']                     # length of the qubit pulse
+        QB_SB_freq = self.value('Qubit SB Frequency')['GHz']            # qubit sideband frequency
+        QB_amp = self.value('Qubit Amplitude')['DACUnits']              # amplitude of the sideband modulation
+        QB_time = self.value('Qubit Time')['ns']                        # length of the qubit pulse
       
         #TIMING VARIABLES##########################################################################
-        QBtoRO = self.value('Qubit Drive to Readout Delay')['ns']    # delay from the start of the qubit pulse to the start of the readout pulse
-        ADC_wait_time = self.value('ADC Wait Time')['ns']            # delay from the start of the readout pulse to the start of the demodulation
+        QBtoRO = self.value('Qubit Drive to Readout Delay')['ns']       # delay from the start of the qubit pulse to the start of the readout pulse
+        ADC_wait_time = self.value('ADC Wait Time')['ns']               # delay from the start of the readout pulse to the start of the demodulation
         
         ###WAVEFORMS###############################################################################
         DAC_ZERO_PAD_LEN = self.boards.consts['DAC_ZERO_PAD_LEN']['ns']

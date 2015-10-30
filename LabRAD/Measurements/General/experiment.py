@@ -119,10 +119,11 @@ class Experiment(object):
         Catch exceptions if needed.
         """
         # Close the resources/interfaces properly.
-        for var in self._vars:
-            if ('Interface' in self._vars[var] and
-                    hasattr(self._vars[var]['Interface'], '__exit__')):
-                self._vars[var]['Interface'].__exit__(type, value, traceback)
+        if hasattr(self, '_vars'):
+            for var in self._vars:
+                if ('Interface' in self._vars[var] and
+                        hasattr(self._vars[var]['Interface'], '__exit__')):
+                    self._vars[var]['Interface'].__exit__(type, value, traceback)
         
         # Disconnect from LabRAD.
         if hasattr(self, 'cxn'):
@@ -376,7 +377,7 @@ class Experiment(object):
         
         for var in variables:
             if var in self._vars:
-                self.value(var, variables[var], output=False)
+                self.value(var, variables[var])
             else:
                 print("Warning: variable '" + str(var) + 
                       "' is not found in the experiment variables. " +
@@ -440,14 +441,24 @@ class Experiment(object):
             if value is not None:
                 self._vars[var]['Value'] = value
                 self._vars[var]['Save'] = True
+        elif value is not None:
+            self._vars[var] = {'Value': value, 'Save': True}
         else:
-            self._vars[var] = {'Value': value}
-            if value is not None:
-                self._vars[var]['Save'] = True
-            else:
-                self._vars[var]['Save'] = False
+            self._vars[var] = {'Value': None, 'Save': False}
 
         return self._vars[var]['Value']
+        
+    def rm_var(self, var):
+        """
+        Remove an experiment variable.
+        
+        Input:
+            var: name of the experiment variable.
+        Output:
+            None
+        """
+        if hasattr(self, '_vars'):
+            self._vars.pop(var, None)
         
     def interface(self, var, res=None):
         """
@@ -492,9 +503,9 @@ class Experiment(object):
                 # a bias voltage offset is added but the orginal number
                 # is a more preferable value to refer to.
                 prev_val = self.value(var)
-                interface.send_request(self.value(var, value, output=False))
+                interface.send_request(self.value(var, value))
                 # Restore the previous value.
-                self.value(var, prev_val, output=False)
+                self.value(var, prev_val)
             
     def get(self, var):
         """
@@ -793,7 +804,7 @@ class Experiment(object):
         indep_vars = []
         for key in data:
             if 'Value' in data[key] and 'Dependencies' in data[key]:
-                indep_vars = indep_vars + data[key]['Dependencies']
+                indep_vars.append(data[key]['Dependencies'])
         # Remove unnecessary independent variables.
         for var in ['Rep Iteration', 'Run Iteration']:
             if var not in indep_vars:
@@ -840,7 +851,7 @@ class Experiment(object):
                 else:
                     raise Exception("More than one physical unit is" +
                                     " found: " + str(unit) + ".")
-            # Be careful: isinstance(0 * units.K, float) is actually True...
+            # Be careful: isinstance(0 * units.K, float) returns True...
             elif all([isinstance(val, (int, long, float, complex))
                     for val in v]):
                 return ''
@@ -864,7 +875,7 @@ class Experiment(object):
             else:
                 return ''
         
-        # Be careful: isinstance(1 * units.GHz, float) is actually True...
+        # Be careful: isinstance(1 * units.GHz, float) returns True...
         if isinstance(v, (int, long, float, complex)):
             return ''
         
@@ -873,7 +884,7 @@ class Experiment(object):
             
     def strip_units(self, v):
         """
-        Return variable value as a float number without any units. 
+        Return the variable value as a number without any units. 
         Use this method only when it is really necessary to do so.
         
         Input:
@@ -883,10 +894,10 @@ class Experiment(object):
         """
         if isinstance(v, units.Value):
             return v[units.Unit(v)]
-        if isinstance(v, (int, long, float, complex)):
-            return v
         if isinstance(v, np.ndarray):
             return np.vectorize(self.strip_units)(v)
+        if isinstance(v, (int, long, float, complex)):
+            return v
         if isinstance(v, list):
             return np.vectorize(self.strip_units)(np.array(v))
         if isinstance(v, str):
@@ -901,12 +912,12 @@ class Experiment(object):
     def unit_factor(self, values):
         """
         Determine the unit multiplier for an object that contains
-        variable or data values.
+        some data values.
         
         Input:
-            values: values that should be used to determine units.
+            values: value(s) to extract the unit from.
         Output:
-            unit_multiplier: units.Unit object or 1 for unitless 
+            unit_multiplier: units.Unit object or 1 for dimensionless 
                 numbers.
         """
         unit = units.Unit(self.get_units(values))
@@ -934,7 +945,7 @@ class Experiment(object):
         else:
             return str(val)
             
-    def _combine_strs(*args):
+    def _comb_strs(*args):
         """
         Combine strings and lists of strings and return a list of 
         strings with unique elements.
@@ -952,7 +963,7 @@ class Experiment(object):
                     vars = vars + [arg]
                 elif isinstance(arg, list):
                     if any([not isinstance(var, str) for var in arg]):
-                        print('Warning: internal method _combine_strs' +
+                        print('Warning: internal method _comb_strs' +
                         ' can only accept strings or lists of strings' +
                         ' as its arguments.')
                     else:
@@ -965,7 +976,7 @@ class Experiment(object):
         return result
 
     ###EXPERIMENT CONTROL METHODS#######################################
-    def value(self, var, value=None, output=True):
+    def value(self, var, value=None, output=False, soft=True):
         """
         Get or set a single variable in the experiment variables 
         dictionary. Useful if you want to run a single point experiment
@@ -974,20 +985,27 @@ class Experiment(object):
         Input(s):
             var: name of the variable key in the experiment variables
                 dictionary.
-            value (optional): If value is None or omitted, the function
+            value (optional): if value is None or omitted, the function
                 returns the value of variable var (default: None). 
                 Otherwise, the function sets variable to the specified
                 value if variable var could be found among the
                 experiment variables. The method raises an exception if
                 the variable is not found.
+            output (optional): print a message showing a new value.
+            soft (optional): throw an exception if the variable doesn't
+                exist or doesn't have a value asssigned to it (default:
+                True).
         Output:
             value: current value of the specified variable or None.
         """
         if value is None:
             if var in self._vars and 'Value' in self._vars[var]:
                 return self._vars[var]['Value']
-            else:
+            elif soft:
                 return None
+            else:
+                raise Exception("Variable '" + str(var) + "' does not" +
+                        " exist or does not have a value assigned to it.")
         else:
             self._check_var(var, check_value=False, check_interface=False)
             if 'Value' in self._vars[var]:
@@ -1007,6 +1025,34 @@ class Experiment(object):
             return value
 
     ###EXPERIMENT RUN FUNCTIONS#########################################
+    def init_expt(self):
+        """
+        This method is called before any load_once and run_once methods
+        by the sweep method and could be used to reduce the overhead
+        caused by the need to preset the device resources and/or do any 
+        initializations.
+        
+        Input: 
+            None.
+        Output:
+            None.
+        """
+        pass
+        
+    def exit_expt(self):
+        """
+        This method is called after all load_once and run_once methods
+        by the sweep method and could be used to reduce the overhead
+        caused by the need to reset the deviceresources and/or do any 
+        data post-processing.
+        
+        Input: 
+            None.
+        Output:
+            None.
+        """
+        pass
+    
     def load_once(self):
         """
         This method is called before run_once by the sweep method and
@@ -1026,7 +1072,7 @@ class Experiment(object):
         Basic run method. This method should be modified in each 
         inherited class. The method is called by the sweep method. 
         In the inherited classes run_once should define the logic
-        and basic data structure of a signle experiment. Method
+        and basic data structure of a single experiment. Method
         load_once could be used to reduce the overhead
         caused by the need to set the FPGA boards and other devices
         when multiple runs of the same experiment have to be executed.
@@ -1049,13 +1095,12 @@ class Experiment(object):
             runs: number of independent runs of the experiment.
         """
         self.add_var('Runs', runs)
-        standard_output_flag = self._standard_output
         
         for idx in range(runs):
             run_data = self.run_once()
+            if self._standard_output:
+                sys.stdout.write('Progress: %5.1f%%\r' %(100. * (idx + 1) / runs))
             if idx == 0:
-                if self._standard_output:
-                    sys.stdout.write('Current point progress: 0%')
                 if self._sweep_pts_acquired == 0:
                     self._run_n_data = self._process_data(run_data)
                     self._run_n_data_deps = [key for key in run_data
@@ -1070,30 +1115,22 @@ class Experiment(object):
                         else:
                             self._run_n_data[key]['Value'] = np.empty(entry_shape)
                     self._run_n_data['Run Iteration'] = {'Value': 
-                        np.linspace(1, runs, runs),
-                        'Type': 'Independent'} 
+                            np.linspace(1, runs, runs),
+                            'Type': 'Independent'} 
             for key in self._run_n_data_deps:
                 self._run_n_data[key]['Value'][idx] = run_data[key]['Value']
             self._listen_to_keyboard()
             if self._sweep_status == 'abort':
-                if standard_output_flag:
-                    sys.stdout.write(str(round(100 * (idx + 1) / 
-                            float(runs), 1)) + '%\n')
-                    # Delete unrun 'Run Iterations'.
-                    self._run_n_data['Run Iteration']['Value'] = np.delete(
-                            self._run_n_data['Run Iteration']['Value'],
-                            np.s_[idx+1:], None)
-                    # Delete unfilled data points.
-                    for key in self._run_n_data_deps:
-                        self._run_n_data[key]['Value'] = np.delete(
-                                self._run_n_data[key]['Value'],
-                                np.s_[idx+1:], 0)
-                    break
+                # Delete unrun 'Run Iterations'.
+                self._run_n_data['Run Iteration']['Value'] = np.delete(
+                        self._run_n_data['Run Iteration']['Value'],
+                        np.s_[idx+1:], None)
+                # Delete unfilled data points.
+                for key in self._run_n_data_deps:
+                    self._run_n_data[key]['Value'] = np.delete(
+                            self._run_n_data[key]['Value'],
+                            np.s_[idx+1:], 0)
                 break
-            if standard_output_flag:
-                sys.stdout.write('.')
-                if idx == runs - 1:
-                    sys.stdout.write('100%\n')  
 
         return self.average_data(self._run_n_data)
 
@@ -1110,13 +1147,13 @@ class Experiment(object):
         for key in data:
             if ('Value' in data[key] and 'Type' in data[key]
                     and data[key]['Type'] == 'Dependent'):
+                vals = self.strip_units(data[key]['Value'])
+                u = self.unit_factor(data[key]['Value'])
                 self._avg_data[key]['Distribution'] = 'normal'
-                self._avg_data[key]['Value'] = (np.mean(data[key]['Value'], axis=0) *
-                        self.unit_factor(data[key]['Value']))
+                self._avg_data[key]['Value'] = np.mean(vals, axis=0) * u
                 self._avg_data[key + ' Std Dev'] = data[key].copy()
                 self._avg_data[key + ' Std Dev']['Distribution'] = ''
-                self._avg_data[key + ' Std Dev']['Value'] = np.std(data[key]['Value'],
-                        axis=0) * self.unit_factor(data[key]['Value'])
+                self._avg_data[key + ' Std Dev']['Value'] = np.std(vals, axis=0) * u
 
         return self._avg_data
 
@@ -1301,14 +1338,14 @@ class Experiment(object):
 
                     # Make a list of the sweep variables that should be 
                     # printed to the standard output.
-                    for var in self._combine_strs(print_expt_vars):
+                    for var in self._comb_strs(print_expt_vars):
                         if var not in self._vars:
                             print("Warning: variable '" + str(var) + 
                             "' is not found among the experiment variables: " + 
                             str([var for var in self._vars]) + 
                             ". The value of this variable will not be printed.")
                     print_expt_vars = [var for var in
-                            self._combine_strs(print_expt_vars)
+                            self._comb_strs(print_expt_vars)
                                 if var in self._vars]
 
                     # Make a list of the data variables that should be
@@ -1317,14 +1354,14 @@ class Experiment(object):
                         print_data_vars = [var for var in run_data
                                 if np.size(run_data[var]['Value']) == 1]
                     else:
-                        for var in self._combine_strs(print_data_vars):
+                        for var in self._comb_strs(print_data_vars):
                             if var not in run_data:
                                 print("Warning: variable '" + str(var) +
                                 "' is not found among the data " + 
                                 "dictionary keys: " + str(run_data.keys()) + 
                                 ". This data will not be printed.")
                         print_data_vars = [var for var
-                                in self._combine_strs(print_data_vars)
+                                in self._comb_strs(print_data_vars)
                                 if var in run_data and
                                 np.size(run_data[var]) == 1]
                         
@@ -1344,7 +1381,7 @@ class Experiment(object):
                         print(var + ' = ' + 
                                 self.val2str(run_data[var]['Value']))
                 
-                # Update the plot if anyhting is being plotted.
+                # Update the plot if anything is being plotted.
                 if plot_data_vars is not None:
                     self._update_1d_plot(names, values, self._1d_data,
                                          plot_data_vars, idx)
@@ -1384,7 +1421,7 @@ class Experiment(object):
                     self.value(names[p_idx][0], values[p_idx][0][idx0], False)
                 run_data, vals = self._sweep(run_names, run_vals, 
                         print_expt_vars, print_data_vars, 
-                        plot_data_vars, max_data_dim, runs)
+                        plot_data_vars, max_data_dim-1, runs)
                 
                 if idx0 == 0:
                     # Initialize the data dictionary.
@@ -1506,7 +1543,7 @@ class Experiment(object):
         elif isinstance(names, list):
             # Check that there are more than zero elements and confirm 
             # that they are strings.
-            if len(names) > 0 and isinstance(names[0], str):
+            if len(names) > 0 and all([isinstance(n, str) for n in names]):
                 for name in names:
                     self._check_var(name, check_interface=False)
                 # Check that the variables are unique.
@@ -1517,14 +1554,11 @@ class Experiment(object):
                 # If there are no independent parallel scans, convert 
                 # the list to a list of lists for internal code consistency.
                 names = [names]
-            elif (len(names) > 0 and isinstance(names[0], list) 
-                  and len(names[0]) > 0):
+            elif (len(names) > 0 and all([isinstance(ln, list)
+                    for ln in names]) and len(names[0]) > 0):
                 # Do the following checks if a list of lists of strings 
                 # is actually specified.
                 for name_list in names:
-                    # Check that all nested elements are lists.
-                    if not isinstance(name_list, list):
-                        raise SweepError(excpt_msg)
                     # Check that the nested lists have the same length.
                     if len(name_list) != len(names[0]):
                         raise SweepError('The length of name lists ' +
@@ -1569,24 +1603,21 @@ class Experiment(object):
             # consistency.
             values = [[values]]
         elif isinstance(values, list):
-            if len(values) > 0 and isinstance(values[0], np.ndarray):
-                for value in values:            
-                    # Check the type and number of the dimensions.
-                    if (not isinstance(values[0], np.ndarray) or 
-                        np.ndim(value) != 1):
+            if len(values) > 0 and all([isinstance(v, np.ndarray)
+                                        for v in values]):
+                # Check the number of the dimensions.
+                for value in values:
+                    if np.ndim(value) != 1:
                         raise SweepError(excpt_msg)
                 # If there are no independent parallel scans, convert
                 # the list of 1D numpy arrays to a list of lists for 
                 # internal code consistency.
                 values = [values]
-            elif (len(values) > 0 and isinstance(values[0], list) and
-                  len(values[0]) > 0):
+            elif (len(values) > 0 and all([isinstance(v, list)
+                    for v in values]) and len(values[0]) > 0):
                 # Do the following checks if a list of lists of 1D numpy
                 # arrays is actually specified.
                 for value_list in values:
-                    # Check that all nested elements are lists.
-                    if not isinstance(value_list, list):
-                        raise SweepError(excpt_msg)
                     # Check that the nested lists have the same length.
                     if len(value_list) != len(values[0]):
                         raise SweepError('The length of 1D numpy array' + 
@@ -1613,13 +1644,20 @@ class Experiment(object):
         # Check that the sweep variables (names) and values can be
         # directly mapped to each other.
         if len(names) != len(values):
-            raise SweepError('Sweep method was called with variable' +
-            ' names that specified in a way could not be' +
-            ' unambigiously matched to the values.')
+            raise SweepError('The sweep variable names could not be' +
+                ' unambigiously matched to the specified values.')
         for list_idx, name_list in enumerate(names):
             if len(name_list) != len(values[list_idx]):
-                raise SweepError('Sweep variables could not' +
-                ' be unambigiously matched to their values.')
+                raise SweepError('The sweep variable names could not be' +
+                    ' unambigiously matched to the specified values.')
+                    
+        # Check the dimension of the scan.
+        if len(names[0]) > max_data_dim:
+            raise SweepError("Maximum data dimesion is set to " +
+                    str(max_data_dim) + " while the dimension of the "
+                    "scan is " + str(len(names[0])) + ". Set key " +
+                    "'max_data_dim' to a value that is not smaller "
+                    "than the dimension of the scan.")
         
         # Prevent any attempts to set any sweep variable twice to some
         # different values. If this is allowed, it would be really hard
@@ -1650,16 +1688,12 @@ class Experiment(object):
                 # If only a simple list is specified, convert this list
                 # of strings to a list of lists for internal code 
                 # consistency.
-                if len(dependencies) > 0 and isinstance(dependencies[0], str):
-                    # Check that all nested elements are strings.
-                    if any([not isinstance(dep, str) for dep in dependencies]):
-                        raise SweepError(excpt_msg)
+                if len(dependencies) > 0 and all([isinstance(dep, str)
+                                         for dep in dependencies]):
                     dependencies = [list(set(dependencies))]
-                elif len(dependencies) > 0 and isinstance(dependencies[0], list):
+                elif len(dependencies) > 0 and all([isinstance(dep, list)
+                                           for dep in dependencies]):
                     for list_idx, dep_list in enumerate(dependencies):
-                        # Check that all nested elements are lists.
-                        if not isinstance(dep_list, list):
-                            raise SweepError(excpt_msg)
                         # Check that all sub-nested elements are strings.
                         if any([not isinstance(dep, str) for dep in dep_list]):
                             raise SweepError(excpt_msg)
@@ -1685,21 +1719,21 @@ class Experiment(object):
                 ' unambigiously matched to sweep variables.')
 
         # Save the current sweep variables values. This allows running
-        # several sweeps in a row without worring about the sweep
+        # several sweeps in a row without worrying about the sweep
         # variables too much. For example, one can start a frequency
         # sweep followed by a bias voltage sweep. Instead of leaving the
         # frequency at the last value of the sweep range, we want it to
-        # return at the initial value. Ussually, initally value is
-        # an important special case (could be, for instance, a resonance
-        # frequncy) and without the code below it may be required
-        # to reset the value manually, which is often annoying.
+        # return to the initial value. Usually, the initial value is
+        # an important special case (could be, for instance, some
+        # resonance frequency) and without the code below it would be
+        # required to reset the value manually, which could be annoying.
         unique_names = set([name for sublist in names for name in sublist])
         prev_vals = {name: self.value(name) for name in unique_names}
                 
         self._sweep_status= ''          # E.g. 'abort' or 'abort-and-save'.
-        self._sweep_msg = '';
+        self._sweep_msg = ''
         self._sweep_dimension = len(names[0])   # Dimension of the sweep.
-        self._sweep_start_time = time.time()    # Start time for the finish 
+        self._sweep_start_time = time.time()    # Start time for the finish
                                                 # time estimation.
         self._sweep_number_of_pts = 1   # Total number of sweep points.
         for val in values[0]:
@@ -1718,6 +1752,8 @@ class Experiment(object):
         for name_list in names:
             print_expt_vars = print_expt_vars + name_list
 
+        self.init_expt()
+        
         data, values = self._sweep(names, values, print_expt_vars,
                 print_data, plot_data, max_data_dim, runs)
 
@@ -1728,7 +1764,7 @@ class Experiment(object):
                 # Fully specify dependencies of
                 # the data variables on the sweep variables.
                 # This simplifies work-flow when several
-                # independent measurements that are done in parallel.
+                # independent measurements are done in parallel.
                 if dependencies is None and len(names) == 1:
                     dependencies = [[key for key in data 
                             if 'Type' in data[key]
@@ -1758,7 +1794,17 @@ class Experiment(object):
        
         # Restore previous sweep variable values.
         for name in unique_names:
-            self.value(name, prev_vals[name], output=False)
+            self.value(name, prev_vals[name])
+        
+        self.exit_expt()
+        
+        self.rm_var('Runs')
+        
+        sec = time.time() - self._sweep_start_time
+        hrs = int(sec / 3600.)
+        min = int((sec - float(hrs) * 3600.) / 60.)
+        sec = sec - float(hrs) * 3600. - float(min) * 60.
+        print('The sweep execution time is %d:%02d:%06.3f.' %(hrs, min, sec))
 
     ###KEYBOARD LISTENERS###############################################
     def _listen_to_keyboard(self, 
@@ -1816,12 +1862,12 @@ class Experiment(object):
     def _init_1d_plot(self, names, values, data, plot_data_vars):  
         # Make a list of the data variables that should be plotted.
         if plot_data_vars is not None:
-            for var in self._combine_strs(plot_data_vars):
+            for var in self._comb_strs(plot_data_vars):
                 if var not in data:
                     print("Warning: variable '" + var + 
                     "' is not found among the data dictionary keys: " + 
                     str(data.keys()) + ". This data will not be plotted.")
-            plot_data_vars = [var for var in self._combine_strs(plot_data_vars) 
+            plot_data_vars = [var for var in self._comb_strs(plot_data_vars) 
                     if var in data and 
                     np.ndim(data[var]['Value']) == 1]
             # Determine the X axis label.
@@ -1856,7 +1902,7 @@ class Experiment(object):
     def _create_1d_plot(self, independent_vars, values, data, plot_data_vars):
         # Specify x-axis label.
         xlabel = ''
-        for var in self._combine_strs(independent_vars):
+        for var in self._comb_strs(independent_vars):
             if var != 'Run Iteration - Fast Axis':
                 xlabel = xlabel + var + self.get_units(var, True) + ', '
             else:

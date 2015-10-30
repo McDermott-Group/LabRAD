@@ -44,8 +44,8 @@ class QubitNAExperiment(expt.Experiment):
         self.set('NA Average Points')
         f_center = self.value('NA Center Frequency')
         f_span = self.value('NA Frequency Span')
-        self.value('NA Start Frequency', f_center - f_span / 2., output=False)
-        self.value('NA Stop Frequency',  f_center + f_span / 2., output=False)
+        self.value('NA Start Frequency', f_center - f_span / 2.)
+        self.value('NA Stop Frequency',  f_center + f_span / 2.)
         self.set('Start Frequency')
         self.set('Stop Frequency')
 

@@ -2,7 +2,6 @@
 
 import os
 import numpy as np
-from datetime import datetime
 
 from labrad.units import (us, ns, V, GHz, MHz, rad, dB, dBm,
                           DACUnits, PreAmpTimeCounts)
@@ -32,7 +31,7 @@ Resources = [ {
                                         'RunMode': 'demodulate', #'average'
                                         'FilterType': 'square',
                                         'FilterWidth': 9500 * ns,
-                                        'FilterLength': 10000 * ns,
+                                        'FilterLength': 8000 * ns,
                                         'FilterStretchAt': 0 * ns,
                                         'FilterStretchLen': 0 * ns,
                                         'DemodPhase': 0 * rad,
@@ -103,51 +102,53 @@ ExptInfo = {
             'Device Name': 'MH060',
             'User': 'Ivan Pechenezhskiy',
             'Base Path': 'Z:\mcdermott-group\Data\Syracuse Qubits\Leiden DR 2015-10-22 - Qubits and JPMs',
-            'Experiment Name': 'Test',
-            'Comments': '' 
+            'Experiment Name': 'FluxBiasROFreq2D',
+            'Comments': 'Readout frequency vs. readout power for MH060 qubit. Driving with IQ modulation.' 
            }
  
 # Experiment Variables
 ExptVars = {
-            'Reps': 5000, # should not exceed ~5,000, use agrument "runs" in sweep parameters instead 
+            'Reps': 1000, # should not exceed ~5,000, use agrument "runs" in sweep parameters instead 
 
             'Init Time': 100 * us,
 
             'Qubit Frequency': 20 * GHz,
-            'Qubit Power': 13 * dBm,
+            'Qubit Power': -110 * dBm,
             'Qubit Attenuation': 63 * dB, # should be in (0, 63] range
             'Qubit SB Frequency': 0 * MHz,
             'Qubit Amplitude': 0 * DACUnits,
             'Qubit Time': 0 * ns,
 
-            'Qubit Drive to Readout Delay': 0 * ns,
+            'Qubit Drive to Readout Delay': 10 * ns,
 
             'Qubit Flux Bias Voltage': 0 * V,
 
-            'Readout Frequency': 4.821 * GHz,
+            'Readout Frequency': 4.913 * GHz,
             'Readout Power': 13 * dBm,
-            'Readout Attenuation': 10 * dB, # should be in (0, 63] range
-            'Readout SB Frequency': 30.5 * MHz,
+            'Readout Attenuation': 24 * dB, # should be in (0, 63] range
+            'Readout SB Frequency': 30 * MHz,
             'Readout Amplitude': 0.5 * DACUnits,
-            'Readout Time': 1000 * ns,
+            'Readout Time': 3000 * ns,
 
             'ADC Wait Time': 0 * ns, # time delay between the start of the readout pulse and the start of the demodulation
            }
 
-start_time = datetime.now()
+
 with hemt_qubit_experiments.HEMTQubitReadout() as run:
     
     run.set_experiment(ExptInfo, Resources, ExptVars)
 
-    run.single_shot_iqs(save=False, plot_data=True)
-    run.single_shot_osc(save=False, plot_data=['I', 'Q'])
-    run.avg_osc(save=True, plot_data=['I', 'Q'], runs=250)
+    # run.single_shot_iqs(save=False, plot_data=True)
+    # run.single_shot_osc(save=False, plot_data=['I', 'Q'])
+    # run.avg_osc(save=False, plot_data=['I', 'Q'], runs=30)
 
-    run.sweep('Readout Frequency', np.linspace(4.9, 4.93, 301) * GHz,
-              plot_data=['I', 'Q', 'Amplitude'], save=True, runs=1)
+    # run.sweep('Readout Frequency', np.linspace(4.85, 4.95, 101) * GHz,
+             # plot_data=['Amplitude'], save=True, runs=3)
               
-    run.sweep(['Readout Attenuation', 'Readout Frequency'], 
-        [np.linspace(1, 63, 63) * dB, np.linspace(4.9, 4.93, 301) * GHz],
-        save=False, print_data='Amplitude', runs=1)
+    # run.sweep(['Readout Attenuation', 'Readout Frequency'], 
+        # [np.linspace(1, 41, 21) * dB, np.linspace(4.9, 4.93, 151) * GHz],
+        # save=True, print_data='Amplitude')
         
-print('Execution time: ' + str(datetime.now() - start_time) + '.')
+    run.sweep(['Qubit Flux Bias Voltage', 'Readout Frequency'], 
+        [np.linspace(-1.5, 1.5, 31) * V, np.linspace(4.908, 4.923, 101) * GHz],
+        save=True, print_data='Amplitude', runs=25, max_data_dim=2)
