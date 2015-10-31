@@ -669,10 +669,8 @@ class BoardGroup(object):
             #This line scales really badly with incrasing stats
             #At 9600 stats the next line takes 10s out of 20s per
             #sequence.
-            t0 = time.clock()
             results = yield readAll # wait for read to complete
-            t1 = time.clock()
-    
+
             if getTimingData:
                 allDacs = True
                 answers = []

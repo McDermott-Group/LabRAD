@@ -44,7 +44,7 @@ LABRAD_FILENAME = 'LabRAD-v1.1.4.exe'
 LABRAD_NODE_FILENAME = 'labradnode.py'
 LABRAD_NODE_SERVERS_FILENAME = 'labradnode_servers.py'
 DIRECT_ETHERNET_SERVER_FILENAME = 'DirectEthernet.exe'
-GHZ_FPGA_BRING_UP_FILENAME = 'ghz_fpga_bringup.py'
+GHZ_FPGA_BRING_UP_FILENAME = 'auto_ghz_fpga_bringup.py'
 DC_RACK_LABVIEW_VI_FILENAME = 'dc_rack_control.vi'
 
 
@@ -223,8 +223,7 @@ class StartAndBringUp:
                     node_servers_filename])
         except OSError:
             raise Exception('Failed to start the LabRAD node.')
-        while self.processes['LabRAD Node Servers'].poll() is None:
-            pass
+        self.processes['LabRAD Node Servers'].wait()
         print('The servers have been started.\n')
         
     def startDirectEthernetServer(self):
@@ -247,7 +246,7 @@ class StartAndBringUp:
             self._waitTillEnterKeyIsPressed()
         
     def bringUpGHzFPGAs(self):
-        print('Starting the GHz FPGA bring-up script...')
+        print('Bringing up the GHz FPGA boards...')
         bring_up = os.path.join(LABRAD_PATH, GHZ_FPGA_BRING_UP_PATH,
                 GHZ_FPGA_BRING_UP_FILENAME)
         if not os.path.isfile(bring_up):
@@ -255,14 +254,11 @@ class StartAndBringUp:
                     bring_up + '.')
         try:
             self.processes['GHz FPGA Bring Up'] = sp.Popen([sys.executable,
-                    bring_up], creationflags=sp.CREATE_NEW_CONSOLE)
+                    bring_up])
         except OSError:
             raise Exception('Failed to start the GHz FPGA bring up script.')
-        print('Please enter the password in the GHz FPGA bring-up ' +
-                'window and follow the instructions there.')
-        print('You may close the GHz FPGA bring-up script window when ' + 
-                'you are done.')
-        self._waitTillEnterKeyIsPressed()
+        self.processes['GHz FPGA Bring Up'].wait()
+        print('The GHz FPGA boards have been brought up.\n')
 
     def startDCRackLabVIEWVI(self):
         print('Getting the path to the LabVIEW.exe from the LabRAD Registry...')

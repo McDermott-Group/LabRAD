@@ -54,7 +54,7 @@ variables = {
 
 with some_experiment.SomeExperiment() as expt:    
     expt.set_experiment(information, resources, variables) 
-    freq = np.linspace(2e9, 5e9, 101) * GHz
+    freq = np.linspace(2, 5, 101) * GHz
     expt.sweep('RF Frequency', freq, save=True)
 """
 
@@ -1271,7 +1271,7 @@ class Experiment(object):
                plot_data_vars=None, max_data_dim=2, runs=1):
         """
         Run an N-dimensional sweep over a given set of variables. In the
-        most general case names and values should be list of lists of 
+        most general case names and values should be a list of lists of 
         strings and 1D numpy arrays of the same structure. The 
         experiment and data variables that should printed and/or plotted
         should be specified when necessary.

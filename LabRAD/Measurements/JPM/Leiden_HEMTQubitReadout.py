@@ -19,7 +19,7 @@ Resources = [ {
                           ],
                 'Leiden Board DAC 3':  {
                                         'DAC A': 'None',
-                                        'DAC B': 'None',
+                                        'DAC B': 'Qubit I',
                                         'FO1 FastBias Firmware Version': '2.1',
                                         'FO2 FastBias Firmware Version': '2.1',
                                        },
@@ -102,28 +102,28 @@ ExptInfo = {
             'Device Name': 'MH060',
             'User': 'Ivan Pechenezhskiy',
             'Base Path': 'Z:\mcdermott-group\Data\Syracuse Qubits\Leiden DR 2015-10-22 - Qubits and JPMs',
-            'Experiment Name': 'FluxBiasROFreq2D',
-            'Comments': 'Readout frequency vs. readout power for MH060 qubit. Driving with IQ modulation.' 
+            'Experiment Name': 'FluxBiasQBFreq2D',
+            'Comments': 'Driving with IQ modulation.' 
            }
  
 # Experiment Variables
 ExptVars = {
-            'Reps': 1000, # should not exceed ~5,000, use agrument "runs" in sweep parameters instead 
+            'Reps': 5000, # should not exceed ~5,000, use agrument "runs" in sweep parameters instead 
 
             'Init Time': 100 * us,
 
             'Qubit Frequency': 20 * GHz,
-            'Qubit Power': -110 * dBm,
-            'Qubit Attenuation': 63 * dB, # should be in (0, 63] range
+            'Qubit Power': 13 * dBm,
+            'Qubit Attenuation': 10 * dB, # should be in (0, 63] range
             'Qubit SB Frequency': 0 * MHz,
-            'Qubit Amplitude': 0 * DACUnits,
-            'Qubit Time': 0 * ns,
+            'Qubit Amplitude': 0.5 * DACUnits,
+            'Qubit Time': 1000 * ns,
 
             'Qubit Drive to Readout Delay': 10 * ns,
 
             'Qubit Flux Bias Voltage': 0 * V,
 
-            'Readout Frequency': 4.913 * GHz,
+            'Readout Frequency': 4.918 * GHz,
             'Readout Power': 13 * dBm,
             'Readout Attenuation': 24 * dB, # should be in (0, 63] range
             'Readout SB Frequency': 30 * MHz,
@@ -149,6 +149,10 @@ with hemt_qubit_experiments.HEMTQubitReadout() as run:
         # [np.linspace(1, 41, 21) * dB, np.linspace(4.9, 4.93, 151) * GHz],
         # save=True, print_data='Amplitude')
         
-    run.sweep(['Qubit Flux Bias Voltage', 'Readout Frequency'], 
-        [np.linspace(-1.5, 1.5, 31) * V, np.linspace(4.908, 4.923, 101) * GHz],
-        save=True, print_data='Amplitude', runs=25, max_data_dim=2)
+    # run.sweep(['Qubit Flux Bias Voltage', 'Readout Frequency'], 
+        # [np.linspace(-1.5, 1.5, 31) * V, np.linspace(4.908, 4.923, 101) * GHz],
+        # save=True, print_data='Amplitude', runs=1, max_data_dim=2)
+        
+    run.sweep(['Qubit Flux Bias Voltage', 'Qubit Frequency'], 
+        [np.linspace(-.5, 1, 11) * V, np.linspace(4, 5, 501) * GHz],
+        save=True, print_data='Amplitude', runs=1, max_data_dim=2)

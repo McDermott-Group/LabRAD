@@ -35,11 +35,12 @@ if LABRAD_PATH not in sys.path:
 import numpy as np
 import itertools
 
-from labrad.server import inlineCallbacks
+from labrad.server import inlineCallbacks, returnValue
 import labrad.units as units
 
 import LabRAD.Servers.Instruments.GHzBoards.command_sequences as seq
-
+import LabRAD.Servers.Instruments.GHzBoards.auto_ghz_fpga_bringup as bringup
+import LabRAD.Servers.Utilities.nonblocking as nb
 
 class ResourceDefinitionError(Exception): pass
 class ResourceInitializationError(Exception): pass
@@ -63,8 +64,56 @@ class GHzFPGABoards(object):
             self.server_name = 'GHz FPGAs'
         self.server = cxn[self.server_name]
         
+        if 'Node' in resource:
+            self.labradnode_name = resource['Node']
+        else:
+            self.labradnode_name = ('node ' +
+                    os.environ['COMPUTERNAME'].lower())
+        self.labradnode = cxn[self.labradnode_name]
+        
         self._init_boards(cxn, resource)
         
+    @inlineCallbacks
+    def restart(self):
+        """Restart the GHz FPGA server with the LabRAD Node."""
+        yield self.labradnode.restart(self.server_name)
+        
+    @inlineCallbacks
+    def bringup(self):
+        """Bring up the GHz FPGA boards.
+        
+        Output:
+            status (boolean): true if the bring-up succeeded, false
+                otherwise.
+        """
+        k = 0
+        failures = True
+        while k < 3 and failures:
+            k += 1
+            try:
+                successes, failures, tries = yield bringup.auto_bringup(self.server)
+            except:
+                pass
+        if not failures:
+            returnValue(True)
+        else:
+            returnValue(False)
+    
+    @inlineCallbacks
+    def auto_recovery(self):
+        """
+        Restart the GHz FPGA server with the LabRAD Node and
+        bring it up.
+        """
+        no_success = True
+        while no_success:
+            yield self.restart()
+            bringup_status = yield self.bringup()
+            if bringup_status:
+                no_success = False
+            else:
+                yield nb.sleep(5 * units.s)
+
     @inlineCallbacks
     def _init_boards(self, cxn, resource):
         """Initialize GHz FPGA boards."""
@@ -397,6 +446,11 @@ class GHzFPGABoards(object):
             raise Exception('Not enough memory commands to ' +
                     'populate the boards!')
         
+        # Save the command sequences in case, the recovery will be
+        # attempted.
+        self._dac_srams = dac_srams
+        self._dac_mems = dac_mems
+        
         self.load_dacs(dac_srams, dac_mems)
         
         if self._data_adcs:
@@ -443,8 +497,13 @@ class GHzFPGABoards(object):
             run_data: returns the result of the self.boards.run_sequence 
                 command.
         """
-        return self.server.run_sequence(int(reps), (bool(self._data_dacs) or 
-                                                    bool(self._data_adcs)))
+        while True:
+            try:
+                return self.server.run_sequence(int(reps),
+                        (bool(self._data_dacs) or bool(self._data_adcs)))
+            except:
+                self.auto_recovery()
+                self.load(self._dac_srams, self._dac_mems)
                                                
     def load_and_run(self, dac_srams, dac_mems, reps=1020):
         """
