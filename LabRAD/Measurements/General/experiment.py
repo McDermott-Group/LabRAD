@@ -76,9 +76,19 @@ import labrad.units as units
 import server_interfaces
 
 
-class ExperimentDefinitionError(Exception): pass
-class DataError(Exception): pass
-class SweepError(Exception): pass
+class ExperimentDefinitionError(Exception):
+    """Experiment specification error."""
+    pass
+
+
+class DataError(Exception):
+    """Data specification error."""
+    pass
+    
+
+class SweepError(Exception):
+    """Data sweep errro."""
+    pass
 
 
 class Experiment(object):

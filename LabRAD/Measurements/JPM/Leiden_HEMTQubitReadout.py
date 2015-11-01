@@ -114,18 +114,18 @@ ExptVars = {
 
             'Qubit Frequency': 20 * GHz,
             'Qubit Power': 13 * dBm,
-            'Qubit Attenuation': 10 * dB, # should be in (0, 63] range
+            'Qubit Attenuation': 3 * dB, # should be in (0, 63] range
             'Qubit SB Frequency': 0 * MHz,
-            'Qubit Amplitude': 0.5 * DACUnits,
-            'Qubit Time': 1000 * ns,
+            'Qubit Amplitude': 0.75 * DACUnits,
+            'Qubit Time': 3000 * ns,
 
             'Qubit Drive to Readout Delay': 10 * ns,
 
-            'Qubit Flux Bias Voltage': 0 * V,
+            'Qubit Flux Bias Voltage': -0.2 * V,
 
-            'Readout Frequency': 4.918 * GHz,
+            'Readout Frequency': 4.9185 * GHz, #4.919 * GHz,
             'Readout Power': 13 * dBm,
-            'Readout Attenuation': 24 * dB, # should be in (0, 63] range
+            'Readout Attenuation': 21 * dB, # should be in (0, 63] range
             'Readout SB Frequency': 30 * MHz,
             'Readout Amplitude': 0.5 * DACUnits,
             'Readout Time': 3000 * ns,
@@ -140,19 +140,23 @@ with hemt_qubit_experiments.HEMTQubitReadout() as run:
 
     # run.single_shot_iqs(save=False, plot_data=True)
     # run.single_shot_osc(save=False, plot_data=['I', 'Q'])
-    # run.avg_osc(save=False, plot_data=['I', 'Q'], runs=30)
+    # run.avg_osc(save=True, plot_data=['I', 'Q'], runs=200)
 
-    # run.sweep('Readout Frequency', np.linspace(4.85, 4.95, 101) * GHz,
-             # plot_data=['Amplitude'], save=True, runs=3)
+    # run.sweep('Readout Frequency', np.linspace(4.91, 4.925, 51) * GHz,
+             # plot_data=['Amplitude'], save=True, runs=1, max_data_dim=1)
               
     # run.sweep(['Readout Attenuation', 'Readout Frequency'], 
         # [np.linspace(1, 41, 21) * dB, np.linspace(4.9, 4.93, 151) * GHz],
         # save=True, print_data='Amplitude')
         
-    # run.sweep(['Qubit Flux Bias Voltage', 'Readout Frequency'], 
+    # run.sweep(['Qubit Flux Bias Voltage', 'Readout Frequency'],
         # [np.linspace(-1.5, 1.5, 31) * V, np.linspace(4.908, 4.923, 101) * GHz],
         # save=True, print_data='Amplitude', runs=1, max_data_dim=2)
         
     run.sweep(['Qubit Flux Bias Voltage', 'Qubit Frequency'], 
-        [np.linspace(-.5, 1, 11) * V, np.linspace(4, 5, 501) * GHz],
-        save=True, print_data='Amplitude', runs=1, max_data_dim=2)
+        [np.linspace(-.5, .5, 21) * V, np.linspace(4, 5, 1001) * GHz],
+        save=True, print_data='Amplitude', runs=2, max_data_dim=2)
+        
+    # run.sweep('Qubit Frequency', np.linspace(4, 5, 1001) * GHz,
+             # print_data=['Amplitude'], plot_data=['Amplitude', 'I', 'Q'],
+             # save=True, runs=1, max_data_dim=1)

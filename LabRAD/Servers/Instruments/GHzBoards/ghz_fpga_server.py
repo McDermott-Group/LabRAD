@@ -749,10 +749,10 @@ class BoardGroup(object):
         """Recover from a timeout error so that pipelining can proceed.
         
         We clear the packet buffer for all boards, whether or not they
-        succeeded. We then check how many time each board its SRAM
-        sequence (or demod sequence for ADC boards), and store this value
-        in the respective runner object. Finally, for failed boards we
-        send a trigger to the master context.
+        succeeded. We then check how many times each board its SRAM
+        sequence (or demod sequence for ADC boards) executed, and store
+        this value in the respective runner object. Finally, for failed
+        boards we send a trigger to the master context.
         """
         print 'RECOVERING FROM TIMEOUT'
         #TODO: add a timeout to the read. Possibly use _sendRegister from dac.py
@@ -775,7 +775,7 @@ class BoardGroup(object):
                 runner.executionCount = count
             except Exception as e:
                 print e
-                raise Exception('Recover from error failed')
+                raise TimeoutError('Recover from error failed')
             #Finally clear the packet buffer and send trigger if this was a failed board
             finally:
                 yield runner.dev.clear().send()
@@ -932,7 +932,6 @@ class FPGAServer(DeviceServer):
             return dac.DacDevice(guid, name)
         else:
             raise Exception('Device name does not correspond to a known device type')
-
 
     ## Trigger refreshes if a direct ethernet server connects or disconnects
     def serverConnected(self, ID, name):
@@ -1206,9 +1205,7 @@ class FPGAServer(DeviceServer):
         dev = self.selectedADC(c)
         return c[dev]['ranges']
 
-
     # multiboard sequence execution
-
     @setting(50, 'Run Sequence', reps='w', getTimingData='b',
                                  setupPkts='?{(((ww), s, ((s?)(s?)(s?)...))...)}',
                                  setupState='*s',
@@ -1233,9 +1230,9 @@ class FPGAServer(DeviceServer):
         setupState:
             a list of strings describing the setup state for this point.
             if this matches the last setup state used (up to reordering),
-            the setup packets will not be sent for this point.  For example,
-            the setupState might describe the amplitude and frequency of
-            the various microwave sources for this sequence.
+            the setup packets will not be sent for this point. 
+            For example, the setupState might describe the amplitude and
+            frequency of the various microwave sources for this sequence.
             
         If only DAC boards are run and all boards return the same number of
         results (because all boards have the same number of timer calls),
@@ -1308,36 +1305,15 @@ class FPGAServer(DeviceServer):
 
         # build setup requests
         setupReqs = processSetupPackets(self.client, setupPkts)
-        # run the sequence, with possible retries if it fails
-        retries = self.retries
-        attempt = 1
-        while True:
-            try:
-                ans = yield bg.run(runners, reps, setupReqs, set(setupState), c['master_sync'], getTimingData, timingOrder)
-                # for ADCs in demodulate mode, store their I and Q ranges to check for possible clipping
-                for runner in runners:
-                    if getTimingData and isinstance(runner, AdcRunner) and runner.runMode == 'demodulate' and runner.dev.devName in timingOrder:
-                        c[runner.dev]['ranges'] = runner.ranges
-                returnValue(ans)
-            except TimeoutError, err:
-                # log attempt to stdout and file
-                import os
-                userpath = os.path.expanduser('~')
-                logpath = os.path.join(userpath, 'dac_timeout_log.txt')
-                with open(logpath, 'a') as logfile:
-                    print 'attempt %d - error: %s' % (attempt, err)
-                    print >>logfile, 'attempt %d - error: %s' % (attempt, err)
-                    if attempt == retries:
-                        print 'FAIL!'
-                        print >>logfile, 'FAIL!'
-                        #TODO: notify users via SMS
-                        raise
-                    else:
-                        print 'retrying...'
-                        print >>logfile, 'retrying...'
-                        attempt += 1
-    
-    
+        
+        # run the sequence
+        ans = yield bg.run(runners, reps, setupReqs, set(setupState), c['master_sync'], getTimingData, timingOrder)
+        # for ADCs in demodulate mode, store their I and Q ranges to check for possible clipping
+        for runner in runners:
+            if getTimingData and isinstance(runner, AdcRunner) and runner.runMode == 'demodulate' and runner.dev.devName in timingOrder:
+                c[runner.dev]['ranges'] = runner.ranges
+        returnValue(ans)
+
     @setting(52, 'Daisy Chain', boards='*s', returns='*s')
     def sequence_boards(self, c, boards=None):
         """Set or get the boards to run.
