@@ -17,7 +17,7 @@
 ### BEGIN NODE INFO
 [info]
 name = Lab Brick RF Generators
-version = 0.1
+version = 0.1.1
 description =  Gives access to Lab Brick RF generators. This server self-refreshes.
 instancename = %LABRADNODE% LBRF
 
@@ -41,12 +41,13 @@ from labrad.server import LabradServer, setting
 from labrad.errors import DeviceNotSelectedError
 import labrad.units as units
 
-MAX_NUM_ATTEN = 64      # maximum number of connected RF Generators
+MAX_NUM_RFGEN = 64      # maximum number of connected RF generators
 MAX_MODEL_NAME = 32     # maximum length of Lab Brick model name
+
 
 class LBRFGenServer(LabradServer):
     name='%LABRADNODE% LBRF'
-    refreshInterval = 60
+    refreshInterval = 60 * s
     defaultTimeout = 0.1 * units.s
     
     @inlineCallbacks
@@ -86,7 +87,6 @@ class LBRFGenServer(LabradServer):
         # Number of the currently connected devices.
         self._num_devs = 0
 
-        
         # Create dictionaries that keeps track of last set power, frequency.
         self.LastFrequency = dict() 
         self.LastPower = dict()  
@@ -111,7 +111,7 @@ class LBRFGenServer(LabradServer):
         deferred to fire to indicate that it has termin_attnted.
         """
         self.refresher = LoopingCall(self.refreshRFGenerators)
-        self.refresherDone = self.refresher.start(self.refreshInterval, now=True)
+        self.refresherDone = self.refresher.start(self.refreshInterval['s'], now=True)
         
     @inlineCallbacks
     def stopServer(self):
@@ -121,19 +121,16 @@ class LBRFGenServer(LabradServer):
             yield self.refresherDone
         self.killRFGenConnections()
             
-    def killRFGenConnections(self):
-        try:    
-            for DID in self.SerialNumberDict.itervalues():
-                try:
-                    self.VNXdll.fnLMS_CloseDevice(ctypes.c_uint(DID))
-                except Exception:
-                    pass
-        except Exception:
-            pass
-    
+    def killRFGenConnections(self):  
+        for DID in self.SerialNumberDict.values():
+            try:
+                self.VNXdll.fnLMS_CloseDevice(ctypes.c_uint(DID))
+            except Exception:
+                pass
+
     @inlineCallbacks
     def refreshRFGenerators(self):
-        '''Refresh RF Generators list.'''
+        '''Refresh RF generators list.'''
         n = yield self.VNXdll.fnLMS_GetNumDevices()
         if n == self._num_devs:
             pass
@@ -145,7 +142,7 @@ class LBRFGenServer(LabradServer):
             self.LastPower.clear()
         else:
             self._num_devs = n
-            DEVIDs = (ctypes.c_uint * MAX_NUM_ATTEN)()
+            DEVIDs = (ctypes.c_uint * MAX_NUM_RFGEN)()
             DEVIDs_ptr = ctypes.cast(DEVIDs, ctypes.POINTER(ctypes.c_uint))
             yield self.VNXdll.fnLMS_GetDevInfo(DEVIDs_ptr)
             MODNAME = ctypes.create_string_buffer(MAX_MODEL_NAME)
@@ -175,57 +172,48 @@ class LBRFGenServer(LabradServer):
                 
     @setting(561, 'Refresh Device List')
     def refresh_device_list(self, c):
-        '''Manually refresh RF Generator list.'''
+        '''Manually refresh RF generator list.'''
         self.refreshRFGenerators
         
     @setting(562, 'List Devices', returns='*w')
     def list_devices(self, c):
-        '''Return list of RF Generator serial numbers.'''
+        '''Return list of RF generator serial numbers.'''
         return sorted(self.SerialNumberDict.keys())
         
     @setting(565, 'Select RF Generator', SN='w', returns='')
     def select_rf_generator(self, c, SN):
-        '''Select RF Generator by its serial number. Since the serial numbers are unique by definition, no extra information is necessary to select a device.'''
-        print "SN=", SN
+        '''
+        Select RF generator by its serial number. Since the serial 
+        numbers are unique by definition, no extra information is 
+        necessary to select a device.
+        '''
         c['SN'] = SN
         
     @setting(566, 'Deselect RF Generator', returns='')
     def deselect_rf_generator(self, c):
-        '''Deselect RF Generator.'''
+        '''Deselect RF generator.'''
         if 'SN' in c:
             del c['SN']
-            
-    @setting(711, 'Get RF Output State', returns='s')
-    def getRfOutputState(self, c):
-        '''Gets RF generator output state'''
-    	DID = ctypes.c_uint(self.getDeviceDID(c))
-    	yield self.VNXdll.fnLMS_InitDevice(DID)
-        outputState = (yield self.VNXdll.fnLMS_GetRF_On(DID))
-        yield self.VNXdll.fnLMS_CloseDevice(DID)
-        if outputState ==1:
-            returnValue("On")
-        elif outputState ==0:
-            returnValue("Off")
-        else:
-            returnValeu("Error")
         
-    @setting(713, 'Set RF Output State On', state ='b', returns='')
-    def setRfOutputStateOn(self, c, state):
-        '''Gets RF generator output state'''
+    @setting(570, 'RF Output State', state ='b', returns='b')
+    def rf_output_state(self, c, state=None):
+        '''Get or set RF generator output state.'''
     	DID = ctypes.c_uint(self.getDeviceDID(c))
     	yield self.VNXdll.fnLMS_InitDevice(DID)
-        yield self.VNXdll.fnLMS_SetRFOn(DID, ctypes.c_bool(state))
+        if state is not None:
+            yield self.VNXdll.fnLMS_SetRFOn(DID, ctypes.c_bool(state))
         outputState = (yield self.VNXdll.fnLMS_GetRF_On(DID))
         yield self.VNXdll.fnLMS_CloseDevice(DID)
-        return
+        returnValue(bool(outputState))
           
-    @setting(532, 'Frequency', freq=['v[Hz]'], returns=['v[Hz]'])
+    @setting(582, 'Frequency', freq=['v[Hz]'], returns=['v[Hz]'])
     def frequency(self, c, freq=None):
-    	'''Set or get RF generator output frequency'''
+    	'''Set or get RF generator output frequency.'''
     	DID = ctypes.c_uint(self.getDeviceDID(c))
     	yield self.VNXdll.fnLMS_InitDevice(DID)
     	if freq is None:
-    		freq = 10. * (yield self.VNXdll.fnLMS_GetFrequency(DID)) * units.Hz # Synthesizer decided to work in 10 Hz increments f_actual = 10 * f_returned
+            # Synthesizer decided to work in 10 Hz increments f_actual = 10 * f_returned
+    		freq = 10. * (yield self.VNXdll.fnLMS_GetFrequency(DID)) * units.Hz
     	else:
     		if self.LastFrequency[c['SN']] == freq:
     			return
@@ -238,15 +226,14 @@ class LBRFGenServer(LabradServer):
     	yield self.VNXdll.fnLMS_CloseDevice(DID)
     	returnValue(freq)
     		
-    @setting(545, 'Power', power=['v[dB]'], returns=['v[dB]'])		
+    @setting(583, 'Power', power=['v[dB]'], returns=['v[dB]'])		
     def power(self, c, power=None):
-    	'''Set or get RF generator output power'''
+    	'''Set or get RF generator output power.'''
     	DID = ctypes.c_uint(self.getDeviceDID(c))
     	yield self.VNXdll.fnLMS_InitDevice(DID)
     	if power is None:
                 powerLev = yield self.VNXdll.fnLMS_GetPowerLevel(DID)
-                #power = self.MinMaxPower[c['SN']][1] - (0.25*(yield self.VNXdll.fnLMS_GetPowerLevel(DID)))*units.dBm
-                power = (0.25*(yield self.VNXdll.fnLMS_GetPowerLevel(DID)))*units.dBm
+                power = 0.25 * (yield self.VNXdll.fnLMS_GetPowerLevel(DID)) * units.dBm
     	else:
     		if self.LastPower[c['SN']] == power:
     			return
@@ -260,7 +247,7 @@ class LBRFGenServer(LabradServer):
     	yield self.VNXdll.fnLMS_CloseDevice(DID)
     	returnValue(power)
 
-    @setting(5521, 'Max Power', returns='v[dBm]')
+    @setting(591, 'Max Power', returns='v[dBm]')
     def max_power(self, c):
         '''Return maximum output power.'''
         DID = ctypes.c_uint(self.getDeviceDID(c))
@@ -269,7 +256,7 @@ class LBRFGenServer(LabradServer):
         yield self.VNXdll.fnLMS_CloseDevice(DID)
         returnValue(units.Value(max_pow, 'dBm'))
 
-    @setting(5522, 'Min Power', returns='v[dBm]')
+    @setting(592, 'Min Power', returns='v[dBm]')
     def min_power(self, c):
         '''Return minimum output power.'''
         DID = ctypes.c_uint(self.getDeviceDID(c))
@@ -278,7 +265,7 @@ class LBRFGenServer(LabradServer):
         yield self.VNXdll.fnLMS_CloseDevice(DID)
         returnValue(units.Value(min_pow, 'dBm'))
         
-    @setting(5523, 'Max Frequency', returns='v[Hz]')
+    @setting(593, 'Max Frequency', returns='v[Hz]')
     def max_frequency(self, c):
         '''Return maximum output frequency.'''
         DID = ctypes.c_uint(self.getDeviceDID(c))
@@ -287,7 +274,7 @@ class LBRFGenServer(LabradServer):
         yield self.VNXdll.fnLMS_CloseDevice(DID)
         returnValue(units.Value(max_attn, 'Hz'))
 
-    @setting(5524, 'Min Frequency', returns='v[Hz]')
+    @setting(594, 'Min Frequency', returns='v[Hz]')
     def min_frequency(self, c):
         '''Return minimum output frequency.'''
         DID = ctypes.c_uint(self.getDeviceDID(c))
@@ -296,12 +283,13 @@ class LBRFGenServer(LabradServer):
         yield self.VNXdll.fnLMS_CloseDevice(DID)
         returnValue(units.Value(min_attn, 'Hz'))
         
-    @setting(5530, 'Model Name', returns='s')
+    @setting(595, 'Model Name', returns='s')
     def model_name(self, c):
         '''Return RF generator model name.'''
         MODNAME = ctypes.create_string_buffer(MAX_MODEL_NAME)
         NameLength = yield self.VNXdll.fnLMS_GetModelName(self.getDeviceDID(c), MODNAME)
         returnValue(''.join(MODNAME.raw[0:NameLength]))
+
 
 __server__ = LBRFGenServer()
 

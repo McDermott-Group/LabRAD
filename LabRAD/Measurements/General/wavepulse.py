@@ -3,19 +3,35 @@ import numpy as np
 
 #######################################################################
 ############## HOW TO USE WAVEFORM CLASS ##############################
+#######################################################################
+#
+# SAMPLE
 #
 # import path.to.wavepulse as wp
 # import path.to.waveform as wf
 #
-# r = wp.WavePulse("block", 0 ,3, 2, 10, None)
-# s = wp.WavePulse("sine", 0, 10, 0.25, None, 10)
-# w = wf.WaveForm(r,s, ...) #as many as you want
-#
-# w.getArr() gives you the array that you need
-# r.start, r.end and r.duration return exactly what you think
-#
-# wavepulses are declared with (type, start, amplitude, frequency, end=None, duration=None)
+# WavePulses are declared with (type, start, amplitude, frequency, end=None, duration=None)
 # where type is either "block", "sine", "cosine", or "gauss"
+#
+# Block pulse with amplitude of 3 starting at t=0ms ending at t=10ms.
+# The frequency parameter of 2 doesn't effect this wave.
+# wave1 = wp.WavePulse("block", 0 ,3, 2, 10, None)
+#
+# Sine pulse with amplitude of 10 and frequency of 0.25Hz starting at t=11ms
+# ending at t=20ms since the duration is 10ms.
+# Since the start parameter is set to wave1.end + 1 there is no overlap and no
+# space between the two waves.
+# wave2 = wp.WavePulse("sine", wave1.end + 1, 10, 0.25, None, 10)
+#
+# Combine the two pulses into one waveform.
+# This waveform class automatically puts the wave pulses in the correct order.
+# w = wf.WaveForm(wave1,wave2, ...) #as many as you want
+#
+# w.getArr() gives you the waveform array that you need for the experiment.
+#
+# wave1.start, wave1.end and wave1.duration return exactly what you think
+#
+
 #######################################################################
 #######################################################################
 

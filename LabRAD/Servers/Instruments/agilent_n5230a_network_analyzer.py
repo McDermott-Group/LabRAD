@@ -46,7 +46,7 @@ from labrad.gpib import GPIBManagedServer, GPIBDeviceWrapper
 from labrad.server import setting, returnValue
 import labrad.units as units
 
-from LabRAD.Servers.Utilities.nonblocking import sleep
+from LabRAD.Servers.Utilities.general import sleep
 
 
 class AgilentN5230AServer(GPIBManagedServer):

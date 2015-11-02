@@ -18,7 +18,7 @@
 [info]
 name = GPIB RF Generators
 version = 0.2.1
-description = This server provides basic control for microwave generators.
+description = Provides basic control for microwave generators.
 
 [startup]
 cmdline = %PYTHON% %FILE%

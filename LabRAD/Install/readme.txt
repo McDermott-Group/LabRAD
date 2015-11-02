@@ -4,9 +4,9 @@ If you are installing from a directory, sometimes errors are thrown if the path 
 
 
 Python and the required modules should be installed in this order (on a computer with an Internet access):
-python-2.7.9.msi - make sure to select "add python to path"
-numpy-1.9.2-win32-superpack-python2.7.exe
-scipy-0.15.1-win32-superpack-python2.7.exe
+python-2.7.10.msi - make sure to select "add python to path"
+numpy-1.10.1-win32-superpack-python2.7.exe
+scipy-0.16.0-win32-superpack-python2.7.exe
 run in the command line: "pip2.7 install ipython"
 run in the command line: "pip2.7 install matplotlib"
 VCForPython27.msi
@@ -28,27 +28,29 @@ To update a package run "pip2.7 install --upgrade package_name" in the command l
 Below are some of the tested configurations. You can get this list by running "pip2.7 freeze" in the command line.
 
 [dr2]
-PyVISA==1.8
-Twisted==15.4.0
-decorator==4.0.2
+decorator==4.0.4
 enum34==1.0.4
 ipython==4.0.0
 ipython-genutils==0.1.0
 matplotlib==1.4.3
-numpy==1.9.2
-path.py==8.1
+numpy==1.10.1
+path.py==8.1.2
 pickleshare==0.5
 pylabrad==0.92.5
 pyparsing==2.0.3
 pyserial==2.7
 python-dateutil==2.4.2
-pytz==2015.4
+python-gdsii==0.2.1
+pytz==2015.6
+PyVISA==1.8
 pywin32==219
 scipy==0.15.1
 simplegeneric==0.8.1
-six==1.9.0
+six==1.10.0
 traitlets==4.0.0
-zope.interface==4.1.2
+Twisted==15.4.0
+zope.interface==4.1.3
+
 
 [mcdermott5125]
 PyVISA==1.7

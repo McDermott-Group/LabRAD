@@ -17,7 +17,7 @@
 ### BEGIN NODE INFO
 [info]
 name = Leiden DR Temperature
-version = 0.2.0
+version = 0.2.1
 description =  Gives access to Leiden DR temperatures.
 instancename = Leiden DR Temperature
 
@@ -38,15 +38,16 @@ from twisted.internet.reactor import callLater
 from twisted.internet.task import LoopingCall
 
 from labrad.server import LabradServer, setting
-from labrad.units import mK
+from labrad.units import mK, s
+
 
 class LeidenDRPseudoserver(LabradServer):
     """
-    Provides access to the Leiden DR temperatures by reading log
-    files on the AFS.
+    This server provides an access to the Leiden DR temperatures by
+    reading log files on the AFS.
     """
     name = 'Leiden DR Temperature'
-    refreshInterval = 15    # in seconds
+    refreshInterval = 15 * s
     
     @inlineCallbacks
     def getRegistryKeys(self):
@@ -79,14 +80,16 @@ class LeidenDRPseudoserver(LabradServer):
         callLater(0.1, self.startRefreshing)
 
     def startRefreshing(self):
-        """Start periodically refreshing the temperatures.
+        """
+        Start periodically refreshing the temperatures.
 
         The start call returns a deferred which we save for later.
         When the refresh loop is shutdown, we will wait for this
         deferred to fire to indicate that it has terminated.
         """
         self.refresher = LoopingCall(self.readTemperatures)
-        self.refresherDone = self.refresher.start(self.refreshInterval, now=True)
+        self.refresherDone = self.refresher.start(self.refreshInterval['s'],
+                now=True)
         
     @inlineCallbacks
     def stopServer(self):
@@ -123,7 +126,7 @@ class LeidenDRPseudoserver(LabradServer):
                 
     @setting(1, 'Refresh Temperatures')
     def refresh_temperatures(self, c):
-        """Manually refresh temperatures."""
+        """Manually refresh the temperatures."""
         self.readTemperatures()
         
     @setting(10, 'Still Temperature', returns='v[mK]')
@@ -140,6 +143,7 @@ class LeidenDRPseudoserver(LabradServer):
     def mix_temperature(self, c):
         """Return the mix chamber temperature."""
         return self._mix_temp
+
 
 __server__ = LeidenDRPseudoserver()
 

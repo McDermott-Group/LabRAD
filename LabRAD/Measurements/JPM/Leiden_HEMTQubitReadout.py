@@ -3,7 +3,7 @@
 import os
 import numpy as np
 
-from labrad.units import (us, ns, V, GHz, MHz, rad, mK, dB, dBm,
+from labrad.units import (us, ns, V, GHz, MHz, rad, dB, dBm,
                           DACUnits, PreAmpTimeCounts)
 
 import hemt_qubit_experiments
@@ -19,7 +19,7 @@ Resources = [ {
                           ],
                 'Leiden Board DAC 3':  {
                                         'DAC A': 'None',
-                                        'DAC B': 'None',
+                                        'DAC B': 'Qubit I',
                                         'FO1 FastBias Firmware Version': '2.1',
                                         'FO2 FastBias Firmware Version': '2.1',
                                        },
@@ -31,7 +31,7 @@ Resources = [ {
                                         'RunMode': 'demodulate', #'average'
                                         'FilterType': 'square',
                                         'FilterWidth': 9500 * ns,
-                                        'FilterLength': 10000 * ns,
+                                        'FilterLength': 8000 * ns,
                                         'FilterStretchAt': 0 * ns,
                                         'FilterStretchLen': 0 * ns,
                                         'DemodPhase': 0 * rad,
@@ -61,24 +61,24 @@ Resources = [ {
                                     'Readout Frequency': {'Setting': 'Frequency'}
                                  }
                 },
-                # { # GPIB RF Generator
-                    # 'Interface': 'RF Generator',
-                    # 'Address': comp_name + ' GPIB Bus - GPIB0::20::INSTR',
-                    # 'Variables': {  
-                                    # 'Qubit Power': {'Setting': 'Power'}, 
-                                    # 'Qubit Frequency': {'Setting': 'Frequency'}
-                                 # }
-                # },
+                { # GPIB RF Generator
+                    'Interface': 'RF Generator',
+                    'Address': comp_name + ' GPIB Bus - GPIB0::19::INSTR',
+                    'Variables': {  
+                                    'Qubit Power': {'Setting': 'Power'}, 
+                                    'Qubit Frequency': {'Setting': 'Frequency'}
+                                 }
+                },
+                { # Lab Brick Attenuator
+                    'Interface': 'Lab Brick Attenuator',
+                    'Serial Number': 7031,
+                    'Variables': ['Readout Attenuation']
+                },
                 { # Lab Brick Attenuator
                     'Interface': 'Lab Brick Attenuator',
                     'Serial Number': 7032,
-                    'Variables': ['Readout Attenuation']
+                    'Variables': ['Qubit Attenuation']
                 },
-                # { # Lab Brick Attenuator
-                    # 'Interface': 'Lab Brick',
-                    # 'Serial Number': 7033,
-                    # 'Variables': ['Qubit Attenuation']
-                # },
                 { # SIM Voltage Source.
                     'Interface': 'SIM928 Voltage Source',
                     'Address': ('SIM900 - ' + comp_name + 
@@ -93,46 +93,46 @@ Resources = [ {
                     'Interface': None,
                     'Variables': ['Reps',
                                   'Rep Iteration'
-                                  'Runs',
-                                  'ADC Time'],
+                                  'Runs'],
                 }
             ]
 
 # Experiment Information
 ExptInfo = {
-            'Device Name': 'MH048B-051215A-D10',
+            'Device Name': 'MH060',
             'User': 'Ivan Pechenezhskiy',
-            'Base Path': 'Z:\mcdermott-group\Data\Leiden DR 2015-09-25 - Qubits and JPMs',
-            'Experiment Name': 'InverseDirectionCavitySpectroscopy',
-            'Comments': 'Driving qubit cavity through JPM Fast Pulse line.' 
+            'Base Path': 'Z:\mcdermott-group\Data\Syracuse Qubits\Leiden DR 2015-10-22 - Qubits and JPMs',
+            'Experiment Name': 'FluxBiasQBFreq2D',
+            'Comments': 'Driving with IQ modulation.' 
            }
  
 # Experiment Variables
 ExptVars = {
-            'Reps': 5000, # should not exceed ~50,000
+            'Reps': 10000, # should not exceed ~5,000, use agrument "runs" in sweep parameters instead 
 
             'Init Time': 100 * us,
 
-            # 'Qubit Frequency': 20 * GHz,
-            # 'Qubit Power': -110 * dBm,
-            # 'Qubit Attenuation': 63 * dB, # should be in (0, 63] range
-            # 'Qubit SB Frequency': 0 * MHz,
-            # 'Qubit Amplitude': 0 * DACUnits,
-            # 'Qubit Time': 0 * ns,
+            'Qubit Frequency': 20 * GHz,
+            'Qubit Power': 13 * dBm,
+            'Qubit Attenuation': 3 * dB, # should be in (0, 63] range
+            'Qubit SB Frequency': 0 * MHz,
+            'Qubit Amplitude': 0.75 * DACUnits,
+            'Qubit Time': 3000 * ns,
 
-            'Qubit Drive to Readout Delay': 0 * ns,
+            'Qubit Drive to Readout Delay': 10 * ns,
 
-            'Qubit Flux Bias Voltage': 0 * V,
+            'Qubit Flux Bias Voltage': -0.2 * V,
 
-            'Readout Frequency': 4.821 * GHz,
+            'Readout Frequency': 4.9185 * GHz, #4.919 * GHz,
             'Readout Power': 13 * dBm,
-            'Readout Attenuation': 1 * dB, # should be in (0, 63] range
-            'Readout SB Frequency': 0 * MHz,
-            'Readout Amplitude': 1.0 * DACUnits,
-            'Readout Time': 17400 * ns,
+            'Readout Attenuation': 21 * dB, # should be in (0, 63] range
+            'Readout SB Frequency': 30 * MHz,
+            'Readout Amplitude': 0.5 * DACUnits,
+            'Readout Time': 3000 * ns,
 
-            'ADC Wait Time': 1000 * ns, # time delay between the start of the readout pulse and the start of the demodulation
+            'ADC Wait Time': 0 * ns, # time delay between the start of the readout pulse and the start of the demodulation
            }
+
 
 with hemt_qubit_experiments.HEMTQubitReadout() as run:
     
@@ -140,7 +140,23 @@ with hemt_qubit_experiments.HEMTQubitReadout() as run:
 
     # run.single_shot_iqs(save=False, plot_data=True)
     # run.single_shot_osc(save=False, plot_data=['I', 'Q'])
-    # run.avg_osc(save=True, plot_data=['I', 'Q'], runs=250)
+    # run.avg_osc(save=True, plot_data=['I', 'Q'], runs=200)
 
-    run.sweep('Readout Frequency', np.linspace(4.65, 4.85, 201) * GHz,
-              plot_data=['I', 'Q', 'ADC Amplitude'], save=True)
+    # run.sweep('Readout Frequency', np.linspace(4.91, 4.925, 51) * GHz,
+             # plot_data=['Amplitude'], save=True, runs=1, max_data_dim=1)
+              
+    # run.sweep(['Readout Attenuation', 'Readout Frequency'], 
+        # [np.linspace(1, 41, 21) * dB, np.linspace(4.9, 4.93, 151) * GHz],
+        # save=True, print_data='Amplitude')
+        
+    # run.sweep(['Qubit Flux Bias Voltage', 'Readout Frequency'],
+        # [np.linspace(-1.5, 1.5, 31) * V, np.linspace(4.908, 4.923, 101) * GHz],
+        # save=True, print_data='Amplitude', runs=1, max_data_dim=2)
+        
+    run.sweep(['Qubit Flux Bias Voltage', 'Qubit Frequency'], 
+        [np.linspace(-1.5, .5, 41) * V, np.linspace(4.67, 4.77, 201) * GHz],
+        save=True, print_data='Amplitude', runs=3, max_data_dim=2)
+        
+    # run.sweep('Qubit Frequency', np.linspace(4, 5, 1001) * GHz,
+             # print_data=['Amplitude'], plot_data=['Amplitude', 'I', 'Q'],
+             # save=True, runs=1, max_data_dim=1)

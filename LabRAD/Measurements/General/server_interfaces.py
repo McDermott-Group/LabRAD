@@ -35,22 +35,32 @@ if LABRAD_PATH not in sys.path:
 import numpy as np
 import itertools
 
-from labrad.server import inlineCallbacks
+from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.error import TimeoutError
 import labrad.units as units
+from labrad.types import Error
 
-import LabRAD.Servers.Instruments.GHzBoards.command_sequences as seq
+import LabRAD.Servers.Instruments.GHzBoards.command_sequences as sq
+import LabRAD.Servers.Instruments.GHzBoards.auto_ghz_fpga_bringup as br
 
 
-class ResourceDefinitionError(Exception): pass
-class ResourceInitializationError(Exception): pass
+class ResourceDefinitionError(Exception):
+    """Resource definition syntax error."""
+    pass
 
+
+class ResourceInitializationError(Exception):
+    """Resource initialization error."""
+    pass
+
+    
 class GHzFPGABoards(object):
     """GHz FPGA boards simplified interface."""
     def __init__(self, cxn, resource):
         """
         Initialize GHz FPGA boards.
         
-        Input:
+        Inputs:
             cxn: LabRAD connection object.
             resource: resource dictionary.
             var: name of the variable.
@@ -63,11 +73,13 @@ class GHzFPGABoards(object):
             self.server_name = 'GHz FPGAs'
         self.server = cxn[self.server_name]
         
-        self._init_boards(cxn, resource)
+        if 'Node' in resource:
+            self.labradnode_name = resource['Node']
+        else:
+            self.labradnode_name = ('node ' +
+                    os.environ['COMPUTERNAME'].lower())
+        self.labradnode = cxn[self.labradnode_name]
         
-    @inlineCallbacks
-    def _init_boards(self, cxn, resource):
-        """Initialize GHz FPGA boards."""
         # Check the boards specification.
         if 'Boards' in resource:
             boards = resource['Boards']
@@ -84,7 +96,6 @@ class GHzFPGABoards(object):
             raise ResourceDefinitionError("'Boards' field is not found " +
                     " in the experiment resource: " + str(resource) + ".")
 
-        
         # Get the board settings from the resource specifications.
         self.consts = {}
         self.dacs = []
@@ -142,7 +153,7 @@ class GHzFPGABoards(object):
 
         # Check that the boards are listed on the GHz FPGA server.
         p = self.server.packet()
-        listed_boards = (yield p.list_devices().send())['list_devices']
+        listed_boards = (p.list_devices().send())['list_devices']
         listed_boards = [board for idx, board in listed_boards]
         for board in boards:
             if board not in listed_boards:
@@ -151,16 +162,16 @@ class GHzFPGABoards(object):
                         self.server_name + "'.")
 
         # Get the board build constants from the LabRAD Registry.
-        yield cxn.registry.cd(['', 'Servers', self.server_name])
+        cxn.registry.cd(['', 'Servers', self.server_name])
         if self.dacs:
-            consts = yield cxn.registry.get('dacBuild8')
+            consts = cxn.registry.get('dacBuild8')
             for name, value in consts:
                 self.consts[name] = value
         if self.adcs:
-            consts = yield cxn.registry.get('adcBuild1')
+            consts = cxn.registry.get('adcBuild1')
             for name, value in consts:
                 self.consts[name] = value
-        board_groups = yield cxn.registry.get('boardGroups')
+        board_groups = cxn.registry.get('boardGroups')
         for board_group in board_groups:
             board, server, port, group = board_group
             for board_delay in group:
@@ -176,7 +187,7 @@ class GHzFPGABoards(object):
                     self.adc_settings[k]['CalibDelay'] = delay
         if self._data_dacs:
             try:
-                preamp_timeout = yield cxn.registry.get('PREAMP_TIMEOUT')
+                preamp_timeout = cxn.registry.get('PREAMP_TIMEOUT')
             except:
                 print("'PREAMP_TIMEOUT' key is not found in the " +
                         "LabRAD Registry. It will be set to 1253 " +
@@ -185,7 +196,7 @@ class GHzFPGABoards(object):
             self.consts['PREAMP_TIMEOUT'] = (preamp_timeout *
                     units.PreAmpTimeCounts)
         try:
-            dac_zero_pad_len = yield cxn.registry.get('DAC_ZERO_PAD_LEN')
+            dac_zero_pad_len = cxn.registry.get('DAC_ZERO_PAD_LEN')
         except:
             print("'DAC_ZERO_PAD_LEN' key is not found in the " +
                     "LabRAD Registry. It will be set to 10 ns.")
@@ -195,7 +206,52 @@ class GHzFPGABoards(object):
         # Create a list that contains all requested/used waveforms.
         self.requested_waveforms = [settings[ch] for settings in
                 self.dac_settings for ch in ['DAC A', 'DAC B']]
-                   
+                
+        self._data_flag = bool(self._data_dacs) or bool(self._data_adcs)
+   
+    @inlineCallbacks
+    def restart(self):
+        """Restart the GHz FPGA server with the LabRAD Node."""
+        running_servs = yield self.labradnode.running_servers()
+        running_servs = [serv for prs in running_servs for serv in prs]
+        if self.server_name in running_servs:
+            yield self.labradnode.restart(self.server_name)
+        else:
+            yield self.labradnode.start(self.server_name)
+        
+    @inlineCallbacks
+    def bringup(self):
+        """Bring up the GHz FPGA boards.
+        
+        Output:
+            status (boolean): true if the bring-up succeeded, false
+                otherwise.
+        """
+        k = 0
+        failures = True
+        while k < 3 and failures:
+            k += 1
+            try:
+                successes, failures, tries = yield br.auto_bringup(self.server)
+            except:
+                pass
+        if not failures:
+            returnValue(True)
+        else:
+            returnValue(False)
+    
+    @inlineCallbacks
+    def auto_recovery(self):
+        """
+        Restart the GHz FPGA server with the LabRAD Node and
+        bring it up.
+        """
+        no_success = True
+        while no_success:
+            yield self.restart()
+            bringup_status = yield self.bringup()
+            if bringup_status:
+                no_success = False
 
     def process_waveforms(self, waveforms):
         """
@@ -218,9 +274,9 @@ class GHzFPGABoards(object):
                         self.dac_settings[idx][channel] +
                         "' is not recognized.")
         
-        dac_srams = [seq.waves2sram(waveforms[self.dac_settings[k]['DAC A']], 
-                                    waveforms[self.dac_settings[k]['DAC B']])
-                                    for k, dac in enumerate(self.dacs)]
+        dac_srams = [sq.waves2sram(waveforms[self.dac_settings[k]['DAC A']], 
+                                   waveforms[self.dac_settings[k]['DAC B']])
+                                   for k, dac in enumerate(self.dacs)]
         sram_length = len(waveforms[self.dac_settings[0]['DAC A']])
         sram_delay = np.ceil(sram_length / 1000)
         
@@ -292,7 +348,7 @@ class GHzFPGABoards(object):
             p = self.server.packet()
             p.select_device(dac)
             p.memory(memory[k])
-            # p.start_delay(self.dac_settings[k]['CalibDelay'])
+            p.start_delay(self.dac_settings[k]['CalibDelay'])
             # Handle dual block calls here, in a different way than Sank
             # did. This should be compatible.
             if len(sram[k]) > self.consts['SRAM_LEN']:
@@ -397,6 +453,11 @@ class GHzFPGABoards(object):
             raise Exception('Not enough memory commands to ' +
                     'populate the boards!')
         
+        # Save the command sequences in case, the recovery will be
+        # attempted.
+        self._dac_srams = dac_srams
+        self._dac_mems = dac_mems
+        
         self.load_dacs(dac_srams, dac_mems)
         
         if self._data_adcs:
@@ -443,8 +504,17 @@ class GHzFPGABoards(object):
             run_data: returns the result of the self.boards.run_sequence 
                 command.
         """
-        return self.server.run_sequence(int(reps), (bool(self._data_dacs) or 
-                                                    bool(self._data_adcs)))
+        while True:
+            try:
+                return self.server.run_sequence(int(reps), self._data_flag)
+            except (Error, TimeoutError):
+                # self.auto_recovery()
+                self.restart()
+                self.load(self._dac_srams, self._dac_mems)
+            except:
+                import sys
+                print(sys.exc_info()[0])
+                raise
                                                
     def load_and_run(self, dac_srams, dac_mems, reps=1020):
         """
@@ -581,11 +651,10 @@ class GPIBInterface(BasicInterface):
             p = self.server.packet()
             yield p.deselect_device().send()
             
-    @inlineCallbacks
     def _init_resource(self):
         """Initialize a GPIB resource."""
         p = self.server.packet()
-        devices = (yield p.list_devices().send())['list_devices']
+        devices = (p.list_devices().send())['list_devices']
         devices = [dev for id, dev in devices]
         if 'Address' in self._res:
             if self._res['Address'] in devices:
@@ -603,7 +672,7 @@ class GPIBInterface(BasicInterface):
         if len(devices) == 1:
             self._single_device = True
             p = self.server.packet()
-            yield p.select_device(self.address).send()
+            p.select_device(self.address).send()
         else:
             self._single_device = False
             
@@ -651,7 +720,6 @@ class RFGenerator(GPIBInterface):
             raise ResourceDefinitionError("Could not connect to " +
                 "server '" + server_name + "'.")
 
-    @inlineCallbacks
     def _init_gpib_resource(self):
         """Initialize an RF generator."""
         if ('Variables' in self._res and 
@@ -672,7 +740,7 @@ class RFGenerator(GPIBInterface):
         p = self.server.packet()
         if not self._single_device:
             p.select_device(self.address)
-        yield p.reset().send()
+        p.reset().send()
         self._output_set = False
 
     def send_request(self, value):
@@ -829,12 +897,11 @@ class LabBrickAttenuator(BasicInterface):
         except:
             raise ResourceDefinitionError("Could not connect to " +
                 "server '" + server_name + "'.")
-    
-    @inlineCallbacks
+
     def _init_resource(self):
         """Initialize a Lab Brick attenuator."""
         p = self.server.packet()
-        devices = (yield p.list_devices().send())['list_devices']
+        devices = (p.list_devices().send())['list_devices']
         if 'Serial Number' in self._res:
             if self._res['Serial Number'] in devices:
                 self.address = self._res['Serial Number']
@@ -852,7 +919,7 @@ class LabBrickAttenuator(BasicInterface):
         if len(devices) == 1:
             self._single_device = True
             p = self.server.packet()
-            yield p.select_attenuator(self.address).send()
+            p.select_attenuator(self.address).send()
         else:
             self._single_device = False
         
@@ -911,7 +978,6 @@ class ADR3(BasicInterface):
             else:
                 self._temp_idx = 3
 
-        
     def acknowledge_request(self):
         """Wait for the result of a non-blocking request."""
         if self._request_sent:

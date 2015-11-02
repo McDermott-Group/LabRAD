@@ -42,17 +42,15 @@ class QubitNAExperiment(expt.Experiment):
         self.set('NA Source Power')
         self.set('NA Sweep Points')
         self.set('NA Average Points')
-        
-        NA_centerFreq = self.value('NA Center Frequency')
-        NA_freqSpan = self.value('NA Frequency Span')
-        self.value('NA Start Frequency', NA_centerFreq - NA_freqSpan / 2.,
-            output=False)
-        self.value('NA Stop Frequency', NA_centerFreq + NA_freqSpan / 2.,
-            output=False)
+        f_center = self.value('NA Center Frequency')
+        f_span = self.value('NA Frequency Span')
+        self.value('NA Start Frequency', f_center - f_span / 2.)
+        self.value('NA Stop Frequency',  f_center + f_span / 2.)
         self.set('Start Frequency')
         self.set('Stop Frequency')
 
         self.acknowledge_requests()
+        
         self.get('Temperature')
         self.get('Trace')
         self.get('NA Sweep Points')
