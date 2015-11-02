@@ -43,8 +43,8 @@ from labrad.units import mK, s
 
 class LeidenDRPseudoserver(LabradServer):
     """
-    Provides access to the Leiden DR temperatures by reading log
-    files on the AFS.
+    This server provides an access to the Leiden DR temperatures by
+    reading log files on the AFS.
     """
     name = 'Leiden DR Temperature'
     refreshInterval = 15 * s
@@ -88,7 +88,8 @@ class LeidenDRPseudoserver(LabradServer):
         deferred to fire to indicate that it has terminated.
         """
         self.refresher = LoopingCall(self.readTemperatures)
-        self.refresherDone = self.refresher.start(self.refreshInterval['s'], now=True)
+        self.refresherDone = self.refresher.start(self.refreshInterval['s'],
+                now=True)
         
     @inlineCallbacks
     def stopServer(self):

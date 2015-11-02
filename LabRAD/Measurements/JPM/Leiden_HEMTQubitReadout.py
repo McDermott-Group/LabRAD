@@ -108,7 +108,7 @@ ExptInfo = {
  
 # Experiment Variables
 ExptVars = {
-            'Reps': 5000, # should not exceed ~5,000, use agrument "runs" in sweep parameters instead 
+            'Reps': 10000, # should not exceed ~5,000, use agrument "runs" in sweep parameters instead 
 
             'Init Time': 100 * us,
 
@@ -154,8 +154,8 @@ with hemt_qubit_experiments.HEMTQubitReadout() as run:
         # save=True, print_data='Amplitude', runs=1, max_data_dim=2)
         
     run.sweep(['Qubit Flux Bias Voltage', 'Qubit Frequency'], 
-        [np.linspace(-.5, .5, 21) * V, np.linspace(4, 5, 1001) * GHz],
-        save=True, print_data='Amplitude', runs=2, max_data_dim=2)
+        [np.linspace(-1.5, .5, 41) * V, np.linspace(4.67, 4.77, 201) * GHz],
+        save=True, print_data='Amplitude', runs=3, max_data_dim=2)
         
     # run.sweep('Qubit Frequency', np.linspace(4, 5, 1001) * GHz,
              # print_data=['Amplitude'], plot_data=['Amplitude', 'I', 'Q'],

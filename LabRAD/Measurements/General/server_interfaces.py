@@ -212,7 +212,12 @@ class GHzFPGABoards(object):
     @inlineCallbacks
     def restart(self):
         """Restart the GHz FPGA server with the LabRAD Node."""
-        yield self.labradnode.restart(self.server_name)
+        running_servs = yield self.labradnode.running_servers()
+        running_servs = [serv for prs in running_servs for serv in prs]
+        if self.server_name in running_servs:
+            yield self.labradnode.restart(self.server_name)
+        else:
+            yield self.labradnode.start(self.server_name)
         
     @inlineCallbacks
     def bringup(self):

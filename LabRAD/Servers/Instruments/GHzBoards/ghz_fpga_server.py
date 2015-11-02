@@ -200,6 +200,7 @@ def waitForkey():
 import numpy as np
 
 from twisted.internet import defer
+from twisted.internet.reactor import callLater
 from twisted.internet.defer import inlineCallbacks, returnValue
 
 from labrad import types as T
@@ -1205,6 +1206,17 @@ class FPGAServer(DeviceServer):
         dev = self.selectedADC(c)
         return c[dev]['ranges']
 
+    def _timeoutDeferred(self, deferred, timeout):
+        delayedCall = callLater(timeout, deferred.cancel)
+        def gotResult(result):
+            if delayedCall.active():
+                delayedCall.cancel()
+            else:
+                raise TimeoutError('The GHz FPGA server is unresponsive.')
+            return result
+        deferred.addBoth(gotResult)
+        return deferred
+        
     # multiboard sequence execution
     @setting(50, 'Run Sequence', reps='w', getTimingData='b',
                                  setupPkts='?{(((ww), s, ((s?)(s?)(s?)...))...)}',
@@ -1307,7 +1319,8 @@ class FPGAServer(DeviceServer):
         setupReqs = processSetupPackets(self.client, setupPkts)
         
         # run the sequence
-        ans = yield bg.run(runners, reps, setupReqs, set(setupState), c['master_sync'], getTimingData, timingOrder)
+        d = bg.run(runners, reps, setupReqs, set(setupState), c['master_sync'], getTimingData, timingOrder)
+        ans = yield self._timeoutDeferred(d, 60)
         # for ADCs in demodulate mode, store their I and Q ranges to check for possible clipping
         for runner in runners:
             if getTimingData and isinstance(runner, AdcRunner) and runner.runMode == 'demodulate' and runner.dev.devName in timingOrder:

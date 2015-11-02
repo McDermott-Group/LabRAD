@@ -1105,6 +1105,8 @@ class Experiment(object):
             runs: number of independent runs of the experiment.
         """
         self.add_var('Runs', runs)
+        if self._standard_output:
+            sys.stdout.write('Progress:   0.0%\r')
         
         for idx in range(runs):
             run_data = self.run_once()
