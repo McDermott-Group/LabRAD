@@ -34,8 +34,8 @@ if LABRAD_PATH not in sys.path:
 
 import numpy as np
 import itertools
+import time
 
-from twisted.internet.defer import inlineCallbacks, returnValue
 from twisted.internet.error import TimeoutError
 import labrad.units as units
 from labrad.types import Error
@@ -208,18 +208,24 @@ class GHzFPGABoards(object):
                 self.dac_settings for ch in ['DAC A', 'DAC B']]
                 
         self._data_flag = bool(self._data_dacs) or bool(self._data_adcs)
-   
-    @inlineCallbacks
+
     def restart(self):
         """Restart the GHz FPGA server with the LabRAD Node."""
-        running_servs = yield self.labradnode.running_servers()
-        running_servs = [serv for prs in running_servs for serv in prs]
-        if self.server_name in running_servs:
-            yield self.labradnode.restart(self.server_name)
-        else:
-            yield self.labradnode.start(self.server_name)
-        
-    @inlineCallbacks
+        restarted = False
+        while True:
+            running_srvs = self.labradnode.running_servers()
+            running_srvs = [srv for prs in running_srvs for srv in prs]
+            print('Recovering from a timeout...')
+            if self.server_name in running_srvs:
+                if not restarted:
+                    self.labradnode.restart(self.server_name)
+                else:
+                    break
+            else:
+                self.labradnode.start(self.server_name)
+            restarted = True
+            time.sleep(10)
+
     def bringup(self):
         """Bring up the GHz FPGA boards.
         
@@ -232,26 +238,23 @@ class GHzFPGABoards(object):
         while k < 3 and failures:
             k += 1
             try:
-                successes, failures, tries = yield br.auto_bringup(self.server)
+                successes, failures, tries = br.auto_bringup(self.server)
             except:
                 pass
         if not failures:
-            returnValue(True)
+            return True
         else:
-            returnValue(False)
-    
-    @inlineCallbacks
+            return False
+
     def auto_recovery(self):
         """
         Restart the GHz FPGA server with the LabRAD Node and
         bring it up.
         """
-        no_success = True
-        while no_success:
-            yield self.restart()
-            bringup_status = yield self.bringup()
-            if bringup_status:
-                no_success = False
+        success = False
+        while not success:
+            self.restart()
+            success = self.bringup()
 
     def process_waveforms(self, waveforms):
         """
@@ -591,7 +594,7 @@ class BasicInterface(object):
             self._init_resource()
         except:
             raise ResourceInitializationError('Resource ' +
-                    str(resource) + ' could not be intialized.')
+                    str(self._res) + ' could not be intialized.')
         
         self._initialized = True
     
@@ -644,12 +647,11 @@ class GPIBInterface(BasicInterface):
     """
     Simplified GPIB interface class.
     """
-    @inlineCallbacks
     def __exit__(self, type, value, traceback):
         """Deselect a device."""
         if hasattr(self, 'address'):
             p = self.server.packet()
-            yield p.deselect_device().send()
+            p.deselect_device().send()
             
     def _init_resource(self):
         """Initialize a GPIB resource."""
@@ -701,12 +703,11 @@ class RFGenerator(GPIBInterface):
     """
     GPIB RF generator simplified interface.
     """
-    @inlineCallbacks
     def __exit__(self, type, value, traceback):
         """Turn the RF generator off and deselect it."""
         if hasattr(self, 'address'):
             p = self.server.packet()
-            yield p.select_device(self.address).output(False).deselect_device().send()
+            p.select_device(self.address).output(False).deselect_device().send()
     
     def _get_server(self, cxn):       
         """Get server connection object."""
@@ -765,12 +766,11 @@ class SIM928VoltageSource(GPIBInterface):
     """
     SRS SIM928 voltage source simplified interface.
     """    
-    @inlineCallbacks
     def __exit__(self, type, value, traceback):
         """Turn the voltage source off and deselect it."""
         if hasattr(self, 'address'):
             p = self.server.packet()
-            yield p.select_device(self.address).voltage(0 * units.V).deselect_device().send()
+            p.select_device(self.address).voltage(0 * units.V).deselect_device().send()
 
     def _get_server(self, cxn):       
         """Get server connection object."""
@@ -878,12 +878,11 @@ class LabBrickAttenuator(BasicInterface):
     """
     Lab Brick attenuator simplified interface.
     """
-    @inlineCallbacks
     def __exit__(self, type, value, traceback):
         """Deselect the attenuator."""
         if self._initialized:
             p = self.server.packet()
-            yield p.deselect_attenuator().send()
+            p.deselect_attenuator().send()
     
     def _get_server(self, cxn):       
         """Get server connection object."""
