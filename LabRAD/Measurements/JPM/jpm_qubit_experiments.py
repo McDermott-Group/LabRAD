@@ -277,7 +277,7 @@ class JPMStarkShift(JPMExperiment):
 
         #STARK PULSE###############################################################################
         Stark_amp = self.value('Stark Amplitude')['DACUnits']           # amplitude of the Stark pulse
-        Stark_time = self.value('Stark Time', 'ns')['ns']               # length of the Stark pulse
+        Stark_time = self.value('Stark Time')['ns']                     # length of the Stark pulse
         
         #CAVITY DRIVE (READOUT) VARIABLES##########################################################
         RO_SB_freq = self.value('Readout SB Frequency')['GHz']          # readout sideband frequency

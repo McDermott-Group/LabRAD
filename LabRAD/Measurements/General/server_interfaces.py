@@ -212,10 +212,10 @@ class GHzFPGABoards(object):
     def restart(self):
         """Restart the GHz FPGA server with the LabRAD Node."""
         restarted = False
+        print('Recovering from a timeout...')
         while True:
             running_srvs = self.labradnode.running_servers()
             running_srvs = [srv for prs in running_srvs for srv in prs]
-            print('Recovering from a timeout...')
             if self.server_name in running_srvs:
                 if not restarted:
                     self.labradnode.restart(self.server_name)
@@ -224,7 +224,7 @@ class GHzFPGABoards(object):
             else:
                 self.labradnode.start(self.server_name)
             restarted = True
-            time.sleep(10)
+            time.sleep(15)
 
     def bringup(self):
         """Bring up the GHz FPGA boards.

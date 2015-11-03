@@ -1026,7 +1026,7 @@ class Experiment(object):
                      value.isCompatible(units.Unit(self._vars[var]['Value'])))):
                     raise Exception("An attempt to change the '" +
                             str(var) + "' units is detected. Check " +
-                            " the variable value reassignments.")
+                            "variable value reassignments.")
             self._vars[var]['Value'] = value
             self._vars[var]['Save'] = True
             if output:

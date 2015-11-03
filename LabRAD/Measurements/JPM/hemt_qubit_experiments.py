@@ -380,8 +380,7 @@ class HEMTQubitReadout(HEMTExperiment):
       
         #TIMING VARIABLES##########################################################################
         QBtoRO = self.value('Qubit Drive to Readout Delay')['ns']       # delay from the start of the qubit pulse to the start of the readout pulse
-        ADC_wait_time = self.value('ADC Wait Time')['ns']               # delay from the start of the readout pulse to the start of the demodulation
-        
+       
         ###WAVEFORMS###############################################################################
         DAC_ZERO_PAD_LEN = self.boards.consts['DAC_ZERO_PAD_LEN']['ns']
 
@@ -417,12 +416,116 @@ class HEMTQubitReadout(HEMTExperiment):
 
         ###SET BOARDS PROPERLY#####################################################################
         self.boards.set_adc_setting('DemodFreq', -self.value('Readout SB Frequency'), adc)
-        # Waiting time before the demodulation start.
+        
+        # Delay from the start of the readout pulse to the start of the demodulation.
+        ADC_wait_time = self.value('ADC Wait Time')['ns']
         self.boards.set_adc_setting('ADCDelay', (DAC_ZERO_PAD_LEN +
                 ADC_wait_time + QB_time + QBtoRO) * units.ns, adc)
 
         mems = [seq.mem_simple(self.value('Init Time')['us'], sram_length, 0, sram_delay)
-                for k, dac in enumerate(self.boards.dacs)]
+                for dac in self.boards.dacs]
+        
+        ###RUN#####################################################################################
+        result = self.boards.load(dac_srams, mems)
+        self.acknowledge_requests()
+
+
+class HEMTStarkShift(HEMTExperiment):
+    """
+    Read out a qubit connected to a resonator.
+    """
+    def load_once(self, adc=None, plot_waveforms=False):
+        #QUBIT VARIABLES###########################################################################
+        self.set('Qubit Attenuation')                                   # qubit attenuation
+        self.set('Qubit Power')                                         # qubit power
+        if self.value('Qubit Frequency') is not None:
+            if self.value('Qubit SB Frequency') is not None:            # qubit frequency
+                self.set('Qubit Frequency',
+                        value=self.value('Qubit Frequency') + 
+                              self.value('Qubit SB Frequency'))
+            else:
+                self.set('Qubit Frequency')
+    
+        #RF DRIVE (READOUT) VARIABLES##############################################################
+        self.set('Readout Attenuation')                                 # readout attenuation
+        self.set('Readout Power')                                       # readout power
+        if self.value('Readout Frequency') is not None:
+            if self.value('Readout SB Frequency') is not None:          # readout frequency
+                self.set('Readout Frequency',
+                        value=self.value('Readout Frequency') + 
+                              self.value('Readout SB Frequency'))
+            else:
+                self.set('Readout Frequency')
+
+        #DC BIAS VARIABLES#########################################################################
+        self.set('Qubit Flux Bias Voltage')
+
+        #STARK PULSE###############################################################################
+        Stark_amp = self.value('Stark Amplitude')['DACUnits']           # amplitude of the Stark pulse
+        Stark_time = self.value('Stark Time')['ns']                     # length of the Stark pulse
+        
+        #CAVITY DRIVE (READOUT) VARIABLES##########################################################
+        RO_SB_freq = self.value('Readout SB Frequency')['GHz']          # readout sideband frequency
+        RO_amp = self.value('Readout Amplitude')['DACUnits']            # amplitude of the sideband modulation
+        RO_time = self.value('Readout Time')['ns']                      # length of the readout pulse
+        
+        #QUBIT DRIVE VARIABLES#####################################################################
+        QB_SB_freq = self.value('Qubit SB Frequency')['GHz']            # qubit sideband frequency
+        QB_amp = self.value('Qubit Amplitude')['DACUnits']              # amplitude of the sideband modulation
+        QB_time = self.value('Qubit Time')['ns']                        # length of the qubit pulse
+      
+        #TIMING VARIABLES##########################################################################
+        QBtoRO = self.value('Qubit Drive to Readout Delay')['ns']       # delay from the start of the qubit pulse to the start of the readout pulse
+        
+        ###WAVEFORMS###############################################################################
+        DAC_ZERO_PAD_LEN = self.boards.consts['DAC_ZERO_PAD_LEN']['ns']
+
+        QBtoEnd = QBtoRO + RO_time + DAC_ZERO_PAD_LEN
+        
+        waveforms = {}
+        if 'None' in self.boards.requested_waveforms:
+            waveforms['None'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN + Stark_time + QBtoEnd, 0)])
+        
+        if 'Readout I' in self.boards.requested_waveforms:
+            waveforms['Readout I'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN, 0),
+                                                pulse.CosinePulse(Stark_time, RO_SB_freq, Stark_amp, 0.0, 0.0),
+                                                pulse.DC(QBtoRO, 0),
+                                                pulse.CosinePulse(RO_time, RO_SB_freq, RO_amp, 0.0, 0.0),
+                                                pulse.DC(DAC_ZERO_PAD_LEN, 0)])
+
+        if 'Readout Q' in self.boards.requested_waveforms:
+            waveforms['Readout Q'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN, 0),
+                                                pulse.SinePulse(Stark_time, RO_SB_freq, Stark_amp, 0.0, 0.0),
+                                                pulse.DC(QBtoRO, 0),
+                                                pulse.SinePulse(RO_time, RO_SB_freq, RO_amp, 0.0, 0.0),
+                                                pulse.DC(DAC_ZERO_PAD_LEN, 0)])
+ 
+        if 'Qubit I' in self.boards.requested_waveforms: 
+            waveforms['Qubit I'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN + Stark_time - QB_time, 0),
+                                              pulse.CosinePulse(QB_time, QB_SB_freq, QB_amp, 0.0, 0.0),
+                                              pulse.DC(QBtoEnd, 0)])
+
+        if 'Qubit Q' in self.boards.requested_waveforms: 
+            waveforms['Qubit Q'] = np.hstack([pulse.DC(DAC_ZERO_PAD_LEN + Stark_time - QB_time, 0),
+                                              pulse.SinePulse(QB_time, QB_SB_freq, QB_amp, 0.0, 0.0),
+                                              pulse.DC(QBtoEnd, 0)])
+ 
+        dac_srams, sram_length, sram_delay = self.boards.process_waveforms(waveforms)
+
+        if plot_waveforms:
+            self._plot_waveforms([waveforms[wf] for wf in self.boards.requested_waveforms],
+                    ['r', 'g', 'b', 'k'], self.boards.requested_waveforms)
+
+        ###SET BOARDS PROPERLY#####################################################################
+        self.boards.set_adc_setting('DemodFreq', -self.value('Readout SB Frequency'), adc)
+
+        # Delay from the start of the readout pulse to the start of the demodulation.
+        ADC_wait_time = self.value('ADC Wait Time')['ns']
+        self.boards.set_adc_setting('ADCDelay', (DAC_ZERO_PAD_LEN +
+                ADC_wait_time + QB_time + QBtoRO) * units.ns, adc)
+
+        mems = [seq.mem_simple(self.value('Init Time')['us'], sram_length, 0, sram_delay)
+                for dac in self.boards.dacs]
         
         ###RUN#####################################################################################
         result = self.boards.load(dac_srams, mems)
@@ -447,10 +550,7 @@ class HEMTCavityJPM(HEMTExperiment):
 
         #DC BIAS VARIABLES#########################################################################
         self.set('Qubit Flux Bias Voltage')
-
-        #RF VARIABLES##############################################################################
-        ADC_wait_time = self.value('ADC Wait Time')['ns']               # delay from the start of the fast pulse to the start of the demodulation
-        
+      
         #JPM VARIABLES#############################################################################
         JPM_FPT = self.value('Fast Pulse Time')['ns']                   # length of the DAC pulse
         JPM_FPA = self.value('Fast Pulse Amplitude')['DACUnits']        # amplitude of the DAC pulse
@@ -478,7 +578,9 @@ class HEMTCavityJPM(HEMTExperiment):
 
         ###SET BOARDS PROPERLY#####################################################################
         self.boards.set_adc_setting('DemodFreq', -self.value('RF SB Frequency'), adc)
-        # Waiting time before the demodulation start
+        
+        # Delay from the start of the readout pulse to the start of the demodulation.
+        ADC_wait_time = self.value('ADC Wait Time')['ns']
         self.boards.set_adc_setting('ADCDelay', (DAC_ZERO_PAD_LEN +
                 ADC_wait_time) * units.ns, adc)
         
