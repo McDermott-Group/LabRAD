@@ -23,7 +23,6 @@ class MeasureIV(tk.Tk):
         self.initializeWaveOutput()
         self.initializeDCOutput()
         self.initializeWaveInput()
-        self.after(100,self.measureIV)
         self.lock = threading.Lock()
         self.cond = threading.Condition(threading.Lock())
     
@@ -241,14 +240,6 @@ class MeasureIV(tk.Tk):
         self.waveInput.setCallback(self.updateData)
         self.waveInput.startWave()
         
-    def measureIV(self):
-        #plot = threading.Thread(target=self.plot_data, args=())
-        return
-        self.data_read = threading.Thread(target=self.collect_data, args=())
-        #might still want the plotting thread since averaging is now slower
-        self.data_read.daemon = True
-        self.data_read.start()
-    
     def updateData(self, data):
         self.VAverages = 0
         self.IAverages = 0
@@ -305,67 +296,6 @@ class MeasureIV(tk.Tk):
         self.ax.relim()
         self.ax.autoscale_view()
         self.fig.canvas.draw()
-    
-    def collect_data(self):
-        self.VAverages = 0
-        self.IAverages = 0
-        
-        while self.running == True:
-            self.cond.acquire()
-            try: newdata = self.waveInput.readWaves(self.nSamples.get())[0]
-            except Exception as e:
-                print 'failed to aquire data'
-                newdata = []
-            #this is dummy data. Uncomment the line above
-            #newdata = [10 * np.random.random_sample(10),10* np.random.random_sample(10)]
-            
-            currents = np.array(self.genWave(self.ACAmp.get(),self.ACFreq.get()))
-            voltages = np.array(newdata)
-            
-            #print 'tab id',self.measurementTabs.select(), self.measurementTabs.index(self.measurementTabs.select())
-            #tabid = self.measurementTabs.select()
-            currentTab = self.currentTab#measurementTabs.index(tabid)
-            self.ax.set_xlabel('Voltage [V]')
-            self.ax.set_ylabel('Current [A]')
-            if currentTab == 0: # 2 wire
-                currents = currents
-                voltages = voltages
-            elif currentTab == 1: # 3 wire
-                currents = currents/self.RACIn.get()/1000
-                voltages = voltages/self.amp.get()
-            elif currentTab == 2: # 4 wire
-                currents = currents/(self.RACIn.get() + self.ROut.get())/1000
-                voltages = voltages/self.amp.get()
-            elif currentTab == 3: # V-Phi
-                currents = currents/self.RACIn.get()/1000
-                voltages = voltages/self.amp.get()
-                self.ax.set_xlabel('$\Phi$ [A/$\Phi_0$]')
-                self.ax.set_ylabel('Voltage [V]')
-            
-            # average data if selected
-            if self.averaging is True and self.averages.get() < self.totalAverages.get():
-                self.VAverages = (self.VAverages*self.averages.get() + voltages)/(self.averages.get()+1)
-                self.IAverages = (self.IAverages*self.averages.get() + currents)/(self.averages.get()+1)
-                self.averages.set(self.averages.get()+1)
-                if self.averages.get() == self.totalAverages.get(): # save and re-initialize
-                    self.saveAveragedData()
-                    self.cancelAveraging()
-            else:
-                self.VAverages = voltages
-                self.Iaverages = currents
-                
-            self.plotPoints.set_xdata(self.VAverages)
-            self.plotPoints.set_ydata(self.Iaverages)     
-            
-            self.cond.notify()
-            self.cond.release()
-            
-            self.ax.relim()
-            self.ax.autoscale_view()
-            self.fig.canvas.draw()
-        
-        print 'stopping data collection loop'
-        self._quit()
     
     def averageAndSave(self):
         self.averaging = True
