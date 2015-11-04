@@ -36,6 +36,18 @@ import numpy as np
 #######################################################################
 
 class WavePulse ():
+    """
+    Form a WavePulse
+    
+    Arguments:
+    type        --  type of wave pulse "block","sine","cosine", or "gauss" (block is a single pulse)
+    start       --  starting time of pulse
+    amplitude   --  amplitude of sine and cosine waves and magnitude of block wave
+    frequency   --  frequency for sine and cosine waves. No effect on block waves
+    end         --  ending time of pulse (only one of end or duration needs to be specified)
+    duration    --  length of pulse
+    
+    """
     def __init__(self, type, start, amplitude, frequency, end=None, duration=None):
         #type either block, sine, cosine or gauss
         self.type = type
@@ -63,7 +75,16 @@ class WavePulse ():
             "cosine": self.cosine,
             "gauss" : self.gauss
         }
-
+    
+    def after(self, time):
+        """
+        returns the ending time + 1 + <time parameter> 
+        for easy creation of WaveForms
+        
+        time    --  time delay after this pulse
+        """
+        return self.end + 1 + time
+        
     def toArray(self):
         return self.wave[self.type]()
         
@@ -79,12 +100,12 @@ class WavePulse ():
         return self.amplitude * np.cos(2 * np.pi * self.frequency * t)
         
     def gauss(self):
-        '''
+        """
         Returns a "slowed" square pulse that consists of gaussian rise and
         fall times and a DC segment. Length is the length of the DC part of
         the pulse in ns, and FW is the width at 1/10 maximum of the gaussian
         rise and fall. Total pulse length is thus ~= length + 2 * FW.
-        '''
+        """
         FW = self.frequency #unsure what FW should be
         
         c = FW / (2. * np.sqrt(2. * np.log(10.)))
