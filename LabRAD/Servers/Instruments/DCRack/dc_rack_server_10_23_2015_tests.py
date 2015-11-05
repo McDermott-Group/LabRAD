@@ -159,6 +159,7 @@ class DcRackWrapper(DeviceWrapper):
                 self.rackCards[card[0]] = Preamp()
             else:
                 self.rackCards[card[0]] = 'fastbias'
+        #print "self.rackCards.keys()=", self.rackCards
         print 'done.'
 
     def packet(self):
@@ -286,19 +287,21 @@ class DcRackWrapper(DeviceWrapper):
         p.read(1, key='ID')
         p.timeout()
         p.read(key='ID')
-        try:
-            res = yield p.send()
-            returnValue(''.join(res['ID']))
-        except:
-            raise Exception('Ident error')
+        res = yield p.send()
+        returnValue(''.join(res['ID']))
+        #try:
+        #    res = yield p.send()
+        #    returnValue(''.join(res['ID']))
+        #except:
+        #    raise Exception('Ident error')
 
     def returnCardList(self):
         cards = []
         for key in self.rackCards.keys():
             if self.rackCards[key] == 'fastbias':
-                cards.append([key, 'fastbias'])
+                cards.append((key, 'fastbias'))
             else:
-                cards.append([key, 'preamp'])
+                cards.append((key, 'preamp'))
         return cards
 
     def preampState(self, cardNumber, channel):
@@ -510,12 +513,13 @@ class DcRackServer(DeviceServer):
         ident = yield dev.identSelf()
         returnValue(ident)
 
-    @setting(565, 'list_cards')
+    @setting(565, 'list_cards', returns="*(ss)")
     def list_cards(self, c):
         """List cards configured in the registry (does not query cards directly)."""
         dev = self.selectedDevice(c)
         cards = dev.returnCardList()
-        returnValue(cards)
+        return cards
+        #returnValue(cards) //no yield ==> no returnValue
 
     @setting(455, 'get_preamp_state')
     def getPreampState(self, c, cardNumber, channel):

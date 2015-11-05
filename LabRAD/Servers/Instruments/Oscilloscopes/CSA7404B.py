@@ -112,13 +112,18 @@ class CSA7404BWrapper(GPIBDeviceWrapper):
     #Returns the current sample rate of the scope in samples per second.
         self.SampleRate = yield self.query('HOR:MAI:SAMPLER?')
         returnValue(self.SampleRate)
+        
     @inlineCallbacks    
     def setSampleRate(self,samRate):
-        #Mode should be a string denoting what acqusition mode you'd like to use.
-        #Options are sample, peakdetect, hires, average, envelope, wfmdb
-        #Not all modes are fully supported at this time and may require some fiddling.
+        """Sets the sample rate for the scope.  Please note that you can't
+            arbitrarily set it to any rate. The scope will pick the nearest 
+            available rate to what you request.  You should check what the 
+            actual resulting rate is though."""
         self.write('HOR:MAI:SAMPLER '+str(samRate))
         self.SampleRate = yield self.getSampleRate()
+        
+    
+        
 
 
     
