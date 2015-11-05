@@ -797,11 +797,15 @@ class Experiment(object):
         # Remove unnecessary dimensions that contain only one value.
         for key in data:
             if 'Value' in data[key]:
-                data[key]['Value'] = np.squeeze(data[key]['Value'])
-                # Convert single numbers (zero-dimensional numpy arrays) 
-                # to one-dimensional numpy arrays.
-                if np.size(data[key]['Value']) == 1:
-                    data[key]['Value'] = np.array([data[key]['Value']])
+                if isinstance(data[key]['Value'], units.Value):
+                    u = self.unit_factor(data[key]['Value'])
+                    data[key]['Value'] = np.array([data[key]['Value']]) * u
+                else:
+                    data[key]['Value'] = np.squeeze(data[key]['Value'])
+                    # Convert single numbers (zero-dimensional numpy arrays) 
+                    # to one-dimensional numpy arrays.
+                    if np.size(data[key]['Value']) == 1:
+                        data[key]['Value'].reshape(1)
             if 'Dependencies' in data[key]:
                 data[key]['Dependencies'] = [var for var 
                         in data[key]['Dependencies'] if var not in rm_vars]

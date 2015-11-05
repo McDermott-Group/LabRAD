@@ -421,7 +421,7 @@ class GHzFPGABoards(object):
         elif filter_func == 'hann':
             env = np.linspace(0, len(window) - 1, len(window))
             env = np.floor(128 * np.sin(np.pi * env / (len(window) - 1))**2)
-            filt =  np.append(env, np.zeros(self.const['FILTER_LEN'] - len(env)))
+            filt =  np.append(env, np.zeros(self.consts['FILTER_LEN'] - len(env)))
             filt = np.array(filt, dtype='<u1')
         elif filter_func == 'exp':
             env = np.linspace(0,(len(window) - 1) * 4, len(window))

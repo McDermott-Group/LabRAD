@@ -18,7 +18,7 @@ Resources = [ {
                             'Leiden Board ADC 5'
                           ],
                 'Leiden Board DAC 3':  {
-                                        'DAC A': 'None',
+                                        'DAC A': 'Qubit Q',
                                         'DAC B': 'Qubit I',
                                         'FO1 FastBias Firmware Version': '2.1',
                                         'FO2 FastBias Firmware Version': '2.1',
@@ -29,15 +29,15 @@ Resources = [ {
                                        },
                 'Leiden Board ADC 5': {
                                         'RunMode': 'demodulate', #'average'
-                                        'FilterType': 'square',
-                                        'FilterWidth': 9500 * ns,
-                                        'FilterLength': 8000 * ns,
+                                        'FilterType': 'hann',
+                                        'FilterWidth': 6000 * ns,
+                                        'FilterLength': 3000 * ns,
                                         'FilterStretchAt': 0 * ns,
                                         'FilterStretchLen': 0 * ns,
                                         'DemodPhase': 0 * rad,
                                         'DemodCosAmp': 255,
                                         'DemodSinAmp': 255,
-                                        'DemodFreq': -30 * MHz,
+                                        'DemodFreq': -50 * MHz,
                                         'ADCDelay': 0 * ns,
                                         'Data': True
                                        },
@@ -103,51 +103,54 @@ ExptInfo = {
             'Device Name': 'MH060',
             'User': 'Ivan Pechenezhskiy',
             'Base Path': 'Z:\mcdermott-group\Data\Syracuse Qubits\Leiden DR 2015-10-22 - Qubits and JPMs',
-            'Experiment Name': 'StarkShift2D',
-            'Comments': 'Driving with IQ modulation, test of Hittite HMC451 amplifier on DAC IQ mixer' 
+            'Experiment Name': 'QubitSpectroscopy1D',
+            'Comments': 'Driving with IQ modulation, test of Hittite HMC451 amplifier on DAC IQ mixer. NARDA in RT ampl. chain. 41-58 MHz band-pass filters on the ADC IQ-mixer.' 
            }
  
 # Experiment Variables
 ExptVars = {
-            'Reps': 4000, # should not exceed ~5,000, use agrument "runs" in sweep parameters instead 
+            'Reps': 5000, # should not exceed ~5,000, use agrument "runs" in sweep parameters instead 
 
             'Init Time': 100 * us,
             
-            'Stark Amplitude': 0 * DACUnits,
-            'Stark Time': 10000 * ns,
+            # 'Stark Amplitude': 0 * DACUnits,
+            # 'Stark Time': 10000 * ns,
 
-            'Readout Frequency': 4.9179 * GHz, #4.919 * GHz,
+            'Readout Frequency': 4.9148 * GHz, #4.919 * GHz,
             'Readout Power': 13 * dBm,
-            'Readout Attenuation': 30 * dB, # should be in (0, 63] range
-            'Readout SB Frequency': 30 * MHz,
+            'Readout Attenuation': 25 * dB, # should be in (0, 63] range
+            'Readout SB Frequency': 50 * MHz, # 41-58 MHz band-pass fileter on the ADC IQ-mixer.
             'Readout Amplitude': 0.5 * DACUnits,
             'Readout Time': 2000 * ns,
             
-            'Qubit Drive to Readout Delay': 10 * ns,
+            'Qubit Drive to Readout Delay': 5 * ns,
             
-            'Qubit Frequency': 4.758 * GHz,
+            'Qubit Frequency': 4.556 * GHz,
             'Qubit Power': 13 * dBm,
-            'Qubit Attenuation': 1 * dB, # should be in (0, 63] range
+            'Qubit Attenuation': 24 * dB, # should be in (0, 63] range
             'Qubit SB Frequency': 0 * MHz,
-            'Qubit Amplitude': 0.5 * DACUnits,
-            'Qubit Time': 2000 * ns,
+            'Qubit Amplitude': 1.0 * DACUnits,
+            'Qubit Time': 1000 * ns,
+            # 'Qubit T2 Delay': 0 * ns,
 
-            'Qubit Flux Bias Voltage': -0.15 * V,
+            'Qubit Flux Bias Voltage': 0.14 * V,
             
             'ADC Wait Time': 0 * ns, # time delay between the start of the readout pulse and the start of the demodulation
            }
 
-#with hemt_qubit_experiments.HEMTQubitReadout() as run:
-with hemt_qubit_experiments.HEMTStarkShift() as run:
+#with hemt_qubit_experiments.HEMTStarkShift() as run:
+#with hemt_qubit_experiments.HEMTRamsey() as run:
+with hemt_qubit_experiments.HEMTQubitReadout() as run:
     
     run.set_experiment(ExptInfo, Resources, ExptVars)
-
-    # run.single_shot_iqs(save=True, plot_data=True)
+    
+    # run.single_shot_iqs(save=False, plot_data=False)
     # run.single_shot_osc(save=False, plot_data=['I', 'Q'])
-    # run.avg_osc(save=True, plot_data=['I', 'Q'], runs=200)
+    # run.avg_osc(save=False, plot_data=['I', 'Q'], runs=2000)
 
-    # run.sweep('Readout Frequency', np.linspace(4.910, 4.925, 301) * GHz,
-            # plot_data=['Amplitude','I','Q'], save=True, runs=1, max_data_dim=1)
+    # run.sweep('Readout Frequency', np.linspace(4.910, 4.925, 151) * GHz,
+        # print_data=['Amplitude','I','Q'], plot_data=['Amplitude','I','Q'],
+        # save=True, runs=1, max_data_dim=1)
             
     # run.sweep(['Readout Attenuation', 'Readout Frequency'], 
       # [np.linspace(9, 29, 21) * dB, np.linspace(4.91, 4.925, 151) * GHz],
@@ -155,27 +158,39 @@ with hemt_qubit_experiments.HEMTStarkShift() as run:
     
     # run.value('Qubit Amplitude', 0.75)
     # run.value('Qubit Time', 20)
+    
+    # run.sweep('Qubit T2 Delay', np.linspace(0, 1000, 501) * ns,
+        # print_data=['Amplitude'], plot_data=['Q', 'I', 'Amplitude'],
+        # save=True, runs=4, max_data_dim=1)
        
     # run.sweep(['Readout Attenuation', 'Readout Frequency'], 
         # [np.linspace(1, 40, 40) * dB, np.linspace(4.91, 4.925, 151) * GHz],
         # save=True, print_data='Amplitude', runs=1)
         
     # run.sweep(['Qubit Flux Bias Voltage', 'Readout Frequency'],
-        # [np.linspace(-1.5, 1.5, 31) * V, np.linspace(4.91, 4.925, 76) * GHz],
+        # [np.linspace(-0.1, 0.1, 21) * V, np.linspace(4.91, 4.925, 151) * GHz],
         # save=True, print_data='Amplitude', runs=1, max_data_dim=2)
         
     # run.sweep(['Qubit Flux Bias Voltage', 'Qubit Frequency'], 
-        # [np.linspace(-0.25, .75, 26) * V, np.linspace(4.25, 4.9, 651) * GHz],
+        # [np.linspace(-0.2, 0.2, 41) * V, np.linspace(4.5, 4.65, 301) * GHz],
         # save=True, print_data='Amplitude', runs=1, max_data_dim=2)
         
-    # run.sweep('Qubit Frequency', np.linspace(4.3, 4.7, 801) * GHz,
-             # print_data=['Amplitude'], plot_data=['Amplitude', 'I', 'Q'],
+    # run.sweep('Qubit Frequency', np.linspace(4.0, 5.0, 1001) * GHz,
+             # print_data=['Q'], plot_data=['I', 'Q', 'Amplitude'],
              # save=True, runs=1, max_data_dim=1)
-             
-    # run.sweep('Qubit Time', np.linspace(0,250,251) * ns,
-            # print_data=['Amplitude'], plot_data=['Amplitude', 'I', 'Q'],
-            # save = True, runs=1, max_data_dim=1)
+
+    run.sweep('Qubit Time', np.linspace(0, 1000, 251) * ns,
+            print_data=['Amplitude'], plot_data=['Q', 'I', 'Amplitude'],
+            save=True, runs=3, max_data_dim=1)
+            
+    # run.sweep(['Qubit Time', 'Qubit Amplitude'], 
+        # [np.linspace(0, 1000, 251) * ns, np.linspace(0, .5, 26) * DACUnits],
+        # save=True, print_data='Amplitude', runs=2, max_data_dim=2)
         
-    run.sweep(['Stark Amplitude', 'Qubit Frequency'], 
-        [np.linspace(0, .5, 26) * DACUnits, np.linspace(4.3, 4.8, 501) * GHz],
-        save=True, print_data='Amplitude', runs=2, max_data_dim=2)
+    # run.sweep('Qubit Drive to Readout Delay', np.linspace(0, 1000, 251) * ns,
+        # print_data=['Amplitude'], plot_data=['Q', 'I', 'Amplitude'],
+        # save=True, runs=2, max_data_dim=1)
+        
+    # run.sweep(['Qubit Attenuation', 'Qubit Frequency'], 
+        # [np.linspace(1, 21, 11) * dB, np.linspace(4.425, 4.775, 701) * GHz],
+        # save=True, print_data='Amplitude', runs=1, max_data_dim=2)
