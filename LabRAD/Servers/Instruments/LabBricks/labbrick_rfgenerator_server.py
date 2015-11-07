@@ -71,6 +71,16 @@ class LBRFGenServer(LabradServer):
         else:
             self.autoRefresh = yield reg.get('Lab Brick RF Generator Server Autorefresh')
         print("Lab Brick RF Generator Server Autorefresh is set to " + str(self.autoRefresh))
+        #determine whether or not to use external 10MHz reference
+        if 'Lab Brick RF Generator External Reference' not in keys:
+            self.useExternalRef = True
+        else:
+            self.useExternalRef = yield reg.get('Lab Brick RF Generator External Reference')
+        if self.useExternalRef:
+            print("Lab Brick RF generators are using an external 10MHz reference")
+        else:
+            print("Lab Brick RF genreators are using internal reference")
+            
 
     @inlineCallbacks    
     def initServer(self):
@@ -161,6 +171,7 @@ class LBRFGenServer(LabradServer):
                 power = yield self.power(self._pseudo_context)
                 self.LastFrequency.update({SN: freq})
                 self.LastPower.update({SN: power})
+                yield self.VNXdll.fnLMS_SetUseInternalRef(DEVIDs_ptr[idx], ctypes.c_bool(not self.useExternalRef))
                 print('Found a Lab Brick RF Generator with ' + MODNAME.raw[0:NameLength] + ', serial number: %i, current power: %.1f dB, current frequency %.1f GHz'%(SN, power, (freq/1e9)))
 
     def getDeviceDID(self, c):
