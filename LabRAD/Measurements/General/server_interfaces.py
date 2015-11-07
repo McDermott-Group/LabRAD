@@ -893,6 +893,16 @@ class LabBrickAttenuator(BasicInterface):
             p.select_attenuator(self.address).send()
         else:
             self._single_device = False
+            
+    def send_request(self, value=None):
+        """Send a request to the RF generator."""
+        p = self.server.packet()
+        if not self._single_device:
+            p.select_attenuator(self.address)
+        p['Attenuation'](value)
+        self._result = p.send(wait=True)
+        self._request_sent = False
+                       
 
 
 class LabBrickRFGenerator(BasicInterface):
