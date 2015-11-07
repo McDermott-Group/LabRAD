@@ -583,21 +583,18 @@ class BasicInterface(object):
         Output:
             None.
         """
-        self._initialized = False
         self._request_sent = False
         self._res = res
         self._var = var
         self._setting = None
         self.server = self._get_server(cxn)
-        
+ 
         try:
             self._init_resource()
         except:
             raise ResourceInitializationError('Resource ' +
                     str(self._res) + ' could not be intialized.')
-        
-        self._initialized = True
-    
+
     def __exit__(self, type, value, traceback):
         """Properly exit the resource."""
         pass
@@ -619,23 +616,16 @@ class BasicInterface(object):
                     " in resource: " + str(self._res) + ".")
     
     def send_request(self, value=None):
-        """Send an empty non-blocking request."""
-        if self._initialized:
-            p = self.server.packet()
-            if self._setting is not None:
-                if value is None:
-                    p[self._setting]()
-                else:
-                    p[self._setting](value)
-            self._result = p.send(wait=False)
-            self._request_sent = True
-        else:
-            raise ResourceInitializationError("Resource " +
-                    str(self._res) + " is not properly initialized.")
+        """Send an empty request."""
+        p = self.server.packet()
+        if self._setting is not None:
+            p[self._setting](value)
+        self._result = p.send(wait=False)
+        self._request_sent = True
         
     def acknowledge_request(self):
         """Wait for the result of a non-blocking request."""
-        if self._initialized and self._request_sent:
+        if self._request_sent:
             self._request_sent = False
             if self._setting is not None:
                 return self._result.wait()[self._setting]
@@ -686,17 +676,13 @@ class GPIBInterface(BasicInterface):
         
     def send_request(self, value=None):
         """Send a request to set a setting."""
-        if self._initialized:
-            p = self.server.packet()
-            if not self._single_device:
-                p.select_device(self.address)
-            if self._setting is not None:
-                p[self._setting](value)
-            self._result = p.send(wait=False)
-            self._request_sent = True
-        else:
-            raise ResourceDefinitionError("Resource '" +
-                    str(self._res) + "' is not properly initialized.")
+        p = self.server.packet()
+        if not self._single_device:
+            p.select_device(self.address)
+        if self._setting is not None:
+            p[self._setting](value)
+        self._result = p.send(wait=False)
+        self._request_sent = True
             
 
 class RFGenerator(GPIBInterface):
@@ -744,22 +730,17 @@ class RFGenerator(GPIBInterface):
         p.reset().send()
         self._output_set = False
 
-    def send_request(self, value):
-        """Send a request to set a setting."""
-        if self._initialized:
-            if value is not None:
-                p = self.server.packet()
-                if not self._single_device:
-                    p.select_device(self.address)
-                p[self._setting](value)
-                if not self._output_set:
-                    p.output(True)
-                    self._output_set = True
-                self._result = p.send(wait=False)
-                self._request_sent = True
-        else:
-            raise ResourceDefinitionError("Resource " +
-                    str(self._res) + " is not properly initialized.")
+    def send_request(self, value=None):
+        """Send a setting request."""
+        p = self.server.packet()
+        if not self._single_device:
+            p.select_device(self.address)
+        p[self._setting](value)
+        if value is not None and not self._output_set:
+            p.output(True)
+            self._output_set = True
+        self._result = p.send(wait=False)
+        self._request_sent = True
 
 
 class SIM928VoltageSource(GPIBInterface):
@@ -788,24 +769,19 @@ class SIM928VoltageSource(GPIBInterface):
         """Initialize a voltage source."""
         self._output_set = False
         
-    def send_request(self, voltage):
-        """Send a request to set the output voltage."""
-        if self._initialized:
-            if voltage is not None:
-                p = self.server.packet()
-                if not self._single_device:
-                    p.select_device(self.address)
-                p.voltage(voltage)
-                if not self._output_set:
-                    p.output(True)
-                    self._output_set = True
-                self._result = p.send(wait=False)
-                self._request_sent = True
-        else:
-            raise ResourceDefinitionError("Resource " +
-                    str(self._res) + " is not properly initialized.")
+    def send_request(self, voltage=None):
+        """Send a request to set/get the output voltage."""
+        p = self.server.packet()
+        if not self._single_device:
+            p.select_device(self.address)
+        p.voltage(voltage)
+        if voltage is not None and not self._output_set:
+            p.output(True)
+            self._output_set = True
+        self._result = p.send(wait=False)
+        self._request_sent = True
 
-                    
+
 class NetworkAnalyzer(GPIBInterface):
     """
     Network analyzer simplified interface.
@@ -855,23 +831,19 @@ class NetworkAnalyzer(GPIBInterface):
                     str(self._res) + ".")
     
     def send_request(self, value=None):
-        """Send a request to set a setting."""
-        if self._initialized:
-            p = self.server.packet()
-            if not self._single_device:
-                p.select_device(self.address)
-            if self._setting is not None:
-                p[self._setting](value)
-            if self._setting == 'Average Points' and value is not None:
-                if value > 1:
-                    p['Average Mode'](True)
-                else:
-                    p['Average Mode'](False)
-            self._result = p.send(wait=False)
-            self._request_sent = True
-        else:
-            raise ResourceDefinitionError("Resource '" +
-                    str(self._res) + "' is not properly initialized.")     
+        """Send a setting request to set a setting."""
+        p = self.server.packet()
+        if not self._single_device:
+            p.select_device(self.address)
+        if self._setting is not None:
+            p[self._setting](value)
+        if self._setting == 'Average Points' and value is not None:
+            if value > 1:
+                p['Average Mode'](True)
+            else:
+                p['Average Mode'](False)
+        self._result = p.send(wait=False)
+        self._request_sent = True 
 
 
 class LabBrickAttenuator(BasicInterface):
@@ -880,7 +852,7 @@ class LabBrickAttenuator(BasicInterface):
     """
     def __exit__(self, type, value, traceback):
         """Deselect the attenuator."""
-        if self._initialized:
+        if hasattr(self, 'server'):
             p = self.server.packet()
             p.deselect_attenuator().send()
     
@@ -909,7 +881,7 @@ class LabBrickAttenuator(BasicInterface):
                     "number " + str(self._res['Serial Number']) +
                     " is not found.")
         elif len(devices) == 1:
-            self.address = devices[0][0]
+            self.address = devices[0]
         else:
             raise ResourceDefinitionError("'Serial Number' field is " +
                     "absent in the experiment resource: " +
@@ -921,19 +893,81 @@ class LabBrickAttenuator(BasicInterface):
             p.select_attenuator(self.address).send()
         else:
             self._single_device = False
-        
-    def send_request(self, attenuation):
-        """Send a request to set the attenuation."""
-        if self._initialized:
-            if attenuation is not None:
-                p = self.server.packet()
-                if not self._single_device:
-                    p.select_attenuator(self.address)
-                self._result = p.attenuation(attenuation).send(wait=False)
-                self._request_sent = True
+
+
+class LabBrickRFGenerator(BasicInterface):
+    """
+    Lab Brick RF generator simplified interface.
+    """
+    def __exit__(self, type, value, traceback):
+        """Deselect the RF generator."""
+        if hasattr(self, 'server'):
+            p = self.server.packet()
+            p.select_rf_generator(self.address).rf_output_state(False)
+            p.deselect_rf_generator().send()
+    
+    def _get_server(self, cxn):       
+        """Get server connection object."""
+        if 'Server' in self._res:
+            server_name = self._res['Server']
         else:
-            raise ResourceDefinitionError("Resource " +
-                    str(self._res) + " is not properly initialized.")
+            server_name = (os.environ['COMPUTERNAME'].lower() +
+                                ' Lab Brick RF Generators')
+        try:
+            return cxn[server_name]
+        except:
+            raise ResourceDefinitionError("Could not connect to " +
+                "server '" + server_name + "'.")
+
+    def _init_resource(self):
+        """Initialize a Lab Brick RF generator."""
+        p = self.server.packet()
+        devices = (p.list_devices().send())['list_devices']
+        if 'Serial Number' in self._res:
+            if self._res['Serial Number'] in devices:
+                self.address = self._res['Serial Number']
+            else:
+                raise ResourceDefinitionError("Device with serial " +
+                    "number " + str(self._res['Serial Number']) +
+                    " is not found.")
+        elif len(devices) == 1:
+            self.address = devices[0]
+            print(self.address)
+        else:
+            raise ResourceDefinitionError("'Serial Number' field is " +
+                    "absent in the experiment resource: " +
+                    str(self._res) + ".")
+        
+        if len(devices) == 1:
+            self._single_device = True
+            p = self.server.packet()
+            p.select_rf_generator(self.address).send()
+        else:
+            self._single_device = False
+        
+        if ('Variables' in self._res and 
+                self._var in self._res['Variables'] and 
+                isinstance(self._res['Variables'], dict) and 
+                'Setting' in self._res['Variables'][self._var]):
+            self._setting = self._res['Variables'][self._var]['Setting']
+        elif self._var.lower().find('freq') != -1:
+            self._setting = 'Frequency'
+        elif self._var.lower().find('power') != -1:
+            self._setting = 'Power'
+            
+        self._output_set = False
+        
+    def send_request(self, value=None):
+        """Send a request to the RF generator."""
+        p = self.server.packet()
+        if not self._single_device:
+            p.select_rf_generator(self.address)
+        p[self._setting](value)
+        if value is not None and not self._output_set:
+            p.rf_output_state(True)
+            self._output_set = True
+        self._result = p.send(wait=True)
+        self._request_sent = False
 
 
 class ADR3(BasicInterface):
