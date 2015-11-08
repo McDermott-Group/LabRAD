@@ -41,20 +41,20 @@ Resources = [
 ExptInfo = {
             'Device Name': 'MH060',
             'User': 'Guilhem Ribeill',
-            'Base Path': 'Z:\mcdermott-group\Data\Syracuse Qubits\MH060',
-            'Experiment Name': 'FreqPower2D',
-            'Comments': '-10 dB on input of NA' 
+            'Base Path': 'Z:\mcdermott-group\Data\Syracuse Qubits\Leiden DR 2015-10-22 - Qubits and JPMs',
+            'Experiment Name': 'FreqBias2D',
+            'Comments': '' 
            }
  
 # Experiment Variables
 ExptVars = {
             'NA Center Frequency': 4.914 * GHz,
-            'NA Frequency Span': 25 * MHz,
+            'NA Frequency Span': 20 * MHz,
             
-            'NA Source Power': -63 * dBm,
+            'NA Source Power': -70 * dBm,
             
             'NA Sweep Points': 801,
-            'NA Average Points': 500,
+            'NA Average Points': 200,
             
             'Qubit Flux Bias Voltage': 0 * V 
            }
@@ -63,5 +63,5 @@ with qubit_na_experiment.QubitNAExperiment() as run:
     
     run.set_experiment(ExptInfo, Resources, ExptVars) 
     
-    #run.sweep('NA Source Power', np.linspace(-80, -20, 121) * dBm, save=True)
-    run.sweep('Qubit Flux Bias Voltage', np.linspace(-3, 3, 201) * V, save=True)
+    #run.sweep('NA Source Power', np.linspace(-80, -10, 121) * dBm, save=True)
+    run.sweep('Qubit Flux Bias Voltage', np.linspace(-2, 2, 201) * V, save=True)

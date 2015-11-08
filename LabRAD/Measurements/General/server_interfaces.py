@@ -16,7 +16,7 @@
 """
 This module contains simplified interface to some specific 
 experiment resources. The classes defined here are intended to be used
-with Experiment class from the experiment module.
+with class Experiment from the experiment module.
 """
 
 import os
@@ -583,10 +583,10 @@ class BasicInterface(object):
         Output:
             None.
         """
-        self._request_sent = False
         self._res = res
         self._var = var
         self._setting = None
+        self._request_sent = False
         self.server = self._get_server(cxn)
  
         try:
@@ -598,13 +598,9 @@ class BasicInterface(object):
     def __exit__(self, type, value, traceback):
         """Properly exit the resource."""
         pass
-
-    def _init_resource(self):
-        """Do device specific initialization."""
-        pass
     
     def _get_server(self, cxn):       
-        """Get server connection object."""
+        """Get a server connection object."""
         if 'Server' in self._res:
             try:
                 return cxn[self._res['Server']]
@@ -614,9 +610,17 @@ class BasicInterface(object):
         else:
             raise ResourceDefinitionError("Key 'Server' is not found" +
                     " in resource: " + str(self._res) + ".")
-    
+
+    def _init_resource(self):
+        """Device specific initialization."""
+        if ('Variables' in self._res and 
+                self._var in self._res['Variables'] and 
+                isinstance(self._res['Variables'], dict) and 
+                'Setting' in self._res['Variables'][self._var]):
+            self._setting = self._res['Variables'][self._var]['Setting']
+
     def send_request(self, value=None):
-        """Send an empty request."""
+        """Send a request."""
         p = self.server.packet()
         if self._setting is not None:
             p[self._setting](value)
@@ -671,7 +675,7 @@ class GPIBInterface(BasicInterface):
         self._init_gpib_resource()
     
     def _init_gpib_resource(self):
-        """Do variable specific initialization."""
+        """Variable specific initialization."""
         pass
         
     def send_request(self, value=None):
@@ -895,14 +899,13 @@ class LabBrickAttenuator(BasicInterface):
             self._single_device = False
             
     def send_request(self, value=None):
-        """Send a request to the RF generator."""
+        """Set the attenuation."""
         p = self.server.packet()
         if not self._single_device:
             p.select_attenuator(self.address)
-        p['Attenuation'](value)
-        self._result = p.send(wait=True)
-        self._request_sent = False
-                       
+        p.attenuation(value)
+        self._result = p.send(wait=False)
+        self._request_sent = True
 
 
 class LabBrickRFGenerator(BasicInterface):
