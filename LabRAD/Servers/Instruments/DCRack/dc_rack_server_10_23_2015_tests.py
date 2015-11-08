@@ -174,7 +174,7 @@ class DcRackWrapper(DeviceWrapper):
     def write(self, code):
         """Write a data value to the dc rack."""
         yield self.packet().write(code).send()
-        print code
+        #print code
 
     @inlineCallbacks
     def initDACs(self):
@@ -338,7 +338,7 @@ class DcRackWrapper(DeviceWrapper):
             ans = result[cardName]
             def update(chan, state):
                 """Update channel state from a tuple stored in the registry"""
-                chan.highPass, chan.lowPass, chan.polarity, chan.offset = state[0]
+                chan.highPass, chan.lowPass, chan.polarity, chan.offset = state
             for i, chan in enumerate([card.A, card.B, card.C, card.D]):
                 update(chan, ans[i])
         else:
@@ -607,7 +607,9 @@ class Channel:
 
     def strState(self):
         """Returns the channel state as a list of strings"""
-        s = list(self.state)
+        #print self.state
+        #s = list(self.state)
+        s = list((self.highPass, self.lowPass, self.polarity, self.offset))
         s[-1] = str(s[-1])
         return s
 
