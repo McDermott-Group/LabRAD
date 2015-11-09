@@ -64,6 +64,6 @@ ExptVars = {
 with fim_experiment.FIM() as run:
     run.set_experiment(ExptInfo, Resources, ExptVars)
     
-    run.sweep('Bias Voltage', np.linspace(48, 50, 11) * mV,
+    run.sweep('Bias Voltage', np.linspace(1513.1, 1514.5, 11) * mV,
         save=True, print_data=['Temperature'], plot_data=['Temperature'],
         runs=100, max_data_dim=1)   
