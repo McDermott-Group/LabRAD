@@ -591,7 +591,7 @@ class BasicInterface(object):
             self._init_resource()
         except:
             raise ResourceInitializationError('Resource ' +
-                    str(resource) + ' could not be intialized.')
+                    str(res) + ' could not be intialized.')
         
         self._initialized = True
     

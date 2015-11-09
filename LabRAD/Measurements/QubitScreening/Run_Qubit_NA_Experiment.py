@@ -29,7 +29,7 @@ Resources = [
                 },
                 { # Leiden Fridge
                     'Interface': 'ADR3',
-                    'Variables': {'Temperature': {'Setting': 'Temperatures', 'Stage': '3K'}}
+                    'Variables': {'Temperature': {'Setting': 'Temperatures', 'Stage': 'FAA'}}
                 },
                 { # Readings entered manually, software parameters
                     'Interface': None,
@@ -40,20 +40,20 @@ Resources = [
 # Experiment Information
 ExptInfo = {
             'Device Name': '100715A-E4',
-            'User': 'Guilhem Ribeill',
-            'Base Path': 'Z:\mcdermott-group\Data\Flux Biased JPM\ADR Cooldown 102915',
+            'User': 'Guilhem Ribeill and Chris Wilen',
+            'Base Path': 'Z:\mcdermott-group\Data\Flux Biased JPM\ADR Cooldown 110915',
             'Experiment Name': 'FrequencyFluxBias2D',
             'Comments': 'Reflection from measure port of flux biased JPM' 
            }
  
 # Experiment Variables
 ExptVars = {
-            'NA Center Frequency': 4.13 * GHz,
-            'NA Frequency Span': 200 * MHz,
+            'NA Center Frequency': 4.5 * GHz,
+            'NA Frequency Span': 1000 * MHz,
             
-            'NA Source Power': -20 * dBm,
+            'NA Source Power': -40 * dBm,
             
-            'NA Sweep Points': 1601,
+            'NA Sweep Points': 3201,
             'NA Average Points': 5,
             
             'Qubit Flux Bias Voltage': 0 * V 
@@ -64,4 +64,4 @@ with qubit_na_experiment.QubitNAExperiment() as run:
     run.set_experiment(ExptInfo, Resources, ExptVars) 
     
     # run.sweep('NA Source Power', np.linspace(-70, -30, 41) * dBm, save=True)
-    run.sweep('Qubit Flux Bias Voltage', np.linspace(-3, 3, 151) * V, save=True)
+    run.sweep('Qubit Flux Bias Voltage', np.linspace(-2, 2, 201) * V, save=True)
