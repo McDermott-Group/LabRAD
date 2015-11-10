@@ -3,6 +3,7 @@ from Tkinter import Tk, Frame, BOTH, OptionMenu, Spinbox, Canvas, Button, Checkb
 import labrad
 import os
 
+#checking how git handles usernames
 # map from monitor bus name to allowed settings for that bus.
 # for each bus, the settings are given as a map from name to numeric code.
 
