@@ -64,7 +64,7 @@ class JPMExperiment(expt.Experiment):
         plt.draw()
         plt.pause(0.05)
         
-    def run_once(self, histogram=False):
+    def run_once(self):
         ###RUN#####################################################################################
         self.get('Temperature')
         P = self.boards.run(self.value('Reps'))
@@ -77,7 +77,7 @@ class JPMExperiment(expt.Experiment):
         threshold = self.value('Threshold')['PreAmpTimeCounts']
         
         ###DATA POST-PROCESSING####################################################################
-        if histogram:
+        if self.value('Histogram'):
             self._plot_histogram(P, 1, preamp_timeout)
             print('Maximum timing counts: ' + str(np.max(P) * units.PreAmpTimeCounts) + '.')
 

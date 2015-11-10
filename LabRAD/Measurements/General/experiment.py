@@ -148,7 +148,10 @@ class Experiment(object):
             for idx in range(5):
                 subpath = os.path.split(subpath)[0]
                 if os.path.exists(subpath) and not os.listdir(subpath):
-                    os.rmdir(subpath)
+                    try:
+                        os.rmdir(subpath)
+                    except WindowsError:
+                        pass
                 
         print('The instrument resources have been safely terminated! ' + 
               'Have a nice day.')
