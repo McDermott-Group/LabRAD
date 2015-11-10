@@ -159,6 +159,7 @@ class DcRackWrapper(DeviceWrapper):
                 self.rackCards[card[0]] = Preamp()
             else:
                 self.rackCards[card[0]] = 'fastbias'
+        #print "self.rackCards.keys()=", self.rackCards
         print 'done.'
 
     def packet(self):
@@ -173,7 +174,7 @@ class DcRackWrapper(DeviceWrapper):
     def write(self, code):
         """Write a data value to the dc rack."""
         yield self.packet().write(code).send()
-        print code
+        #print code
 
     @inlineCallbacks
     def initDACs(self):
@@ -286,19 +287,21 @@ class DcRackWrapper(DeviceWrapper):
         p.read(1, key='ID')
         p.timeout()
         p.read(key='ID')
-        try:
-            res = yield p.send()
-            returnValue(''.join(res['ID']))
-        except:
-            raise Exception('Ident error')
+        res = yield p.send()
+        returnValue(''.join(res['ID']))
+        #try:
+        #    res = yield p.send()
+        #    returnValue(''.join(res['ID']))
+        #except:
+        #    raise Exception('Ident error')
 
     def returnCardList(self):
         cards = []
         for key in self.rackCards.keys():
             if self.rackCards[key] == 'fastbias':
-                cards.append([key, 'fastbias'])
+                cards.append((key, 'fastbias'))
             else:
-                cards.append([key, 'preamp'])
+                cards.append((key, 'preamp'))
         return cards
 
     def preampState(self, cardNumber, channel):
@@ -335,7 +338,7 @@ class DcRackWrapper(DeviceWrapper):
             ans = result[cardName]
             def update(chan, state):
                 """Update channel state from a tuple stored in the registry"""
-                chan.highPass, chan.lowPass, chan.polarity, chan.offset = state[0]
+                chan.highPass, chan.lowPass, chan.polarity, chan.offset = state
             for i, chan in enumerate([card.A, card.B, card.C, card.D]):
                 update(chan, ans[i])
         else:
@@ -510,12 +513,13 @@ class DcRackServer(DeviceServer):
         ident = yield dev.identSelf()
         returnValue(ident)
 
-    @setting(565, 'list_cards')
+    @setting(565, 'list_cards', returns="*(ss)")
     def list_cards(self, c):
         """List cards configured in the registry (does not query cards directly)."""
         dev = self.selectedDevice(c)
         cards = dev.returnCardList()
-        returnValue(cards)
+        return cards
+        #returnValue(cards) //no yield ==> no returnValue
 
     @setting(455, 'get_preamp_state')
     def getPreampState(self, c, cardNumber, channel):
@@ -603,7 +607,9 @@ class Channel:
 
     def strState(self):
         """Returns the channel state as a list of strings"""
-        s = list(self.state)
+        #print self.state
+        #s = list(self.state)
+        s = list((self.highPass, self.lowPass, self.polarity, self.offset))
         s[-1] = str(s[-1])
         return s
 

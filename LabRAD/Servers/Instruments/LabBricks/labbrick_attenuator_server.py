@@ -193,9 +193,9 @@ class LBAttenuatorServer(LabradServer):
     def attenuation(self, c, atten=None):
         '''Get or set attenuation.'''
         if atten is not None:
-            if atten < self.MinMaxAttenuation[c['SN']][0]:
+            if atten['dB'] < self.MinMaxAttenuation[c['SN']][0]['dB']:
                 atten = self.MinMaxAttenuation[c['SN']][0]
-            elif atten > self.MinMaxAttenuation[c['SN']][1]:
+            elif atten['dB'] > self.MinMaxAttenuation[c['SN']][1]['dB']:
                 atten = self.MinMaxAttenuation[c['SN']][1]
             # Check to make sure it needs to be changed.
             if self.LastAttenuation[c['SN']] == atten:

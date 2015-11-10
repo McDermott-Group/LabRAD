@@ -431,7 +431,7 @@ class ADRServer(DeviceServer):
     def getLog(self,c, n=0):
         """Get an array of the last n logs."""
         if n==0: n = len(self.logMessages)
-        n = min(n, len(self.logMessages))
+        n = int(min(n, len(self.logMessages)))
         return [messageAndAlert for messageAndAlert in self.logMessages[-n:]]
     @setting(104, 'Get State Var', var=['s'], returns=['?'])
     def getStateVar(self,c, var):

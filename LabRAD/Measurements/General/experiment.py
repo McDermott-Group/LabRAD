@@ -797,11 +797,15 @@ class Experiment(object):
         # Remove unnecessary dimensions that contain only one value.
         for key in data:
             if 'Value' in data[key]:
-                data[key]['Value'] = np.squeeze(data[key]['Value'])
-                # Convert single numbers (zero-dimensional numpy arrays) 
-                # to one-dimensional numpy arrays.
-                if np.size(data[key]['Value']) == 1:
-                    data[key]['Value'] = np.array([data[key]['Value']])
+                if isinstance(data[key]['Value'], units.Value):
+                    u = self.unit_factor(data[key]['Value'])
+                    data[key]['Value'] = np.array([data[key]['Value']]) * u
+                else:
+                    data[key]['Value'] = np.squeeze(data[key]['Value'])
+                    # Convert single numbers (zero-dimensional numpy arrays) 
+                    # to one-dimensional numpy arrays.
+                    if np.size(data[key]['Value']) == 1:
+                        data[key]['Value'].reshape(1)
             if 'Dependencies' in data[key]:
                 data[key]['Dependencies'] = [var for var 
                         in data[key]['Dependencies'] if var not in rm_vars]
@@ -1026,7 +1030,7 @@ class Experiment(object):
                      value.isCompatible(units.Unit(self._vars[var]['Value'])))):
                     raise Exception("An attempt to change the '" +
                             str(var) + "' units is detected. Check " +
-                            " the variable value reassignments.")
+                            "variable value reassignments.")
             self._vars[var]['Value'] = value
             self._vars[var]['Save'] = True
             if output:
@@ -1066,7 +1070,7 @@ class Experiment(object):
     def load_once(self):
         """
         This method is called before run_once by the sweep method and
-       could be used to reduce the overhead
+        could be used to reduce the overhead
         caused by the need to set the FPGA boards and other devices
         when multiple runs of the same experiment have to be executed.
         
