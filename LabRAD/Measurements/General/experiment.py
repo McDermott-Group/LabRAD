@@ -1860,8 +1860,8 @@ class Experiment(object):
                         time.strftime("%H:%M:%S", finish_time) + ' on ' + 
                         time.strftime("%m/%d/%Y", finish_time) + '.')
                     else:
-                        self._sweep_msg = ('No data has been acquired ' +
-                        ' yet to allow any time estimation.')
+                        self._sweep_msg = ('Not enough data ' +
+                        'acquired to allow the time estimation.')
                 elif ord(key) == 79 or ord(key) == 111:
                     # Either [O] or [o] is pressed.
                      self._standard_output = not self._standard_output

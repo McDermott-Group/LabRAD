@@ -72,7 +72,8 @@ class JPMExperiment(expt.Experiment):
         ###EXTRA EXPERIMENT PARAMETERS TO SAVE#####################################################
         self.add_var('Actual Reps', len(P[0]))
         
-        preamp_timeout = self.value('Preamp Timeout')['PreAmpTimeCounts']
+        preamp_timeout = self.boards.consts['PREAMP_TIMEOUTS'][self.value('Measure Time')['us']]
+        self.add_var('Preamp Timeout', preamp_timeout * units.PreAmpTimeCounts)
         threshold = self.value('Threshold')['PreAmpTimeCounts']
         
         ###DATA POST-PROCESSING####################################################################
