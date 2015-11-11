@@ -108,16 +108,16 @@ Resources = [ {
 
 # Experiment Information
 ExptInfo = {
-            'Device Name': 'ADC5',
+            'Device Name': 'DAC3DAC4',
             'User': 'Guilhem Ribeill',
-            'Base Path': 'Z:\mcdermott-group\Data\ADC Testing',
-            'Experiment Name': 'BandpassFilter',
+            'Base Path': 'Z:\mcdermott-group\Data\ElectronicsTesting',
+            'Experiment Name': 'DACTest',
             'Comments': 'Driving with IQ modulation, test of Hittite HMC451 amplifier on DAC IQ mixer. NARDA + 2 MiniCircuits stacks in RT ampl. chain. 41-58 MHz band-pass filters on the ADC IQ-mixer.' 
            }
  
 # Experiment Variables
 ExptVars = {
-            'Reps': 4000, # should not exceed ~5,000, use agrument "runs" in sweep parameters instead 
+            'Reps': 100, # should not exceed ~5,000, use agrument "runs" in sweep parameters instead 
 
             'Init Time': 100 * us,
             
@@ -125,20 +125,20 @@ ExptVars = {
             # 'Stark Time': 10000 * ns,
 
             'Readout Frequency': 4.9135 * GHz, #4.919 * GHz,
-            'Readout Power': 10 * dBm,
+            'Readout Power': 13 * dBm,
             'Readout Attenuation': 10 * dB, # should be in (0, 63] range
             'Readout SB Frequency': 50 * MHz, # 41-58 MHz band-pass fileter on the ADC IQ-mixer.
             'Readout Amplitude': 0.5 * DACUnits,
-            'Readout Time': 2000 * ns,
+            'Readout Time': 600 * ns,
             
             'Qubit Drive to Readout Delay': 20 * ns,
             
             'Qubit Frequency': 20 * GHz,
             'Qubit Power': 13 * dBm,
-            'Qubit Attenuation': 8 * dB, # should be in (0, 63] range
+            'Qubit Attenuation': 10 * dB, # should be in (0, 63] range
             'Qubit SB Frequency': 0 * MHz,
-            'Qubit Amplitude': 0.9 * DACUnits,
-            'Qubit Time': 0 * ns,
+            'Qubit Amplitude': 1 * DACUnits,
+            'Qubit Time': 1000 * ns,
             # 'Qubit T2 Delay': 0 * ns,
 
             'Qubit Flux Bias Voltage': 0 * V,
@@ -168,13 +168,13 @@ with hemt_qubit_experiments.HEMTQubitReadout() as run:
     
     # run.value('Readout Attenuation', -30.*dB)
     
-    run.sweep('Readout Frequency', np.linspace(3, 5, 101) * GHz,
-        print_data=['Amplitude','I','Q'], plot_data=['Amplitude','I','Q'],
-        save=True, runs=1, max_data_dim=1)
+    # run.sweep('Readout Frequency', np.linspace(3, 5, 101) * GHz,
+        # print_data=['Amplitude','I','Q'], plot_data=['Amplitude','I','Q'],
+        # save=True, runs=1, max_data_dim=1)
     
-    # run.sweep(['Readout Attenuation', 'Readout Frequency'], 
-      # [np.linspace(10, 40, 16) * dB, np.linspace(4.91, 4.92, 101) * GHz],
-      # save=True, print_data='Amplitude', runs=1)
+    run.sweep(['Qubit Frequency', 'Readout Frequency'], 
+      [np.linspace(4, 5, 101) * GHz, np.linspace(4., 5, 101) * GHz],
+      save=True, print_data='Amplitude', runs=1)
     
     # run.value('Qubit Amplitude', 0 * DACUnits)
     

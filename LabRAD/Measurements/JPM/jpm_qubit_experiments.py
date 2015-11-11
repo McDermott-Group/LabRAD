@@ -74,7 +74,10 @@ class JPMExperiment(expt.Experiment):
         
         preamp_timeout = self.boards.consts['PREAMP_TIMEOUTS'][self.value('Measure Time')['us']]
         self.add_var('Preamp Timeout', preamp_timeout * units.PreAmpTimeCounts)
-        threshold = self.value('Threshold')['PreAmpTimeCounts']
+        if self.value('Threshold') is not None:
+            threshold = self.value('Threshold')['PreAmpTimeCounts']
+        else:
+            threshold = preamp_timeout
         
         ###DATA POST-PROCESSING####################################################################
         if self.value('Histogram'):
