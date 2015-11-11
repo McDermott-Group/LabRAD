@@ -187,14 +187,13 @@ class GHzFPGABoards(object):
                     self.adc_settings[k]['CalibDelay'] = delay
         if self._data_dacs:
             try:
-                preamp_timeout = cxn.registry.get('PREAMP_TIMEOUT')
+                timeouts = cxn.registry.get('PREAMP_TIMEOUTS')
+                self.consts['PREAMP_TIMEOUTS'] = {time: timeout
+                        for time, timeout in timeouts}
             except:
-                print("'PREAMP_TIMEOUT' key is not found in the " +
-                        "LabRAD Registry. It will be set to 1253 " +
-                        "PreAmpTimeCounts.")
-                preamp_timeout = 1253
-            self.consts['PREAMP_TIMEOUT'] = (preamp_timeout *
-                    units.PreAmpTimeCounts)
+                print("'PREAMP_TIMEOUTS' key is not found in the " +
+                        "LabRAD Registry.")
+            
         try:
             dac_zero_pad_len = cxn.registry.get('DAC_ZERO_PAD_LEN')
         except:
