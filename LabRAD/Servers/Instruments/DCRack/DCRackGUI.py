@@ -49,7 +49,6 @@ with labrad.connect() as cxn:
             self.initializeDcRackDataStructures() 
             self.busSettingControls()
 
-
             self.InitDacVrefsButton = Button(self, text="Init DAC Vrefs", command=self.initDacVrefs)
             self.InitDacVrefsButton.place(x=DCRackGui.w*(1+1), y=DCRackGui.h*(4.5+2))
                 
@@ -80,9 +79,9 @@ with labrad.connect() as cxn:
             for chan in self.PreampChannels:
                 for setting in self.PreampSettings:
                    if "High-Pass" in setting:
-                      dc.change_high_pass_filter(chan, self.PreampSettingsData[cardStr][chan]["High-Pass [us]"]) #set preamp as cards are intialized upon power up
+                      dc.change_high_pass_filter(chan, self.PreampSettingsData[cardStr][chan]["High-Pass \n Time Constant [us]"]) #set preamp as cards are intialized upon power up
                    elif "Low-Pass" in setting:
-                      dc.change_low_pass_filter(chan, self.PreampSettingsData[cardStr][chan]["Low-Pass [us]"])
+                      dc.change_low_pass_filter(chan, self.PreampSettingsData[cardStr][chan]["Low-Pass \n Time Constant [us]"])
                    elif "Polarity" in setting:
                       dc.change_polarity(chan, self.PreampSettingsData[cardStr][chan]["Polarity"])
                    elif "Offset" in setting:
@@ -140,7 +139,7 @@ with labrad.connect() as cxn:
             self.PreampLedStateData={}
      
             self.PreampChannels= ["A", "B", "C", "D"]
-            self.PreampSettings = ["High-Pass [us]", "Low-Pass [us]", "Polarity", "Offset"]
+            self.PreampSettings = ["High-Pass \n Time Constant [us]", "Low-Pass \n Time Constant [us]", "Polarity", "Offset"]
             self.PreampLedFlashOptions=["FOout", "FOflash", "RegLoadFlash"]
                 
             for ii in range(0, len(self.availableCards)):
@@ -151,9 +150,9 @@ with labrad.connect() as cxn:
                 for jj in range(0, len(self.PreampChannels)):
                     self.PreampSettingsData[self.availableCards[ii]][self.PreampChannels[jj]]={}
                     for kk in range(0, len(self.PreampSettings)):
-                        if "High-Pass [us]" in self.PreampSettings[kk]:
+                        if "High-Pass \n Time Constant [us]" in self.PreampSettings[kk]:
                            self.PreampSettingsData[self.availableCards[ii]][self.PreampChannels[jj]][self.PreampSettings[kk]]='DC'
-                        elif "Low-Pass [us]" in self.PreampSettings[kk]:
+                        elif "Low-Pass \n Time Constant [us]" in self.PreampSettings[kk]:
                            self.PreampSettingsData[self.availableCards[ii]][self.PreampChannels[jj]][self.PreampSettings[kk]]='0'
                         elif "Polarity" in self.PreampSettings[kk]:
                            self.PreampSettingsData[self.availableCards[ii]][self.PreampChannels[jj]][self.PreampSettings[kk]]='positive'
@@ -166,14 +165,14 @@ with labrad.connect() as cxn:
                 self.PreampOptionMenus[self.PreampChannels[ii]]={}
                 self.PreampOptionMenusData[self.PreampChannels[ii]]={}
                 
-            self.PreampSettingsListDict["High-Pass [us]"] =['DC','3300','1000','330','100','33','10','3.3']
-            self.PreampSettingsListDict["Low-Pass [us]"] =['0','0.22','0.5','1.0','2.2','5','10','22']
+            self.PreampSettingsListDict["High-Pass \n Time Constant [us]"] =['DC','3300','1000','330','100','33','10','3.3']
+            self.PreampSettingsListDict["Low-Pass \n Time Constant [us]"] =['0','0.22','0.5','1.0','2.2','5','10','22']
             self.PreampSettingsListDict["Polarity"] =['positive', 'negative']
 
 
         def busSettingControls(self):
             configState = "normal"
-            
+
             for jj in range(0, len(self.BusChannels)):
                 self.BusChannelLabels[self.BusChannels[jj]] = Label(self, text=self.BusChannels[jj])
                 self.BusChannelLabels[self.BusChannels[jj]].configure(state=configState)
@@ -193,7 +192,7 @@ with labrad.connect() as cxn:
                               self.BusOptionMenus[self.BusChannels[jj]][self.BusSettings[kk]].configure(state='disabled')
                         else:
                            self.BusOptionMenusData[self.BusChannels[jj]][self.BusSettings[kk]]=IntVar()
-                           self.BusOptionMenus[self.BusChannels[jj]][self.BusSettings[kk]]=Checkbutton(self,variable=self.BusOptionMenusData[self.BusChannels[jj]][self.BusSettings[kk]],text="", command=lambda channel= self.BusChannels[jj],settingName=self.BusSettings[kk],settingVal=self.BusOptionMenusData[self.BusChannels[jj]][self.BusSettings[kk]]:self.setBusSetting(channel, settingName, settingVal))
+                           self.BusOptionMenus[self.BusChannels[jj]][self.BusSettings[kk]]=Checkbutton(self,variable=self.BusOptionMenusData[self.BusChannels[jj]][self.BusSettings[kk]],text="           ", command=lambda channel= self.BusChannels[jj],settingName=self.BusSettings[kk],settingVal=self.BusOptionMenusData[self.BusChannels[jj]][self.BusSettings[kk]]:self.setBusSetting(channel, settingName, settingVal))
                            self.BusOptionMenus[self.BusChannels[jj]][self.BusSettings[kk]].configure(width=10)
                            self.BusOptionMenus[self.BusChannels[jj]][self.BusSettings[kk]].place(x=DCRackGui.w*(2.25+2*kk), y=DCRackGui.h*(2+jj))
                      else:
@@ -339,7 +338,7 @@ with labrad.connect() as cxn:
             dc.init_dacs()
         
         def saveToRegistry(self):
-
+           
             for cards in self.availablePreampCards:
                cardID = int(cards.split(",")[0].strip("("))
                dc.select_card(cardID)
@@ -353,9 +352,9 @@ with labrad.connect() as cxn:
                dc.load_from_registry()
                for channel in ['A', 'B', 'C', 'D']:
                   preampState = dc.get_preamp_state(cardID, channel)
-                  self.PreampSettingsData[cards][channel]["High-Pass [us]"] = preampState[0]
+                  self.PreampSettingsData[cards][channel]["High-Pass \n Time Constant [us]"] = preampState[0]
                   dc.change_high_pass_filter(channel, preampState[0]) #set preamp as cards are intialized upon power up
-                  self.PreampSettingsData[cards][channel]["Low-Pass [us]"] = preampState[1]
+                  self.PreampSettingsData[cards][channel]["Low-Pass \n Time Constant [us]"] = preampState[1]
                   dc.change_low_pass_filter(channel, preampState[1])
                   self.PreampSettingsData[cards][channel]["Polarity"] = preampState[2]
                   dc.change_polarity(channel, preampState[2])
@@ -409,7 +408,6 @@ with labrad.connect() as cxn:
                   defaultSetting = defaultSetting+'0'
                elif 'Abus1' in busName:
                   defaultSetting = defaultSetting+'1'
-               print "busName=", busName
                
                dc.change_monitor(busName,defaultSetting)
             self.BusOptionMenus[busName]["Channel"].configure(state='normal')
@@ -427,7 +425,6 @@ with labrad.connect() as cxn:
                selection = selection+'0'
             elif 'Abus1' in busName:
                selection = selection+'1'
-            print "selection=", selection
             dc.change_monitor(busName,selection)
             
             

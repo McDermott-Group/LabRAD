@@ -148,7 +148,10 @@ class Experiment(object):
             for idx in range(5):
                 subpath = os.path.split(subpath)[0]
                 if os.path.exists(subpath) and not os.listdir(subpath):
-                    os.rmdir(subpath)
+                    try:
+                        os.rmdir(subpath)
+                    except WindowsError:
+                        pass
                 
         print('The instrument resources have been safely terminated! ' + 
               'Have a nice day.')
@@ -1860,8 +1863,8 @@ class Experiment(object):
                         time.strftime("%H:%M:%S", finish_time) + ' on ' + 
                         time.strftime("%m/%d/%Y", finish_time) + '.')
                     else:
-                        self._sweep_msg = ('No data has been acquired ' +
-                        ' yet to allow any time estimation.')
+                        self._sweep_msg = ('Not enough data ' +
+                        'acquired to allow the time estimation.')
                 elif ord(key) == 79 or ord(key) == 111:
                     # Either [O] or [o] is pressed.
                      self._standard_output = not self._standard_output

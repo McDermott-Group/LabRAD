@@ -124,8 +124,7 @@ ExptVars = {
             # the RF Pulse.
             'RF to JPM A Fast Pulse Delay': 5500 * ns,
             'JPM A to JPM B Fast Pulse Delay': 0 * ns,
-          
-            'Preamp Timeout': 503 * PreAmpTimeCounts,
+
             'Min Threshold': 0 * PreAmpTimeCounts,
             'Max Threshold': 503 * PreAmpTimeCounts,
            }

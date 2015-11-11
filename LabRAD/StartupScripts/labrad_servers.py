@@ -38,6 +38,7 @@ LABRAD_NODE_PATH = r'StartupScripts'
 LABRAD_NODE_SERVERS_PATH = r'StartupScripts'
 GHZ_FPGA_BRING_UP_PATH = r'Servers\Instruments\GHzBoards'
 DC_RACK_LABVIEW_VI_PATH = r'Servers\Instruments\DCRack'
+DC_RACK_GUI_PATH = r'Servers\Instruments\DCRack'
 
 # Corresponding file names with the extensions.
 LABRAD_FILENAME = 'LabRAD-v1.1.4.exe'
@@ -46,7 +47,7 @@ LABRAD_NODE_SERVERS_FILENAME = 'labradnode_servers.py'
 DIRECT_ETHERNET_SERVER_FILENAME = 'DirectEthernet.exe'
 GHZ_FPGA_BRING_UP_FILENAME = 'auto_ghz_fpga_bringup.py'
 DC_RACK_LABVIEW_VI_FILENAME = 'dc_rack_control.vi'
-
+DC_RACK_GUI_FILENAME = 'DCRackGUI.py'
 
 class QuitException(Exception): pass
 
@@ -259,6 +260,21 @@ class StartAndBringUp:
             raise Exception('Failed to start the GHz FPGA bring up script.')
         self.processes['GHz FPGA Bring Up'].wait()
         print('The GHz FPGA boards have been brought up.\n')
+        
+    def startDCRackGUI(self):
+        print('Openning the DC Rack GUI...')
+        gui_path = os.path.join(LABRAD_PATH, DC_RACK_GUI_PATH)
+        gui_file = os.path.join(gui_path, DC_RACK_GUI_FILENAME)
+        if not os.path.isfile(gui_file):
+            raise Exception('Cannot locate the DC Rack GUI script ' +
+                    gui_file + '.')
+        try:
+            self.processes['DC Rack GUI'] = sp.Popen([sys.executable,
+                    gui_file], creationflags=sp.CREATE_NEW_CONSOLE, cwd=gui_path)
+        except OSError:
+            raise Exception('Failed to start the DC Rack GUI.')
+        print('The DC Rack GUI has been opened.\n')
+        self._waitTillEnterKeyIsPressed()
 
     def startDCRackLabVIEWVI(self):
         print('Getting the path to the LabVIEW.exe from the LabRAD Registry...')
@@ -295,17 +311,16 @@ def main():
                 inst.startDirectEthernetServer()
                 break
         for prog in progs:
-            prog = prog.lower()
-            if prog in ['labradnode', 'labrad node']:
+            prog = prog.lower().replace(' ', '').replace('-', '')
+            if prog =='labradnode':
                 inst.startLabRADNode()
-            elif prog in ['labradnodeservers', 'labradnode servers',
-                    'labrad node servers']:
+            elif prog == 'labradnodeservers':
                 inst.startLabRADNodeServers()
-            elif prog in ['ghzfpgabringup', 'ghz fpga bring up',
-                    'ghz fpga bring-up']:
+            elif prog == 'ghzfpgabringup':
                 inst.bringUpGHzFPGAs()
-            elif prog in ['dcracklabviewvi', 'dcrack labview vi',
-                    'dc rack labview vi']: 
+            elif prog == 'dcrackgui': 
+                inst.startDCRackGUI()
+            elif prog == 'dcracklabviewvi': 
                 inst.startDCRackLabVIEWVI()
 
 

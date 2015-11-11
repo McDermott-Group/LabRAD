@@ -159,7 +159,6 @@ class DcRackWrapper(DeviceWrapper):
                 self.rackCards[card[0]] = Preamp()
             else:
                 self.rackCards[card[0]] = 'fastbias'
-        #print "self.rackCards.keys()=", self.rackCards
         print 'done.'
 
     def packet(self):
@@ -325,6 +324,29 @@ class DcRackWrapper(DeviceWrapper):
             yield p.send()
         else:
             print 'card is not a preamp'
+
+    @inlineCallbacks
+    def commitMonitorStateToRegistry(self, reg):
+        monitorKeyName = self.server.name.split(" ")[0]
+        print "monitorKeyName=", monitorKeyName
+        yield reg.cd(['', 'Servers', 'DC Racks', 'Monitor'], True)
+        p = reg.packet()
+        p.set(monitorKeyName, self.rackMonitor.monitorState())
+        yield p.send()
+
+    @inlineCallbacks
+    def loadMonitorStateFromRegistry(self, reg):
+        monitorKeyName = self.server.name.split(" ")[0]
+        yield reg.cd(['', 'Servers', 'DC Racks', 'Monitor'], True)
+        p = reg.packet()
+        p.get(monitorKeyName, key=monitorKeyName)
+        result =yield p.send()
+        ans = result[monitorKeyName]
+        
+        self.rackMonitor.dBus0 = ans[0]
+        self.rackMonitor.dBus1 = ans[1]
+        self.rackMonitor.aBus0 = ans[2]
+        self.rackMonitor.aBus1 = ans[3]
 
     @inlineCallbacks
     def loadFromRegistry(self, reg):
@@ -532,6 +554,18 @@ class DcRackServer(DeviceServer):
         dev = self.selectedDevice(c)
         state = yield dev.getMonitorState()
         returnValue(state)
+
+    @setting(424, 'commit_monitor_state_to_registry')
+    def commit_monitor_state_to_registry(self, c):
+        dev = self.selectedDevice(c)
+        reg = self.client.registry()
+        yield dev.commitMonitorStateToRegistry(reg)
+
+    @setting(425, 'load_monitor_state_from_registry')
+    def load_monitor_state_from_registry(self, c):
+        dev = self.selectedDevice(c)
+        reg = self.client.registry()
+        yield dev.loadMonitorStateFromRegistry(reg)
 
     @setting(867, 'commit_to_registry')
     def commit_to_registry(self, c):
