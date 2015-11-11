@@ -117,7 +117,7 @@ class ADRController(object):#Tkinter.Tk):
         self.cxn._cxn.addListener(update_state, source=mgr.ID, ID=101)
         yield mgr.subscribe_to_named_message('State Changed', 101, True)
         # log update
-        update_log = lambda c, (s,(m,a)): self.updateLog(m,a) if s==self.cxn[self.selectedADR].ID else -1
+        update_log = lambda c, (s,(m,a)): self.updateLog(m,a) if s==self.cxn[self.selectedADR].ID else -1 # &&& upon first opening, self.selectedADR == None, and this throws an error.
         self.cxn._cxn.addListener(update_log, source=mgr.ID, ID=102)
         yield mgr.subscribe_to_named_message('Log Changed', 102, True)
         # magging up stopped

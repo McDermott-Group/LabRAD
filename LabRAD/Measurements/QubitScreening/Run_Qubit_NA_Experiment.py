@@ -41,7 +41,7 @@ Resources = [
 ExptInfo = {
             'Device Name': '100715A-E4',
             'User': 'Guilhem Ribeill and Chris Wilen',
-            'Base Path': 'Z:\mcdermott-group\Data\Flux Biased JPM\ADR Cooldown 110915',
+            'Base Path': 'Z:\mcdermott-group\Data\Flux Biased JPM\ADR Cooldown 111015',
             'Experiment Name': 'FrequencyFluxBias2D',
             'Comments': 'Reflection from measure port of flux biased JPM' 
            }
