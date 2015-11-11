@@ -49,7 +49,6 @@ with labrad.connect() as cxn:
             self.initializeDcRackDataStructures() 
             self.busSettingControls()
 
-
             self.InitDacVrefsButton = Button(self, text="Init DAC Vrefs", command=self.initDacVrefs)
             self.InitDacVrefsButton.place(x=DCRackGui.w*(1+1), y=DCRackGui.h*(4.5+2))
                 
@@ -266,7 +265,7 @@ with labrad.connect() as cxn:
                            self.PreampOptionMenus[self.PreampChannels[jj]][self.PreampSettings[kk]]=OptionMenu(self,self.PreampOptionMenusData[self.PreampChannels[jj]][self.PreampSettings[kk]],*self.PreampSettingsListDict[self.PreampSettings[kk]], command=lambda event, channel= self.PreampChannels[jj],settingName=self.PreampSettings[kk],settingVal=self.PreampOptionMenusData[self.PreampChannels[jj]][self.PreampSettings[kk]]:self.setPreampSetting(channel, settingName, settingVal))
                         else:
                            self.PreampOptionMenusData[self.PreampChannels[jj]][self.PreampSettings[kk]]=IntVar()
-                           self.PreampOptionMenus[self.PreampChannels[jj]][self.PreampSettings[kk]]=Spinbox(self, textvariable=self.PreampOptionMenusData[self.PreampChannels[jj]][self.PreampSettings[kk]],from_=0, to=2**16-1, increment=10,command=lambda channel= self.PreampChannels[jj],settingName=self.PreampSettings[kk],settingVal=self.PreampOptionMenusData[self.PreampChannels[jj]][self.PreampSettings[kk]]:self.setPreampSetting(channel, settingName, settingVal))
+                           self.PreampOptionMenus[self.PreampChannels[jj]][self.PreampSettings[kk]]=Spinbox(self, textvariable=self.PreampOptionMenusData[self.PreampChannels[jj]][self.PreampSettings[kk]],from_=0, to=2**16-1,command=lambda channel= self.PreampChannels[jj],settingName=self.PreampSettings[kk],settingVal=self.PreampOptionMenusData[self.PreampChannels[jj]][self.PreampSettings[kk]]:self.setPreampSetting(channel, settingName, settingVal))
                            self.PreampOptionMenus[self.PreampChannels[jj]][self.PreampSettings[kk]].bind("<Return>",lambda event, channel= self.PreampChannels[jj],settingName=self.PreampSettings[kk],settingVal=self.PreampOptionMenusData[self.PreampChannels[jj]][self.PreampSettings[kk]]:self.setPreampOffsetReturn(channel, settingName, settingVal))
           
                     self.PreampOptionMenus[self.PreampChannels[jj]][self.PreampSettings[kk]].configure(width=10)
@@ -339,7 +338,7 @@ with labrad.connect() as cxn:
             dc.init_dacs()
         
         def saveToRegistry(self):
-
+           
             for cards in self.availablePreampCards:
                cardID = int(cards.split(",")[0].strip("("))
                dc.select_card(cardID)
