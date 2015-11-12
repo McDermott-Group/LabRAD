@@ -13,10 +13,10 @@ TODO LIST
 - add compressor controls
 
 BUGS
-- changing the regulation temp automatically starts regulation
++ changing the regulation temp automatically starts regulation
 - sometimes starting regulation doesnt decrease properly (I think due to dT=0)
 - mag up buttons when adr server is not active give error
-- changing the temperature does not seem to work
++ changing the temperature does not seem to work
 - since current lags voltage, often will mag all the way down.  have to press regulate again to go back up
 - temperature logging inevitably fails after a while
 - uses lots of memory

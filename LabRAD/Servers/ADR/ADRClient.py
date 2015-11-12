@@ -238,7 +238,7 @@ class ADRController(object):#Tkinter.Tk):
         self.regulateButton = Tkinter.Button(master=magControlsFrame, text='Regulate', command=self.regulate)
         self.regulateButton.pack(side=Tkinter.LEFT)
         Tkinter.Label(magControlsFrame, text=" at ").pack(side=Tkinter.LEFT)
-        self.regulateTempField = Tkinter.Entry(magControlsFrame, validate='focusout', validatecommand=self.changeRegTemp)
+        self.regulateTempField = Tkinter.Entry(magControlsFrame, validate='key', validatecommand=self.changeRegTemp)
         self.regulateTempField.pack(side=Tkinter.LEFT)
         self.regulateTempField.insert(0, "0.1")
         Tkinter.Label(magControlsFrame, text="K").pack(side=Tkinter.LEFT)
