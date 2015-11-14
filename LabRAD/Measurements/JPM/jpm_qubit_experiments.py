@@ -44,6 +44,7 @@ class JPMExperiment(expt.Experiment):
             return
         data = np.array(data)
         plt.figure(3)
+        plt.get_current_fig_manager().window.wm_geometry("800x550+700+25")
         plt.ion()
         plt.clf()
         if number_of_devices == 1: 
