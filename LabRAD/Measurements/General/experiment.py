@@ -2061,3 +2061,4 @@ class Experiment(object):
         plt.xlabel('Time [ns]')
         plt.ylabel('DAC Waveforms [DAC units]')
         plt.draw()
+        plt.pause(0.05)
