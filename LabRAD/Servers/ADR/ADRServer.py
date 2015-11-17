@@ -152,8 +152,8 @@ class ADRServer(DeviceServer):
         for name in running_servers:
             if name.find('node ') >= 0: nodeName = name.strip('node ')
             else:
-                import os
-                nodeName = os.environ['COMPUTERNAME'].lower()
+                import platform
+                nodeName = platform.node().lower()
         #which do we need to start?
         reg = self.client.registry
         yield reg.cd(self.ADRSettingsPath)
