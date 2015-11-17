@@ -50,7 +50,7 @@ class MeasureIV(tk.Tk):
         self.ACFreq.set(1)
         self.ACAmp.set(0.05)
         self.DCAmp.set(0.05)
-        self.sampRate.set(10000)
+        self.sampRate.set(2000)
         self.nSamples.set(10000)
         self.portDCIn.trace('w',self.changeDCOutput)
         self.DCAmp.trace('w',self.changeDCOutput)
@@ -245,7 +245,7 @@ class MeasureIV(tk.Tk):
             callbackdata = daqmx.get_callbackdata_from_id(callbackData_ptr)
             
             data, npoints = daqmx.ReadAnalogF64(taskHandle, buffsize, 10.0, daqmx.Val_GroupByChannel, buffsize, 1)
-            
+             
             #self.updateData(data.tolist())
             print 'Aquired %i points'%len(data.tolist())
             return 0 # The function should return an integer

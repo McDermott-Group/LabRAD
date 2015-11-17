@@ -250,7 +250,7 @@ class AgilentN5230AServer(GPIBManagedServer):
             ascii_data = yield dev.read()
 
     	data = numpy.array([x for x in ascii_data.split(',')], dtype=float)
-    	returnValue(data)
+    	returnValue(data.astype(float))
     	
     @setting(599, 'Initialize')
     def initialize(self, c):

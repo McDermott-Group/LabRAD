@@ -63,5 +63,5 @@ with qubit_na_experiment.QubitNAExperiment() as run:
     
     run.set_experiment(ExptInfo, Resources, ExptVars) 
     
-    run.sweep('NA Source Power', np.linspace(-70, -30, 41) * dBm, save=True)
-    #run.sweep('Qubit Flux Bias Voltage', np.array([0]) * V, save=True)
+    #run.sweep('NA Source Power', np.linspace(-70, -30, 41) * dBm, save=True)
+    run.sweep('Qubit Flux Bias Voltage', np.array([0]) * V, save=True)
