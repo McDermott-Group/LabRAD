@@ -813,7 +813,7 @@ class Experiment(object):
                 data[key]['Dependencies'] = [var for var 
                         in data[key]['Dependencies'] if var not in rm_vars]
         
-        # Remove 'Rep Iteration' and 'Run Iteration' independent 
+        # Remove 'Repetition Index' and 'Run Iteration' independent 
         # variables if they are not actually used. This may happen when
         # the data dimensions are truncated.
         
@@ -821,9 +821,11 @@ class Experiment(object):
         indep_vars = []
         for key in data:
             if 'Value' in data[key] and 'Dependencies' in data[key]:
-                indep_vars.append(data[key]['Dependencies'])
+                for var in data[key]['Dependencies']:
+                    indep_vars.append(var)
+
         # Remove unnecessary independent variables.
-        for var in ['Rep Iteration', 'Run Iteration']:
+        for var in ['Repetition Index', 'Run Iteration']:
             if var not in indep_vars:
                 data.pop(var, None)
             self._vars.pop(var, None)

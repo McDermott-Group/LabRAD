@@ -208,19 +208,19 @@ class HEMTExperiment(expt.Experiment):
             return {
                     'Is': { 
                         'Value': Is * units.ADCUnits,
-                        'Dependencies': 'Rep Iteration',
+                        'Dependencies': 'Repetition Index',
                         'Preferences':  {'linestyle': 'b.'}},
                     'Qs': { 
                         'Value': Qs * units.ADCUnits,
-                        'Dependencies': 'Rep Iteration',
+                        'Dependencies': 'Repetition Index',
                         'Preferences':  {'linestyle': 'g.'}},
                     'Amplitudes': { 
                         'Value': As * units.ADCUnits,
-                        'Dependencies': 'Rep Iteration',
+                        'Dependencies': 'Repetition Index',
                         'Preferences':  {'linestyle': 'r.'}},
                     'Phases': { # numpy.arctan2(y, x) expects reversed arguments.
                         'Value': np.arctan2(Qs, Is) * units.rad,
-                        'Dependencies': 'Rep Iteration',
+                        'Dependencies': 'Repetition Index',
                         'Preferences':  {'linestyle': 'k.'}},
                     'I': {
                         'Value': I * units.ADCUnits,
@@ -245,7 +245,7 @@ class HEMTExperiment(expt.Experiment):
                         'Preferences':  {'linestyle': 'm-'}},
                     'Mean Absolute Amplitude Std Dev': { 
                         'Value': np.std(As) * units.ADCUnits},
-                    'Rep Iteration': {
+                    'Repetition Index': {
                         'Value': np.linspace(1, len(Is), len(Is)),
                         'Type': 'Independent'},
                     'Temperature': {
