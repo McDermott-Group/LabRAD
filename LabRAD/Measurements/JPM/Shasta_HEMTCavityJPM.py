@@ -84,7 +84,6 @@ Resources = [ {
                 { # Readings entered manually, software parameters.
                     'Interface': None,
                     'Variables': ['Reps',
-                                  'Rep Iteration'
                                   'Runs',
                                   'ADC Time'],
                 }

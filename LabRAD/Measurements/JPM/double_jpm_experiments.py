@@ -247,17 +247,17 @@ class DoubleJPMCorrelation(JPMExperiment):
                 'Temperature': {'Value': self.acknowledge_request('Temperature')},
                 # 'JPM A Timing Data': {
                     # 'Value': P[0,:] * units.PreAmpTimeCounts,
-                    # 'Dependencies': ['Rep Iteration'],
+                    # 'Dependencies': ['Repetition Index'],
                     # 'Preferences': {
                         # 'linestyle': 'r-', 
                         # 'ylim': [0, preamp_timeout]}},
                 # 'JPM B Timing Data': {
                     # 'Value': P[1,:] * units.PreAmpTimeCounts,
-                    # 'Dependencies': ['Rep Iteration'],
+                    # 'Dependencies': ['Repetition Index'],
                     # 'Preferences': {
                         # 'linestyle': 'b-', 
                         # 'ylim': [0, preamp_timeout]}},
-                # 'Rep Iteration': {
+                # 'Repetition Index': {
                         # 'Value': np.linspace(1, len(P[0]), len(P[0])),
                         # 'Type': 'Independent'}
                }
