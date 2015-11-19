@@ -217,7 +217,7 @@ with labrad.connect() as cxn:
             elif "Channel" in settingName:
                 self.setBusChannelMapping(busName, self.BusOptionMenusData[busName]["Card Address/Type"] ,settingVal)
             else:
-               print "Unknow bus setting encountered, please call a bug exterminator immeadiately."
+               print "Unknown bus setting encountered, please call a bug exterminator immeadiately."
 
         def preampSettingControls(self, cardSelection):
             card = cardSelection.get()
@@ -343,6 +343,7 @@ with labrad.connect() as cxn:
                cardID = int(cards.split(",")[0].strip("("))
                dc.select_card(cardID)
                dc.commit_to_registry()
+               #dc.commit_monitor_state_to_registry()
                
         def uploadFromRegistry(self):
 
@@ -360,14 +361,55 @@ with labrad.connect() as cxn:
                   dc.change_polarity(channel, preampState[2])
                   self.PreampSettingsData[cards][channel]["Offset"] = int(preampState[3])
                   dc.change_dc_offset(channel, int(preampState[3]))
+            
             currentCard = self.preampCard.get()
             if len(currentCard)>0:
                self.updatePreampCardSettings(self.preampCard)
-            
 
+##            #dc.load_monitor_state_from_registry()
+##            #print "loaded from load_monitor_state_from_registry"
+##            #monitorStateArray = dc.get_monitor_state()
+##            #print "monitorStateArray=",monitorStateArray
+##            #self.reconfigureMonitorState(monitorStateArray)
+##
+##        def reconfigureMonitorState(self, monitorStateArray):
+##
+##            for ii in range(0, len(monitorStateArray)):
+##               #print "bus=",self.BusChannels[ii]
+##               bus = self.BusChannels[ii]
+##               print "bus=", bus
+##               did = int(monitorStateArray[ii][0])
+##               print "did", did
+##               channel = monitorStateArray[ii][1]
+##               if did !=0:
+##                  cardSelection = self.getCardNameFromCardId(did)
+##                  self.BusOptionMenusData[bus]["Card Address/Type"].set(cardSelection)
+##                  self.setBusSetting(bus, "Card Address/Type", self.BusOptionMenusData[bus]["Card Address/Type"])
+##                  if "Abus" not in bus:
+##                     self.BusOptionMenusData[bus]["Channel"].set(channel)
+##                  else:
+##                     self.BusOptionMenusData[bus]["Channel"].set(channel[0])
+##                  self.setBusSetting(bus, "Channel", self.BusOptionMenusData[bus]["Channel"])
+##                  self.BusOptionMenusData[bus]["On/Off"].set(1)
+##                  self.setBusSetting(bus, "On/Off", self.BusOptionMenusData[bus]["On/Off"])
+##               else:
+##                  self.BusOptionMenusData[bus]["On/Off"].set(0)
+##                  self.setBusSetting(bus, "On/Off", self.BusOptionMenusData[bus]["On/Off"])
+##                  self.BusOptionMenusData[bus]["Card Address/Type"].set("")
+##                  #self.setBusSetting(bus, "Card Address/Type", self.BusOptionMenusData[bus]["Card Address/Type"])
+##                  self.BusOptionMenusData[bus]["Channel"].set("")
+##                  #self.setBusSetting(bus, "Channel", self.BusOptionMenusData[bus]["Channel"])
+##                  
+##            #self.busSettingControls()
+##              
+##        def getCardNameFromCardId(self, did):
+##            print self.availableCards
+##            for ii in range(0, len(self.availableCards)):
+##               if did ==int(self.availableCards[ii].split(",")[0].strip("(")):
+##                  return self.availableCards[ii]
+      
 
         def setBusState(self, busName, busState):
-
             state = busState.get()
             channelSelection = self.BusOptionMenusData[busName]["Channel"].get()
             cardSelection = self.BusOptionMenusData[busName]["Card Address/Type"].get()
@@ -392,29 +434,25 @@ with labrad.connect() as cxn:
 
 
         def setBusCardMapping(self, busName, cardSelection):
-           
             card = cardSelection.get()
             if card != self.BusMostRecentSetting[busName]:
                newList = self.getChannelOptionsList(busName,card)
                self.updateChannelOptionsList(self.BusOptionMenusData[busName]["Channel"], self.BusOptionMenus[busName]["Channel"], newList)
                #initialize bus as new card was selected which requires a channel selection as well
                self.BusMostRecentSetting[busName] = card
-               state = 0
+               
                defaultSettingsList = self.getChannelOptionsList(busName, 'preamp')
                defaultSetting = defaultSettingsList[0]
-               channelSelection =''
                dc.select_card(0)
                if 'Abus0' in busName:
                   defaultSetting = defaultSetting+'0'
                elif 'Abus1' in busName:
                   defaultSetting = defaultSetting+'1'
-               
                dc.change_monitor(busName,defaultSetting)
             self.BusOptionMenus[busName]["Channel"].configure(state='normal')
 
         
         def setBusChannelMapping(self, busName, cardSelection, channelSelection):
-
             selection = channelSelection.get()
             card = cardSelection.get()
             state = self.BusOptionMenusData[busName]["On/Off"].get()
@@ -447,7 +485,7 @@ with labrad.connect() as cxn:
                     return ['Pbus0','clk','clockon', 'cardsel', 'clk1', 'clk2', 'clk3', 'clk4']
             elif "Dbus1" in busName:
                 if 'preamp' in cardSelection:
-                    return ['FOoutA','FOoutB','FOoutC', 'FOoutD', 'daasyn', 'cardsel', 'Pbus0', 'Clockon']
+                    return ['FOoutA','FOoutB','FOoutC', 'FOoutD', 'dasyn', 'cardsel', 'Pbus0', 'Clockon']
                 elif 'fastbias' in cardSelection:
                     return ['foin1', 'foin2', 'foin3', 'foin4', 'on1', 'on2', 'on3', 'on4']
             elif "Abus" in busName:

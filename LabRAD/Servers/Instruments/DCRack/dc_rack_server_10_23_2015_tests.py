@@ -253,7 +253,6 @@ class DcRackWrapper(DeviceWrapper):
 
         if command not in settings:
             raise Error('Allowed commands: {}.'.format(', '.join(keys)))
-
         self.rackMonitor.updateBus(channel, self.activeCard, command)
         change = yield self.sendMonitorPacket(command, settings)
         returnValue(change)
@@ -307,8 +306,10 @@ class DcRackWrapper(DeviceWrapper):
         state = self.rackCards[str(cardNumber)].channels[channel].strState()
         return state
 
-    def getMonitorState(self):
-        return self.rackMonitor.monitorState()
+
+    def getMonitorState(self, reg):
+        state = self.rackMonitor.monitorState()
+        return state
 
     @inlineCallbacks
     def commitToRegistry(self, reg):
@@ -328,10 +329,10 @@ class DcRackWrapper(DeviceWrapper):
     @inlineCallbacks
     def commitMonitorStateToRegistry(self, reg):
         monitorKeyName = self.server.name.split(" ")[0]
-        print "monitorKeyName=", monitorKeyName
+        #print "monitorKeyName=", monitorKeyName
         yield reg.cd(['', 'Servers', 'DC Racks', 'Monitor'], True)
         p = reg.packet()
-        p.set(monitorKeyName, self.rackMonitor.monitorState())
+        p.set(monitorKeyName,self.rackMonitor.monitorState())
         yield p.send()
 
     @inlineCallbacks
@@ -342,11 +343,11 @@ class DcRackWrapper(DeviceWrapper):
         p.get(monitorKeyName, key=monitorKeyName)
         result =yield p.send()
         ans = result[monitorKeyName]
-        
         self.rackMonitor.dBus0 = ans[0]
         self.rackMonitor.dBus1 = ans[1]
         self.rackMonitor.aBus0 = ans[2]
         self.rackMonitor.aBus1 = ans[3]
+
 
     @inlineCallbacks
     def loadFromRegistry(self, reg):
@@ -549,10 +550,11 @@ class DcRackServer(DeviceServer):
         state = yield dev.preampState(cardNumber, channel)
         returnValue(state)
 
-    @setting(423, 'get_monitor_state')
+    @setting(423, 'get_monitor_state',returns="?")
     def getMonitorState(self, c):
         dev = self.selectedDevice(c)
-        state = yield dev.getMonitorState()
+        reg = self.client.registry()
+        state = yield dev.getMonitorState(reg)
         returnValue(state)
 
     @setting(424, 'commit_monitor_state_to_registry')
