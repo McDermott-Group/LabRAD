@@ -1,3 +1,6 @@
+# TODO:
+# DC start trigger
+
 try:
     from PyDAQmx import *
 except ImportError:
@@ -11,6 +14,8 @@ import time
 NI_PCI_6221_MAX_VOLTAGE = 10.0;  # Max voltage output
 NI_PCI_6221_MAX_SAMP_RATE = 10000;   # Measurement/generation rate ?? double check this
 
+#Input 250 kS/s
+#Output 833 kS/s for single channel, 740 kS.s for two channels
 trigName = ""
 
 class CallbackTask(Task):
@@ -18,13 +23,14 @@ class CallbackTask(Task):
         Task.__init__(self)
         self.buffLen = 0
         self.callback =None
+        self.trigName=""
         
     def configureCallbackTask(self, analogInputNameStr, sampRate, numSamples):
         self.buffLen = numSamples
         self.data = np.zeros(self.buffLen)
         self.CreateAIVoltageChan(analogInputNameStr,"",DAQmx_Val_Diff,-10.0,10.0,DAQmx_Val_Volts,None)
         self.CfgSampClkTiming("",float(sampRate),DAQmx_Val_Rising,DAQmx_Val_ContSamps,numSamples)
-        trigName = self.GetTerminalNameWithDevPrefix("ai/StartTrigger")
+        self.trigName = self.GetTerminalNameWithDevPrefix("ai/StartTrigger")
         self.AutoRegisterEveryNSamplesEvent(DAQmx_Val_Acquired_Into_Buffer,1000,0)
         self.AutoRegisterDoneEvent(0)
         
@@ -56,20 +62,27 @@ class CallbackTask(Task):
                 triggername = "/" + device.value + "/" + terminalName
                 break
         return triggername
+    
+    def getTrigName(self):
+        return self.trigName
 
-class AnalogOuputTask(Task):
+class acAnalogOutputTask(Task):
     def __init__(self):
         Task.__init__(self)
         self.buffLen = 0
+        self.trigName=None
         
-    def configureAnalogOutputTask(self, analogOutputNameStr, outputRate, outWaveForm):
+    def configureAcAnalogOutputTask(self, acAnalogOutputNameStr, outputRate, outWaveForm, trigName=None):
         self.buffLen = len(outWaveForm)
-        self.CreateAOVoltageChan(analogOutputNameStr,"",-10.0,10.0,DAQmx_Val_Volts,None)
+        self.CreateAOVoltageChan(acAnalogOutputNameStr,"",-10.0,10.0,DAQmx_Val_Volts,None)
         self.CfgSampClkTiming("", outputRate,DAQmx_Val_Rising,DAQmx_Val_ContSamps,self.buffLen)
-        trigName = "/Dev1/ai/StartTrigger" # pass from one to the other !!!!!!!!!!!!
-        self.CfgDigEdgeStartTrig(trigName,DAQmx_Val_Rising)
+        if trigName is not None:
+            self.trigName= trigName
+            self.CfgDigEdgeStartTrig(self.trigName,DAQmx_Val_Rising)
         sampsPerChanWritten = int32()
         self.WriteAnalogF64(self.buffLen, False, 10.0, DAQmx_Val_GroupByChannel, outWaveForm, byref(sampsPerChanWritten), None)
+
+
 
     def GetTerminalNameWithDevPrefix(self, terminalName):
         device = ctypes.create_string_buffer(256)
@@ -84,3 +97,17 @@ class AnalogOuputTask(Task):
                 triggername = "/" + device.value + "/" + terminalName
                 break
         return triggername
+
+class dcAnalogOutputTask(Task):
+    def __init__(self):
+        Task.__init__(self)
+        self.buffLen = 0
+        self.trigName=None
+
+    def configureDcAnalogOutputTask(self, dcAnalogOutputNameStr, dcValue):
+        self.data=np.zeros(1)
+        self.data[0]=dcValue
+        self.data.astype(np.float64) #cast to fp64
+        self.CreateAOVoltageChan(dcAnalogOutputNameStr,"",-10.0,10.0,DAQmx_Val_Volts,None)
+        sampsPerChanWritten = int32()
+        self.WriteAnalogF64(1,True,10.0,DAQmx_Val_GroupByChannel,self.data,byref(sampsPerChanWritten),None)
