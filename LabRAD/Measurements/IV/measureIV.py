@@ -6,11 +6,17 @@ import ttk
 import tkFileDialog
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
 import os, sys
-import BNC2110 as bnc 
+import niPCI6221 as ni
 import threading
 
 # Check out:
 # https://pythonhosted.org/PyDAQmx/callback.html
+
+# TODO:
+# fix two-wire so its how Joey actually does it: change units to ohms, not kohms, make amp on just middle
+# DC sweep?
+# diff extensions for diff measurements?
+# record all parameters used in notes
 
 class MeasureIV(tk.Tk):   
 
@@ -20,9 +26,8 @@ class MeasureIV(tk.Tk):
         self.running = True
         self.initParams()
         self.initializeWindow()
-        self.initializeWaveOutput()
-        self.initializeDCOutput()
-        self.initializeWaveInput()
+        self.initializeACWaves()
+        self.initializeDCWave()
         self.lock = threading.Lock()
         self.cond = threading.Condition(threading.Lock())
     
@@ -46,26 +51,28 @@ class MeasureIV(tk.Tk):
         self.ROut.set(100)
         self.portACIn.set(0)
         self.portDCIn.set(1)
-        self.portOut.set(2)
+        self.portOut.set(0)
         self.amp.set(1)
         self.ACFreq.set(1)
         self.ACAmp.set(0.05)
-        self.DCAmp.set(0.05)
+        self.DCAmp.set(0.0)
         self.sampRate.set(10000)
         self.nSamples.set(10000)
         self.portDCIn.trace('w',self.changeDCOutput)
         self.DCAmp.trace('w',self.changeDCOutput)
-        self.portOut.trace('w',self.changeWaveInput)
-        self.portACIn.trace('w',self.changeWaveOutput)
-        self.ACFreq.trace('w',self.changeWaveOutput)
-        self.ACAmp.trace('w',self.changeWaveOutput)
-        self.sampRate.trace('w',self.changeWaveOutput)
-        self.nSamples.trace('w',self.changeWaveOutput)
+        self.portOut.trace('w',self.changeACWaves)
+        self.portACIn.trace('w',self.changeACWaves)
+        self.ACFreq.trace('w',self.changeACWaves)
+        self.ACAmp.trace('w',self.changeACWaves)
+        self.sampRate.trace('w',self.changeACWaves)
+        self.nSamples.trace('w',self.changeACWaves)
         self.averages = tk.IntVar()
         self.totalAverages = tk.IntVar()
         self.averages.set(0)
         self.totalAverages.set(1)
         self.averaging = False
+        self.VAverages = 0
+        self.IAverages = 0
         
     def initializeWindow(self):
         """Creates the GUI."""
@@ -212,40 +219,40 @@ class MeasureIV(tk.Tk):
         # Return the wave to the caller
         return wave
     
-    def initializeWaveOutput(self):
+    def initializeACWaves(self):
         try:
-            self.waveOutput = bnc.NIOutputWave(self.portACIn.get(),self.sampRate.get())
-            self.waveOutput.setWave(self.genWave( self.ACAmp.get(), self.ACFreq.get() ))
-            self.waveOutput.startWave()
-            print "started wave output"
+            writeBuf = self.genWave(self.ACAmp.get(), self.ACFreq.get())
+            
+            self.waveInput = ni.CallbackTask()
+            self.waveInput.configureCallbackTask("Dev1/ai"+str(self.portOut.get()), self.sampRate.get(),len(writeBuf))
+            self.waveInput.setCallback(self.updateData)
+            triggerName = self.waveInput.getTrigName()
+            
+            self.waveOutput = ni.acAnalogOutputTask()
+            self.waveOutput.configureAcAnalogOutputTask("Dev1/ao"+str(self.portACIn.get()), self.sampRate.get(),writeBuf,trigName=triggerName)
+            
+            self.waveOutput.StartTask()
+            self.waveInput.StartTask()
+            print "started AC waves"
         except ValueError:
             pass #invalid value often happens before typing has fully finished
         except Exception as e:
             print 'Error initializing wave output:\n' + str(e)
     
-    def initializeDCOutput(self):
+    def initializeDCWave(self):
         try:
-            self.DCOutput = bnc.NIOutputWave(self.portDCIn.get(),self.sampRate.get())
-            self.DCOutput.setWave(self.genWave( self.DCAmp.get(), 0 ))
-            self.DCOutput.startWave()
+            self.DCOutput = ni.dcAnalogOutputTask()
+            self.DCOutput.configureDcAnalogOutputTask("Dev1/ao"+str(self.portDCIn.get()),self.DCAmp.get())
+            self.DCOutput.StartTask()
             print "started DC output"
         except ValueError:
             pass #invalid value often happens before typing has fully finished
         except Exception as e:
             print 'Error initializing DC output:\n' + str(e)
-            
-    def initializeWaveInput(self):
-        # Create the input task
-        self.waveInput = bnc.NIReadWaves2([self.portOut.get()],self.sampRate.get())
-        self.waveInput.setCallback(self.updateData)
-        self.waveInput.startWave()
         
     def updateData(self, data):
-        self.VAverages = 0
-        self.IAverages = 0
-        
         self.cond.acquire()
-        try: newdata = data[0]
+        try: newdata = data
         except Exception as e:
             print 'failed to aquire data'
             newdata = []
@@ -261,24 +268,35 @@ class MeasureIV(tk.Tk):
         self.ax.set_xlabel('Voltage [V]')
         self.ax.set_ylabel('Current [A]')
         if currentTab == 0: # 2 wire
-            currents = currents
-            voltages = voltages
+            try: 
+                currents = (currents-voltages/self.amp.get())/self.RACIn.get()
+                voltages = voltages/self.amp.get()
+                currents, voltages = voltages, currents
+                self.ax.set_xlabel('Current [A]')
+                self.ax.set_ylabel('Voltage [V]')
+            except ValueError: pass # in case the fields have bad values or are not finished typing
         elif currentTab == 1: # 3 wire
-            currents = currents/self.RACIn.get()/1000
-            voltages = voltages/self.amp.get()
+            try:
+                currents = currents/self.RACIn.get()/1000
+                voltages = voltages/self.amp.get()
+            except ValueError: pass
         elif currentTab == 2: # 4 wire
-            currents = currents/(self.RACIn.get() + self.ROut.get())/1000
-            voltages = voltages/self.amp.get()
+            try:
+                currents = currents/(self.RACIn.get() + self.ROut.get())/1000
+                voltages = voltages/self.amp.get()
+            except ValueError: pass
         elif currentTab == 3: # V-Phi
-            currents = currents/self.RACIn.get()/1000
-            voltages = voltages/self.amp.get()
-            self.ax.set_xlabel('$\Phi$ [A/$\Phi_0$]')
-            self.ax.set_ylabel('Voltage [V]')
+            try:
+                currents = currents/self.RACIn.get()/1000
+                voltages = voltages/self.amp.get()
+                self.ax.set_xlabel('$\Phi$ [A/$\Phi_0$]')
+                self.ax.set_ylabel('Voltage [V]')
+            except ValueError: pass
         
         # average data if selected
         if self.averaging is True and self.averages.get() < self.totalAverages.get():
-            self.VAverages = (self.VAverages*self.averages.get() + voltages)/(self.averages.get()+1)
-            self.IAverages = (self.IAverages*self.averages.get() + currents)/(self.averages.get()+1)
+            self.VAverages = (self.VAverages*self.averages.get() + voltages)/(self.averages.get()+1.)
+            self.IAverages = (self.IAverages*self.averages.get() + currents)/(self.averages.get()+1.)
             self.averages.set(self.averages.get()+1)
             if self.averages.get() == self.totalAverages.get(): # save and re-initialize
                 self.saveAveragedData()
@@ -325,24 +343,26 @@ class MeasureIV(tk.Tk):
         chooseDirOpts['title'] = 'Choose base data directory...'
     	self.savePath.set( tkFileDialog.askdirectory(**chooseDirOpts) )
     
-    def changeWaveOutput(self,*args):
+    def changeACWaves(self,*args):
         """This should be called (by a listener) every time any of the BNC output port variables change."""
         try: 
-            self.waveOutput.endWave()
-        except Exception as e: print 'failed to end output wave'
-        self.initializeWaveOutput()
+            self.ACAmp.get(), self.ACFreq.get() #raise error if cell is not valid float
+            self.waveOutput.StopTask()
+            self.waveOutput.ClearTask()
+            self.waveInput.StopTask()
+            self.waveInput.ClearTask()
+            self.initializeACWaves()
+        except ValueError: pass # if cell is not valid float
+        except Exception as e: print 'failed to end wave', str(e)
     
     def changeDCOutput(self,*args):
         try: 
-            self.DCOutput.endWave()
+            self.DCAmp.get()    # raise error if cell is not valid float
+            self.DCOutput.StopTask()
+            self.DCOutput.ClearTask()
+            self.initializeDCWave()
+        except ValueError: pass # if cell is not valid float
         except Exception as e: print 'failed to end output DC wave', str(e)
-        self.initializeDCOutput()
-    
-    def changeWaveInput(self,*args):
-        """This should be called (by a listener) every time any of the BNC input port variables change."""
-        try: self.waveInput.endRead()
-        except Exception as e: print 'failed to end input wave'
-        self.initializeWaveInput()
 
     def _quit(self):
         """ called when the window is closed."""
@@ -350,8 +370,12 @@ class MeasureIV(tk.Tk):
         self.quit()     # stops mainloop
         self.destroy()  # this is necessary on Windows to prevent
                                # Fatal Python Error: PyEval_RestoreThread: NULL tstate
-        self.waveOutput.endWave()
-        self.waveInput.endRead()
+        self.waveOutput.StopTask()
+        self.waveOutput.ClearTask()
+        self.waveInput.StopTask()
+        self.waveInput.ClearTask()
+        self.DCOutput.StopTask()
+        self.DCOutput.ClearTask()
         #os._exit(1)
         
 if __name__ == "__main__":

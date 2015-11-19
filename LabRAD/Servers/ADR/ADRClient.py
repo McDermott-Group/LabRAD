@@ -90,6 +90,7 @@ class ADRController(object):#Tkinter.Tk):
         #Tkinter.Tk.__init__(self,parent)
         self.parent = parent
         self.selectedADR = None
+        self.regulating = False
         #initialize and start measurement loop
         self.connect()
     @inlineCallbacks
@@ -117,7 +118,7 @@ class ADRController(object):#Tkinter.Tk):
         self.cxn._cxn.addListener(update_state, source=mgr.ID, ID=101)
         yield mgr.subscribe_to_named_message('State Changed', 101, True)
         # log update
-        update_log = lambda c, (s,(m,a)): self.updateLog(m,a) if s==self.cxn[self.selectedADR].ID else -1
+        update_log = lambda c, (s,(m,a)): self.updateLog(m,a) if s==self.cxn[self.selectedADR].ID else -1 # &&& upon first opening, self.selectedADR == None, and this throws an error.
         self.cxn._cxn.addListener(update_log, source=mgr.ID, ID=102)
         yield mgr.subscribe_to_named_message('Log Changed', 102, True)
         # magging up stopped
@@ -237,7 +238,7 @@ class ADRController(object):#Tkinter.Tk):
         self.regulateButton = Tkinter.Button(master=magControlsFrame, text='Regulate', command=self.regulate)
         self.regulateButton.pack(side=Tkinter.LEFT)
         Tkinter.Label(magControlsFrame, text=" at ").pack(side=Tkinter.LEFT)
-        self.regulateTempField = Tkinter.Entry(magControlsFrame, validate='focusout', validatecommand=self.regulate)
+        self.regulateTempField = Tkinter.Entry(magControlsFrame, validate='key', validatecommand=self.changeRegTemp)
         self.regulateTempField.pack(side=Tkinter.LEFT)
         self.regulateTempField.insert(0, "0.1")
         Tkinter.Label(magControlsFrame, text="K").pack(side=Tkinter.LEFT)
@@ -450,14 +451,20 @@ class ADRController(object):#Tkinter.Tk):
     def regulate(self): 
         T_target = float(self.regulateTempField.get())
         self.cxn[self.selectedADR].regulate(T_target)
+    def changeRegTemp(self):
+        if self.regulating == True:
+            T_target = float(self.regulateTempField.get())
+            self.cxn[self.selectedADR].regulate(T_target)
     def regulationStarted(self):
         self.regulateButton.configure(text='Stop Regulating', command=self.cancelRegulate)
         self.magUpButton.configure(state=Tkinter.DISABLED)
+        self.regulating = True
     def cancelRegulate(self):
         self.cxn[self.selectedADR].cancel_regulation()
     def regulationStopped(self):
         self.regulateButton.configure(text='Regulate', command=self.regulate)
         self.magUpButton.configure(state=Tkinter.NORMAL)
+        self.regulating = False
         
     def _quit(self):
         """ called when the window is closed."""

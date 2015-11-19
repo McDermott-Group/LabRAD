@@ -44,6 +44,7 @@ class JPMExperiment(expt.Experiment):
             return
         data = np.array(data)
         plt.figure(3)
+        plt.get_current_fig_manager().window.wm_geometry("800x550+700+25")
         plt.ion()
         plt.clf()
         if number_of_devices == 1: 
@@ -74,7 +75,10 @@ class JPMExperiment(expt.Experiment):
         
         preamp_timeout = self.boards.consts['PREAMP_TIMEOUTS'][self.value('Measure Time')['us']]
         self.add_var('Preamp Timeout', preamp_timeout * units.PreAmpTimeCounts)
-        threshold = self.value('Threshold')['PreAmpTimeCounts']
+        if self.value('Threshold') is not None:
+            threshold = self.value('Threshold')['PreAmpTimeCounts']
+        else:
+            threshold = preamp_timeout
         
         ###DATA POST-PROCESSING####################################################################
         if self.value('Histogram'):

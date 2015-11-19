@@ -176,7 +176,7 @@ class Agilent8720ETServer(GPIBManagedServer):
             yield dev.write('POWE%iDB' %pow['dBm'])
         returnValue(pow)
         
-    @setting(450, 'Get Trace', returns=['*c[]'])
+    @setting(450, 'Get Trace', returns=['*v[]'])
     def get_trace(self, c):
         """Get network analyzer trace. The output is complex and depends
         on the display format:
@@ -192,19 +192,23 @@ class Agilent8720ETServer(GPIBManagedServer):
         
         if avgOn:
             numAvg = yield self.average_points(c)
+            yield dev.write('AVERREST')
             yield dev.query('OPC;NUMG%i'%numAvg)
         else:
             sweepWait = float(waitTime)
             yield dev.query('OPC;SING')
             
         
-        yield dev.write('OUTPFORM')
+        yield dev.write('OUTPFORM;')
         dataBuffer = yield dev.read_raw()
         rawData = numpy.fromstring(dataBuffer,dtype=numpy.float32)
-        data = numpy.empty((rawData.shape[-1] - 1) / 2, dtype=numpy.complex)
-        data.real = rawData[1:-1:2]
-        data.imag = numpy.hstack((rawData[2:-1:2], rawData[-1])) #ugly...
-        returnValue(data)
+        data = numpy.empty((rawData.shape[-1] - 1) / 2)
+        real = rawData[1:-1:2]
+        imag = numpy.hstack((rawData[2:-1:2], rawData[-1])) #ugly...
+        
+        data = real;
+        
+        returnValue(data.astype(float))
         
     @setting(451, 'Display Format', fmt=['s'], returns=['s'])
     def display_format(self, c, fmt=None):
