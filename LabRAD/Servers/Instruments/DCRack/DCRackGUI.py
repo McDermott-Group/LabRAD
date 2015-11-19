@@ -343,6 +343,7 @@ with labrad.connect() as cxn:
             for cards in self.availablePreampCards:
                cardID = int(cards.split(",")[0].strip("("))
                dc.select_card(cardID)
+               dc.commit_led_state_to_registry((bool(self.PreampLedStateData[cards]["FOout"]),bool(self.PreampLedStateData[cards]["FOflash"]),bool(self.PreampLedStateData[cards]["RegLoadFlash"])))
                dc.commit_to_registry()
                
         def uploadFromRegistry(self):
@@ -361,6 +362,11 @@ with labrad.connect() as cxn:
                   dc.change_polarity(channel, preampState[2])
                   self.PreampSettingsData[cards][channel]["Offset"] = int(preampState[3])
                   dc.change_dc_offset(channel, int(preampState[3]))
+                  if channel == 'D':
+                     ledState = dc.get_led_state_from_registry()
+                     self.PreampLedStateData[cards]["FOout"]=int(ledState[0])
+                     self.PreampLedStateData[cards]["FOflash"]=int(ledState[1])
+                     self.PreampLedStateData[cards]["RegLoadFlash"]=int(ledState[2])
             
             currentCard = self.preampCard.get()
             if len(currentCard)>0:

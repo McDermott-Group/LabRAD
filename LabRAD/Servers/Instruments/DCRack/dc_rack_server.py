@@ -328,6 +328,22 @@ class DcRackWrapper(DeviceWrapper):
             print 'card is not a preamp'
 
     @inlineCallbacks
+    def commitLedStateToRegistry(self, reg, ledState):
+        card = self.rackCards[self.activeCard]
+        if isinstance(card, Preamp):
+            yield reg.cd(['', 'Servers', 'DC Racks', 'LEDs'], True)
+            cardName = 'Preamp {}'.format(self.activeCard)
+            p = reg.packet()
+            #def state(chan):
+                #"""Return a tuple of channel state, to be stored in the registry"""
+                #return (chan.highPass, chan.lowPass, chan.polarity, chan.offset)
+            p.set(cardName, ledState)
+            yield p.send()
+        else:
+            print 'card is not a preamp'        
+        
+
+    @inlineCallbacks
     def commitMonitorStateToRegistry(self, reg):
         monitorKeyName = self.server.name.split(" ")[0]
         yield reg.cd(['', 'Servers', 'DC Racks', 'Monitor'], True)
@@ -337,6 +353,7 @@ class DcRackWrapper(DeviceWrapper):
                 return ((mon.dBus0[0],mon.dBus0[1]), (mon.dBus1[0],mon.dBus1[1]), (mon.aBus0[0],mon.aBus0[1]), (mon.aBus1[0],mon.aBus1[1]))
         p.set(monitorKeyName, monState(self.rackMonitor))
         yield p.send()
+
 
     @inlineCallbacks
     def loadMonitorStateFromRegistry(self, reg):
@@ -355,6 +372,21 @@ class DcRackWrapper(DeviceWrapper):
         else:
             print "Registry settings for the monitor state of this DC Rack have not been saved yet."
 
+    @inlineCallbacks
+    def getLedStateFromRegistry(self, reg):
+        card = self.rackCards[self.activeCard]
+        if isinstance(card, Preamp):
+            yield reg.cd(['', 'Servers', 'DC Racks', 'LEDs'], True)
+            cardName = 'Preamp {}'.format(self.activeCard)
+            p = reg.packet()
+            p.get(cardName, key=cardName)
+            result = yield p.send()
+            ans = result[cardName]
+            #print "ans=", ans
+            returnValue(ans)
+        else:
+            print 'card is not a preamp'
+        
 
     @inlineCallbacks
     def loadFromRegistry(self, reg):
@@ -556,6 +588,19 @@ class DcRackServer(DeviceServer):
         dev = self.selectedDevice(c)
         state = yield dev.preampState(cardNumber, channel)
         returnValue(state)
+
+    @setting(421, 'get_led_state_from_registry',returns='(bbb)')
+    def get_led_state_from_registry(self, c):
+        dev = self.selectedDevice(c)
+        reg = self.client.registry()
+        ledState = yield dev.getLedStateFromRegistry(reg)
+        returnValue(ledState)
+
+    @setting(422, 'commit_led_state_to_registry',ledState='(bbb)')
+    def commit_led_state_to_registry(self, c, ledState):
+        dev = self.selectedDevice(c)
+        reg = self.client.registry()
+        yield dev.commitLedStateToRegistry(reg,ledState )
 
     @setting(423, 'get_monitor_state')
     def getMonitorState(self, c):
