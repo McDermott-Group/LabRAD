@@ -339,11 +339,11 @@ with labrad.connect() as cxn:
         
         def saveToRegistry(self):
            
+            dc.commit_monitor_state_to_registry()
             for cards in self.availablePreampCards:
                cardID = int(cards.split(",")[0].strip("("))
                dc.select_card(cardID)
                dc.commit_to_registry()
-               #dc.commit_monitor_state_to_registry()
                
         def uploadFromRegistry(self):
 
@@ -366,47 +366,40 @@ with labrad.connect() as cxn:
             if len(currentCard)>0:
                self.updatePreampCardSettings(self.preampCard)
 
-##            #dc.load_monitor_state_from_registry()
-##            #print "loaded from load_monitor_state_from_registry"
-##            #monitorStateArray = dc.get_monitor_state()
-##            #print "monitorStateArray=",monitorStateArray
-##            #self.reconfigureMonitorState(monitorStateArray)
-##
-##        def reconfigureMonitorState(self, monitorStateArray):
-##
-##            for ii in range(0, len(monitorStateArray)):
-##               #print "bus=",self.BusChannels[ii]
-##               bus = self.BusChannels[ii]
-##               print "bus=", bus
-##               did = int(monitorStateArray[ii][0])
-##               print "did", did
-##               channel = monitorStateArray[ii][1]
-##               if did !=0:
-##                  cardSelection = self.getCardNameFromCardId(did)
-##                  self.BusOptionMenusData[bus]["Card Address/Type"].set(cardSelection)
-##                  self.setBusSetting(bus, "Card Address/Type", self.BusOptionMenusData[bus]["Card Address/Type"])
-##                  if "Abus" not in bus:
-##                     self.BusOptionMenusData[bus]["Channel"].set(channel)
-##                  else:
-##                     self.BusOptionMenusData[bus]["Channel"].set(channel[0])
-##                  self.setBusSetting(bus, "Channel", self.BusOptionMenusData[bus]["Channel"])
-##                  self.BusOptionMenusData[bus]["On/Off"].set(1)
-##                  self.setBusSetting(bus, "On/Off", self.BusOptionMenusData[bus]["On/Off"])
-##               else:
-##                  self.BusOptionMenusData[bus]["On/Off"].set(0)
-##                  self.setBusSetting(bus, "On/Off", self.BusOptionMenusData[bus]["On/Off"])
-##                  self.BusOptionMenusData[bus]["Card Address/Type"].set("")
-##                  #self.setBusSetting(bus, "Card Address/Type", self.BusOptionMenusData[bus]["Card Address/Type"])
-##                  self.BusOptionMenusData[bus]["Channel"].set("")
-##                  #self.setBusSetting(bus, "Channel", self.BusOptionMenusData[bus]["Channel"])
-##                  
-##            #self.busSettingControls()
-##              
-##        def getCardNameFromCardId(self, did):
-##            print self.availableCards
-##            for ii in range(0, len(self.availableCards)):
-##               if did ==int(self.availableCards[ii].split(",")[0].strip("(")):
-##                  return self.availableCards[ii]
+            dc.load_monitor_state_from_registry()
+            monitorStateArray = dc.get_monitor_state()
+            self.reconfigureMonitorState(monitorStateArray)
+
+        def reconfigureMonitorState(self, monitorStateArray):
+
+            for ii in range(0, len(monitorStateArray)):
+
+               bus = self.BusChannels[ii]
+               did = int(monitorStateArray[ii][0])
+               channel = monitorStateArray[ii][1]
+               if did !=0:
+                  cardSelection = self.getCardNameFromCardId(did)
+                  self.BusOptionMenusData[bus]["Card Address/Type"].set(cardSelection)
+                  self.setBusSetting(bus, "Card Address/Type", self.BusOptionMenusData[bus]["Card Address/Type"])
+                  if "Abus" not in bus:
+                     self.BusOptionMenusData[bus]["Channel"].set(channel)
+                  else:
+                     self.BusOptionMenusData[bus]["Channel"].set(channel[0])
+                  self.setBusSetting(bus, "Channel", self.BusOptionMenusData[bus]["Channel"])
+                  self.BusOptionMenusData[bus]["On/Off"].set(1)
+                  self.setBusSetting(bus, "On/Off", self.BusOptionMenusData[bus]["On/Off"])
+               else:
+                  self.BusOptionMenusData[bus]["On/Off"].set(0)
+                  self.setBusSetting(bus, "On/Off", self.BusOptionMenusData[bus]["On/Off"])
+                  self.BusOptionMenusData[bus]["Card Address/Type"].set("")
+                  self.BusOptionMenusData[bus]["Channel"].set("")
+                  
+            self.busSettingControls()
+              
+        def getCardNameFromCardId(self, did):
+            for ii in range(0, len(self.availableCards)):
+               if did ==int(self.availableCards[ii].split(",")[0].strip("(")):
+                  return self.availableCards[ii]
       
 
         def setBusState(self, busName, busState):
@@ -440,7 +433,6 @@ with labrad.connect() as cxn:
                self.updateChannelOptionsList(self.BusOptionMenusData[busName]["Channel"], self.BusOptionMenus[busName]["Channel"], newList)
                #initialize bus as new card was selected which requires a channel selection as well
                self.BusMostRecentSetting[busName] = card
-               
                defaultSettingsList = self.getChannelOptionsList(busName, 'preamp')
                defaultSetting = defaultSettingsList[0]
                dc.select_card(0)
@@ -457,13 +449,23 @@ with labrad.connect() as cxn:
             card = cardSelection.get()
             state = self.BusOptionMenusData[busName]["On/Off"].get()
             cardId = int(card.split(",")[0].strip("("))
-
-            dc.select_card(cardId)
-            if 'Abus0' in busName:
-               selection = selection+'0'
-            elif 'Abus1' in busName:
-               selection = selection+'1'
-            dc.change_monitor(busName,selection)
+            if state==1:
+               dc.select_card(cardId)
+               if 'Abus0' in busName:
+                  selection = selection+'0'
+               elif 'Abus1' in busName:
+                  selection = selection+'1'
+               dc.change_monitor(busName,selection)
+            else:
+               dc.select_card(0)
+               defaultSettingsList = self.getChannelOptionsList(busName, 'preamp')
+               defaultSetting = defaultSettingsList[0]
+               dc.select_card(0)
+               if 'Abus0' in busName:
+                  defaultSetting = defaultSetting+'0'
+               elif 'Abus1' in busName:
+                  defaultSetting = defaultSetting+'1'
+               dc.change_monitor(busName,defaultSetting)
             
             
             
