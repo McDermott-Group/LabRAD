@@ -53,6 +53,7 @@ Resources = [ {
                                 'ADC Wait Time': {'Value': 0 * ns},
                                 # 'Stark Amplitude': {'Value': 0 * DACUnits},
                                 # 'Stark Time': {'Value': 0 * ns},
+                                # 'Qubit T2 Delay': {'Value': 0 * ns},
                                 'ADC Demod Frequency': {'Value': -50 * MHz}
                              }
                 },
@@ -111,34 +112,34 @@ ExptInfo = {
             'Device Name': 'MH060',
             'User': 'Ivan Pechenezhskiy',
             'Base Path': 'Z:\mcdermott-group\Data\Syracuse Qubits\Leiden DR 2015-10-22 - Qubits and JPMs',
-            'Experiment Name': 'Rabi1D',
-            'Comments': 'ADC band pass filters removed' 
+            'Experiment Name': 'CavityEvolution',
+            'Comments': 'ADC band pass filters removed.' 
            }
  
 # Experiment Variables
 ExptVars = {
-            'Reps': 4000, # should not exceed ~5,000, use agrument "runs" in sweep parameters instead 
+            'Reps': 3000, # should not exceed ~5,000, use agrument "runs" in sweep parameters instead 
 
             'Init Time': 100 * us,
             
             # 'Stark Amplitude': 0 * DACUnits,
             # 'Stark Time': 10000 * ns,
 
-            'Readout Frequency': 4.9143 * GHz, #4.919 * GHz,
+            'Readout Frequency': 4.9188 * GHz, #4.9139 * GHz,
             'Readout Power': 10 * dBm,
             'Readout Attenuation': 42 * dB, # should be in (0, 63] range
             'Readout SB Frequency': 200 * MHz, # no filters on the IQ-mixer
-            'Readout Amplitude': 1 * DACUnits,
+            'Readout Amplitude': 1.0 * DACUnits,
             'Readout Time': 4000 * ns,
             
             'Qubit Drive to Readout Delay': 0 * ns,
             
             'Qubit Frequency': 4.5827 * GHz,
             'Qubit Power': 13 * dBm,
-            'Qubit Attenuation': 21 * dB, # should be in (0, 63] range
-            'Qubit SB Frequency': 125 * MHz,
-            'Qubit Amplitude': 10 * DACUnits,
-            'Qubit Time': 92 * ns,
+            'Qubit Attenuation': 11 * dB, # should be in (0, 63] range
+            'Qubit SB Frequency': 62.5 * MHz,
+            'Qubit Amplitude': 0 * DACUnits, #1.0 * DACUnits,
+            'Qubit Time': 0 * ns, #60 * ns,
             # 'Qubit T2 Delay': 0 * ns,
 
             'Qubit Flux Bias Voltage': 0 * V,
@@ -150,7 +151,7 @@ ExptVars = {
 # with hemt_qubit_experiments.HEMTStarkShift() as run:
 # with hemt_qubit_experiments.HEMTRamsey() as run:
 with hemt_qubit_experiments.HEMTQubitReadout() as run:
-#with hemt_qubit_experiments.ADCDemodTest() as run:
+# with hemt_qubit_experiments.ADCDemodTest() as run:
     
     run.set_experiment(ExptInfo, Resources, ExptVars)
         
@@ -161,32 +162,55 @@ with hemt_qubit_experiments.HEMTQubitReadout() as run:
     # run.sweep('Readout Attenuation', np.linspace(10, 40, 61) * dB,
         # print_data=['Amplitude','I','Q'], plot_data=['Amplitude','I','Q'],
         # save=True, runs=1, max_data_dim=1)
+        
+    # run.value('Readout Amplitude', 1 * DACUnits)
+    # run.sweep('Readout Attenuation', np.linspace(30, 63, 23) * dB,
+        # print_data=['Amplitude','I','Q'], plot_data=['Amplitude','I','Q'],
+        # save=True, runs=5, max_data_dim=1)
+        
+    # run.value('Readout Amplitude', 0 * DACUnits)
+    # run.sweep('Readout Attenuation', np.linspace(30, 63, 23) * dB,
+        # print_data=['Amplitude','I','Q'], plot_data=['Amplitude','I','Q'],
+        # save=True, runs=5, max_data_dim=1)
     
     # run.value('Qubit Amplitude', 1 * DACUnits)
     # run.sweep('Qubit Attenuation', np.linspace(1, 40, 40) * dB,
         # print_data=['Amplitude','I','Q'], plot_data=['Amplitude','I','Q'],
-        # save=True, runs=1, max_data_dim=1)
+        # save=True, runs=4, max_data_dim=1)
         
     # run.value('Qubit Amplitude', 0 * DACUnits)
     # run.sweep('Qubit Attenuation', np.linspace(1, 40, 40) * dB,
         # print_data=['Amplitude','I','Q'], plot_data=['Amplitude','I','Q'],
-        # save=True, runs=1, max_data_dim=1)
+        # save=True, runs=4, max_data_dim=1)
         
+    # run.value('Qubit Amplitude', 1 * DACUnits)
     # run.sweep('Readout Frequency', np.linspace(4.91, 4.925, 151) * GHz,
         # print_data=['Amplitude','I','Q'], plot_data=['Amplitude','I','Q'],
-        # save=True, runs=1, max_data_dim=1)
+        # save=True, runs=5, max_data_dim=1)
+        
+    # run.value('Qubit Amplitude', 0 * DACUnits)
+    # run.sweep('Readout Frequency', np.linspace(4.91, 4.925, 151) * GHz,
+        # print_data=['Amplitude','I','Q'], plot_data=['Amplitude','I','Q'],
+        # save=True, runs=5, max_data_dim=1)
     
-    # run.sweep('Readout Time', np.linspace(0,10000,1001)*ns,
-        # print_data=['Amplitude','I','Q'], plot_data = ['Amplitude','I','Q'],
-        # save=True, runs=1,max_data_dim=1);
+    run.sweep('Readout Time', np.linspace(0, 4000, 501) * ns,
+        print_data = ['Amplitude', 'Temperature'],
+        plot_data = ['Amplitude', 'I', 'Q'],
+        save=True, runs=1, max_data_dim=2);
     
     # run.sweep(['Qubit Frequency', 'Readout Frequency'], 
       # [np.linspace(4, 5, 101) * GHz, np.linspace(4., 5, 101) * GHz],
       # save=True, print_data='Amplitude', runs=1)
     
+    # run.value('Qubit Amplitude', 1 * DACUnits)
     # run.sweep(['Readout Attenuation', 'Readout Frequency'], 
-      # [np.linspace(20, 50, 31) * dB, np.linspace(4.91, 4.92, 101) * GHz],
-      # save=True, print_data='Amplitude', runs=1)
+      # [np.linspace(31, 63, 17) * dB, np.linspace(4.91, 4.925, 76) * GHz],
+      # save=True, print_data='Amplitude', runs=5)
+      
+    # run.value('Qubit Amplitude', 0 * DACUnits)
+    # run.sweep(['Readout Attenuation', 'Readout Frequency'], 
+      # [np.linspace(31, 63, 17) * dB, np.linspace(4.91, 4.925, 76) * GHz],
+      # save=True, print_data='Amplitude', runs=5)
     
     # run.sweep('Readout Frequency', np.linspace(4.910, 4.925, 151) * GHz,
         # print_data=['Amplitude','I','Q'], plot_data=['Amplitude','I','Q'],
@@ -205,7 +229,7 @@ with hemt_qubit_experiments.HEMTQubitReadout() as run:
         # [np.linspace(1, 21, 11) * dB, np.linspace(4.91, 4.92, 101) * GHz],
         # save=True, print_data='Amplitude', runs=3)
     
-    # run.sweep('Qubit T2 Delay', np.linspace(0, 1000, 501) * ns,
+    # run.sweep('Qubit T2 Delay', np.linspace(0, 1000, 251) * ns,
         # print_data=['Amplitude'], plot_data=['Q', 'I', 'Amplitude'],
         # save=True, runs=4, max_data_dim=1)
            
@@ -221,22 +245,22 @@ with hemt_qubit_experiments.HEMTQubitReadout() as run:
              # print_data=['Q'], plot_data=['Phase'],
              # save=True, runs=1, max_data_dim=1)
 
-    run.sweep('Qubit Time', np.linspace(0, 1000, 251) * ns,
-            print_data=['Amplitude', 'Temperature'], 
-            plot_data=['Q', 'I', 'Amplitude'],
-            save=True, runs=4, max_data_dim=1)
+    # run.sweep('Qubit Time', np.linspace(0, 4000, 1001) * ns,
+            # print_data=['Amplitude', 'Temperature'], 
+            # plot_data=['Q', 'I', 'Amplitude'],
+            # save=True, runs=5, max_data_dim=1)
             
     # run.sweep(['Qubit Time', 'Qubit Amplitude'], 
-        # [np.linspace(0, 1000, 251) * ns, np.linspace(0, .5, 26) * DACUnits],
+        # [np.linspace(0, 1000, 251) * ns, np.linspace(0, 1, 21) * DACUnits],
         # save=True, print_data='Amplitude', runs=2, max_data_dim=2)
         
     # run.sweep(['Qubit Time', 'Qubit Frequency'], 
         # [np.linspace(0, 500, 126) * ns, np.linspace(4.11, 4.17, 121) * GHz],
         # save=True, print_data='Amplitude', runs=2, max_data_dim=2)     
         
-    # run.sweep('Qubit Drive to Readout Delay', np.linspace(0, 2000, 251) * ns,
+    # run.sweep('Qubit Drive to Readout Delay', np.linspace(0, 10000, 2501) * ns,
         # print_data=['Amplitude'], plot_data=['Q', 'I', 'Amplitude'],
-        # save=True, runs=3, max_data_dim=1)
+        # save=True, runs=5, max_data_dim=1)
         
     # run.sweep(['Qubit Attenuation', 'Qubit Frequency'], 
         # [np.linspace(1, 21, 11) * dB, np.linspace(4.55, 4.6, 125) * GHz],

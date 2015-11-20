@@ -29,7 +29,7 @@ class WaveForm():
         # sort based on start times
         for i in range(len(waves))[::-1]:
             for j in range(i):
-                if (waves[j].start > waves[j + 1].start) :
+                if (waves[j].start > waves[j + 1].start):
                     tmp = waves[j + 1]
                     waves[j + 1] = waves[j]
                     waves[j] = tmp

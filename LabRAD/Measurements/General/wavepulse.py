@@ -66,7 +66,7 @@ class WavePulse ():
             self.end = end
             
         if duration is None:
-            self.duration = max(0,end - start) 
+            self.duration = max(0, end - start) 
         else:
             self.duration = duration
         self.wave = {
