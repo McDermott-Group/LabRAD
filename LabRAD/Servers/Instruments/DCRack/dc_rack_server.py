@@ -377,13 +377,17 @@ class DcRackWrapper(DeviceWrapper):
         card = self.rackCards[self.activeCard]
         if isinstance(card, Preamp):
             yield reg.cd(['', 'Servers', 'DC Racks', 'LEDs'], True)
+            content = yield reg.dir()
             cardName = 'Preamp {}'.format(self.activeCard)
-            p = reg.packet()
-            p.get(cardName, key=cardName)
-            result = yield p.send()
-            ans = result[cardName]
-            #print "ans=", ans
-            returnValue(ans)
+            if [cardName] in content:
+                p = reg.packet()
+                p.get(cardName, key=cardName)
+                result = yield p.send()
+                ans = result[cardName]
+                returnValue(ans)
+            else:
+               #print "Registry settings for the LED state of card =",self.activeCard ," have not been saved yet."
+               returnValue(-1)
         else:
             print 'card is not a preamp'
         
@@ -589,7 +593,7 @@ class DcRackServer(DeviceServer):
         state = yield dev.preampState(cardNumber, channel)
         returnValue(state)
 
-    @setting(421, 'get_led_state_from_registry',returns='(bbb)')
+    @setting(421, 'get_led_state_from_registry',returns=['(bbb)', 'i'])
     def get_led_state_from_registry(self, c):
         dev = self.selectedDevice(c)
         reg = self.client.registry()

@@ -364,9 +364,12 @@ with labrad.connect() as cxn:
                   dc.change_dc_offset(channel, int(preampState[3]))
                   if channel == 'D':
                      ledState = dc.get_led_state_from_registry()
-                     self.PreampLedStateData[cards]["FOout"]=int(ledState[0])
-                     self.PreampLedStateData[cards]["FOflash"]=int(ledState[1])
-                     self.PreampLedStateData[cards]["RegLoadFlash"]=int(ledState[2])
+                     if ledState !=-1:
+                        self.PreampLedStateData[cards]["FOout"]=int(ledState[0])
+                        self.PreampLedStateData[cards]["FOflash"]=int(ledState[1])
+                        self.PreampLedStateData[cards]["RegLoadFlash"]=int(ledState[2])
+                     else:
+                        print "LED State not found in registry. After saving settings to registry once, this message will no longer appear."
             
             currentCard = self.preampCard.get()
             if len(currentCard)>0:
