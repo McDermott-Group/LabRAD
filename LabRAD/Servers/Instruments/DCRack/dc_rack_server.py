@@ -1,4 +1,4 @@
-# Copyright (C) 2007  Matthew Neeley
+# Copyright (C) 2011  Ted White
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,254 +16,721 @@
 """
 ### BEGIN NODE INFO
 [info]
-name = DC Rack
-version = 1.1
+name = DC Rack Server
+version = 2.2
 description = Control Fastbias and Preamp boards.
-
 [startup]
 cmdline = %PYTHON% %FILE%
 timeout = 20
-
 [shutdown]
 message = 987654321
 timeout = 20
 ### END NODE INFO
 """
 
-from labrad.types import Value
-from labrad.server import LabradServer, setting
+
+import labrad
+from labrad.devices import DeviceServer, DeviceWrapper
 from labrad.errors import Error
+from labrad.server import setting
 from twisted.internet.defer import inlineCallbacks, returnValue
 
-class NoConnectionError(Error):
-    """You need to connect first."""
-    code = 2
 
-class PreampServer(LabradServer):
-    name = 'DC Rack'
+# map from dac channel names to IDs
+CHANNEL_IDS = {
+    'A': 0,
+    'B': 1,
+    'C': 2,
+    'D': 3
+}
+
+# map from high pass filter names to numeric codes.
+HIGH_PASS = {
+    'DC': 0,
+    '3300': 1,
+    '1000': 2,
+    '330': 3,
+    '100': 4,
+    '33': 5,
+    '10': 6,
+    '3.3': 7
+}
+
+# map from low pass filter names to numeric codes.
+LOW_PASS = {
+    '0': 0,
+    '0.22': 1,
+    '0.5': 2,
+    '1.0': 3,
+    '2.2': 4,
+    '5': 5,
+    '10': 6,
+    '22': 7
+}
+
+# map from polarity names to numeric codes.
+POLARITY = {
+    'positive': 0,
+    'negative': 1
+}
+
+# map from monitor bus name to allowed settings for that bus.
+# for each bus, the settings are given as a map from name to numeric code.
+BUS_SETTINGS = {
+    'Abus0': {
+        'A0': 80L,
+        'B0': 81L,
+        'C0': 82L,
+        'D0': 83L
+    },
+    'Abus1': {
+        'A1': 88L,
+        'B1': 89L,
+        'C1': 90L,
+        'D1': 91L
+    },
+    'Dbus0': {
+        'trigA': 64L,
+        'trigB': 65L,
+        'trigC': 66L,
+        'trigD': 67L,
+        'Pbus0': 64L,
+        'clk': 65L,
+        'clockon': 66L,
+        'cardsel': 67L,
+        'dadata': 68L,
+        'done': 69L,
+        'strobe': 70L,
+        'clk': 71L,
+        'clk1': 68L,
+        'clk2': 69L,
+        'clk3': 70L,
+        'clk4': 71L
+    },
+    'Dbus1': {
+        'FOoutA': 72L,
+        'FOoutB': 73L,
+        'FOoutC': 74L,
+        'FOoutD': 75L,
+        'foin1': 72L,
+        'foin2': 73L,
+        'foin3': 74L,
+        'foin4': 75L,
+        'dasyn': 76L,
+        'cardsel': 77L,
+        'Pbus0': 78L,
+        'Clockon': 79L,
+        'on1': 76L,
+        'on2': 77L,
+        'on3': 78L,
+        'on4': 79L
+    }
+}
+
+# op codes for DAC commands
+OP_AUTODETECT = 0x60 # 01100000
+OP_REG_WRITE  = 0x80 # 10000000
+OP_TRIGGER    = 0xc0 # 11000000
+OP_INIT       = 0xc4 # 11000100
+OP_STREAM     = 0xc8 # 11001000
+OP_LEDS       = 0xe0 # 11100000
+
+
+class DcRackWrapper(DeviceWrapper):
+
+    @inlineCallbacks
+    def connect(self, server, port, cards):
+        """Connect to a dc rack device."""
+        print 'connecting to "{}" on port "{}"...'.format(server.name, port)
+        self.rackCards = {}
+        self.rackMonitor = Monitor()
+        self.activeCard = 100
+        self.server = server
+        self.ctx = server.context()
+        self.port = port
+        p = self.packet()
+        p.open(port)
+        p.baudrate(115200L)
+        p.read() # clear out the read buffer
+        p.timeout(TIMEOUT)
+        yield p.send()
+        for card in cards:
+            if card[1] == 'preamp':
+                self.rackCards[card[0]] = Preamp()
+            else:
+                self.rackCards[card[0]] = 'fastbias'
+        print 'done.'
+
+    def packet(self):
+        """Create a packet in our private context."""
+        return self.server.packet(context=self.ctx)
+
+    def shutdown(self):
+        """Disconnect from the serial port when we shut down."""
+        return self.packet().close().send()
+
+    @inlineCallbacks
+    def write(self, code):
+        """Write a data value to the dc rack."""
+        yield self.packet().write(code).send()
+        #print code
+
+    @inlineCallbacks
+    def initDACs(self):
+        """Initialize the DACs."""
+        yield self.write([OP_INIT])
+        returnValue(OP_INIT)
+
+    @inlineCallbacks
+    def selectCard(self, data):
+        """Sends a select card command."""
+        self.activeCard = str(data)
+        yield self.write([long(data & 0x3f)])
+        returnValue(long(data & 0x3f))
+
+    @inlineCallbacks
+    def changeHighPassFilter(self, channel, data):
+        preamp = self.rackCards[self.activeCard]
+        ch = preamp.channels[channel]
+        ch.update(highPass=data)
+        yield self.sendPreampPacket(channel, ch)
+        returnValue(ch.highPass)
+
+    @inlineCallbacks
+    def changeLowPassFilter(self, channel, data):
+        preamp = self.rackCards[self.activeCard]
+        ch = preamp.channels[channel]
+        ch.update(lowPass=data)
+        yield self.sendPreampPacket(channel, ch)
+        returnValue(ch.lowPass)
+
+    @inlineCallbacks
+    def changePolarity(self, channel, data):
+        preamp = self.rackCards[self.activeCard]
+        ch = preamp.channels[channel]
+        ch.update(polarity=data)
+        yield self.sendPreampPacket(channel, ch)
+        returnValue(ch.polarity)
+
+    @inlineCallbacks
+    def changeDCOffset(self, channel, data):
+        preamp = self.rackCards[self.activeCard]
+        ch = preamp.channels[channel]
+        ch.update(offset=data)
+        yield self.sendPreampPacket(channel, ch)
+        returnValue(ch.offset)
+
+    @inlineCallbacks
+    def sendPreampPacket(self, channelName, channel):
+        ID = CHANNEL_IDS[channelName]
+
+        hp = HIGH_PASS[channel.highPass]
+        lp = LOW_PASS[channel.lowPass]
+        pol = POLARITY[channel.polarity]
+        ofs = channel.offset
+
+        # assemble the full value to be written to the registry
+        reg = ((hp & 7) << 21) | ((lp & 7) << 18) | ((pol & 1) << 17) | (ofs & 0xFFFF)
+
+        # write data into registry and then trigger the DAC output
+        yield self.write([
+            OP_REG_WRITE | ((reg >> 18) & 0x3f),
+            OP_REG_WRITE | ((reg >> 12) & 0x3f),
+            OP_REG_WRITE | ((reg >>  6) & 0x3f),
+            OP_REG_WRITE | ( reg        & 0x3f),
+            OP_TRIGGER | ID
+        ])
+
+    @inlineCallbacks
+    def changeMonitor(self, channel, command, keys=None):
+        settings = BUS_SETTINGS[channel]
+
+        if keys is None:
+            keys = sorted(settings.keys())
+
+        if command is None:
+            returnValue(keys)
+            
+        if command not in settings:
+            raise Error('Allowed commands: {}.'.format(', '.join(keys)))     
+        self.rackMonitor.updateBus(channel, self.activeCard, command)        
+        change = yield self.sendMonitorPacket(command, settings)
+
+        returnValue(change)
+
+    @inlineCallbacks
+    def sendMonitorPacket(self, command, settings):
+        com = settings[command]
+        yield self.write([com])
+        returnValue(com)
+
+    @inlineCallbacks
+    def changeLEDs(self, data):
+        """Sets LED status."""
+        if isinstance(data, tuple):
+            data = 4*data[0] + 2*data[1] + 1*data[2]
+        else:
+            data &= 0x7
+        #self.write([1L])
+        yield self.write([OP_LEDS | data])
+        returnValue(data)
+
+    @inlineCallbacks
+    def identSelf(self, timeout=1):
+        """Sends an identification command."""
+        p = self.packet()
+        p.timeout()
+        p.read()
+        p.write([OP_AUTODETECT])
+        p.timeout(timeout)
+        p.read(1, key='ID')
+        p.timeout()
+        p.read(key='ID')
+        res = yield p.send()
+        returnValue(''.join(res['ID']))
+        #try:
+        #    res = yield p.send()
+        #    returnValue(''.join(res['ID']))
+        #except:
+        #    raise Exception('Ident error')
+
+    def returnCardList(self):
+        cards = []
+        for key in self.rackCards.keys():
+            if self.rackCards[key] == 'fastbias':
+                cards.append((key, 'fastbias'))
+            else:
+                cards.append((key, 'preamp'))
+        return cards
+
+    def preampState(self, cardNumber, channel):
+        state = self.rackCards[str(cardNumber)].channels[channel].strState()
+        return state
+
+
+    def getMonitorState(self):
+        state = self.rackMonitor.monitorStrState()
+        return state
+
+    @inlineCallbacks
+    def commitToRegistry(self, reg):
+        card = self.rackCards[self.activeCard]
+        if isinstance(card, Preamp):
+            yield reg.cd(['', 'Servers', 'DC Racks', 'Preamps'], True)
+            cardName = 'Preamp {}'.format(self.activeCard)
+            p = reg.packet()
+            def state(chan):
+                """Return a tuple of channel state, to be stored in the registry"""
+                return (chan.highPass, chan.lowPass, chan.polarity, chan.offset)
+            p.set(cardName, (state(card.A), state(card.B), state(card.C), state(card.D)))
+            yield p.send()
+        else:
+            print 'card is not a preamp'
+
+    @inlineCallbacks
+    def commitLedStateToRegistry(self, reg, ledState):
+        card = self.rackCards[self.activeCard]
+        if isinstance(card, Preamp):
+            yield reg.cd(['', 'Servers', 'DC Racks', 'LEDs'], True)
+            cardName = 'Preamp {}'.format(self.activeCard)
+            p = reg.packet()
+            #def state(chan):
+                #"""Return a tuple of channel state, to be stored in the registry"""
+                #return (chan.highPass, chan.lowPass, chan.polarity, chan.offset)
+            p.set(cardName, ledState)
+            yield p.send()
+        else:
+            print 'card is not a preamp'        
+        
+
+    @inlineCallbacks
+    def commitMonitorStateToRegistry(self, reg):
+        monitorKeyName = self.server.name.split(" ")[0]
+        yield reg.cd(['', 'Servers', 'DC Racks', 'Monitor'], True)
+        p = reg.packet()
+        def monState(mon):
+                """Return a tuple of monitor state, to be stored in the registry"""
+                return ((mon.dBus0[0],mon.dBus0[1]), (mon.dBus1[0],mon.dBus1[1]), (mon.aBus0[0],mon.aBus0[1]), (mon.aBus1[0],mon.aBus1[1]))
+        p.set(monitorKeyName, monState(self.rackMonitor))
+        yield p.send()
+
+
+    @inlineCallbacks
+    def loadMonitorStateFromRegistry(self, reg):
+        monitorKeyName = self.server.name.split(" ")[0]
+        yield reg.cd(['', 'Servers', 'DC Racks', 'Monitor'], True)
+        content = yield reg.dir()
+        if [monitorKeyName] in content:
+            p = reg.packet()
+            p.get(monitorKeyName, key=monitorKeyName)
+            result =yield p.send()
+            ans = result[monitorKeyName]
+            self.rackMonitor.updateBus('Dbus0', ans[0][0], ans[0][1])
+            self.rackMonitor.updateBus('Dbus1', ans[1][0], ans[1][1])
+            self.rackMonitor.updateBus('Abus0', ans[2][0], ans[2][1])
+            self.rackMonitor.updateBus('Abus1', ans[3][0], ans[3][1]) 
+        else:
+            print "Registry settings for the monitor state of this DC Rack have not been saved yet."
+
+    @inlineCallbacks
+    def getLedStateFromRegistry(self, reg):
+        card = self.rackCards[self.activeCard]
+        if isinstance(card, Preamp):
+            yield reg.cd(['', 'Servers', 'DC Racks', 'LEDs'], True)
+            content = yield reg.dir()
+            cardName = 'Preamp {}'.format(self.activeCard)
+            if [cardName] in content:
+                p = reg.packet()
+                p.get(cardName, key=cardName)
+                result = yield p.send()
+                ans = result[cardName]
+                returnValue(ans)
+            else:
+               #print "Registry settings for the LED state of card =",self.activeCard ," have not been saved yet."
+               returnValue(-1)
+        else:
+            print 'card is not a preamp'
+        
+
+    @inlineCallbacks
+    def loadFromRegistry(self, reg):
+        card = self.rackCards[self.activeCard]
+        if isinstance(card, Preamp):
+            yield reg.cd(['', 'Servers', 'DC Racks', 'Preamps'], True)
+            cardName = 'Preamp {}'.format(self.activeCard)
+            p = reg.packet()
+            p.get(cardName, key=cardName)
+            result = yield p.send()
+            ans = result[cardName]
+            def update(chan, state):
+                """Update channel state from a tuple stored in the registry"""
+                chan.highPass, chan.lowPass, chan.polarity, chan.offset = state
+            for i, chan in enumerate([card.A, card.B, card.C, card.D]):
+                update(chan, ans[i])
+        else:
+            print 'card is not a preamp'
+
+
+    @inlineCallbacks
+    def triggerChannel(self, channel):
+        """Tell the given channel to pull data from register and update DAC value"""
+        ID = CHANNEL_IDS[channel]
+        yield self.write([OP_TRIGGER | ID])
+
+
+    @inlineCallbacks
+    def pushRegisterValue(self, dac, slow, voltage):
+        """Pushes 18 bits of data into 18 bit shift register.
+        High bit is fine(0) or coarse(1) DAC, low bit is fast(0) or slow(1)
+        slew rate, and middle 16 bits are voltage value.
+        """
+
+        # clip voltage to allowed range
+        num = voltage['V']
+        if num > 2.5:
+            num = 2.5
+        elif num < 0 and not dac:
+            num = 0
+        elif num < -2.5:
+            num = -2.5
+
+        # convert voltage into 16-bit number, plus low bit for DAC selection
+        if dac:
+            dac_value = long(float(num+2.5)/5.0 * 0xffff)
+            reg = (dac_value << 1) | 1
+        else:
+            dac_value = long(float(num)/2.5 * 0xffff)
+            reg = (dac_value << 1)
+
+        # set high bit for slew rate
+        if slow:
+            reg |= 0x20000
+
+        # shift bits into register in groups of 6
+        yield self.write([
+            OP_REG_WRITE | ((reg >> 12) & 0x3f),
+            OP_REG_WRITE | ((reg >> 6) & 0x3f),
+            OP_REG_WRITE | ((reg) & 0x3f)
+        ])
+
+    @inlineCallbacks
+    def setVoltage(self, card, channel, dac, slow, num):
+        """Executes sequence of commands to set a voltage value"""
+        yield self.selectCard(card)
+        yield self.pushRegisterValue(dac, slow, num)
+        yield self.triggerChannel(channel)
+
+    @inlineCallbacks
+    def streamChannel(self, channel):
+        """Command to set channel to take streaming data from GHz DAC"""
+        ID = CHANNEL_IDS[channel]
+        yield self.write([OP_STREAM | ID])
+
+    @inlineCallbacks
+    def setChannelStream(self, card, channel):
+        """Executes sequence of commands to set channel to streaming mode"""
+        yield self.selectCard(card)
+        yield self.streamChannel(channel)
+
+
+class DcRackServer(DeviceServer):
+    deviceName = 'DC Rack Server'
+    name = 'DC Rack Server'
+    deviceWrapper = DcRackWrapper
 
     @inlineCallbacks
     def initServer(self):
-        self.Links = []
-        yield self.findLinks()
+        print 'loading config info...',
+        yield self.loadConfigInfo()
+        print 'done.'
+        yield DeviceServer.initServer(self)
 
     @inlineCallbacks
-    def findLinks(self):
-        """Check registry listing for expected links and if they actually exist add to our list of links"""
-        # load from the registry
+    def loadConfigInfo(self):
+        """Load configuration information from the registry."""
         reg = self.client.registry()
-        yield reg.cd(['', 'Servers', 'DC Rack', 'Links'], True)
+        yield reg.cd(['', 'Servers', 'DC Racks', 'Links'], True)
         dirs, keys = yield reg.dir()
         p = reg.packet()
         for k in keys:
             p.get(k, key=k)
         ans = yield p.send()
-        possibleLinks = dict((k, ans[k]) for k in keys)
-        print possibleLinks.items()
-        # try to connect
-        cxn = self.client
-        for name, (server, port) in possibleLinks.items():
-            if server in cxn.servers:
-                print 'Checking %s...' % name
-                ser = cxn.servers[server]
-                ports = yield ser.list_serial_ports()
-                if port in ports:
-                    print 'Found %s on %s' % (port, server)
-                    self.Links.append({
-                        'Server': ser,
-                        'ServerName': server,
-                        'Port': port,
-                        'Name': name
-                    })
-        print 'Server ready'
+        self.serialLinks = dict((k, ans[k]) for k in keys)
 
-
-    @setting(10, 'Get Link List', returns='*s')
-    def list_links(self, c):
-        """Requests a list of available serial links (COM ports on servers) to talk to preamps
-        """
-        return [L['Name'] for L in self.Links]
-
-
-    @setting(11, 'Connect', name='s', returns='s')
-    def connect(self, c, name):
-        """Opens the link to talk to preamp."""
-        allLinks = [L['Name'] for L in self.Links]
-        if name not in allLinks:
-            raise Error("No link named '%s' could be found." % name)
-        
-        if 'Name' not in c:
-            c['Name'] = ''
-            c['Link'] = ''
-
-        if c['Name'] == name:
-            returnValue(c['Link'])
-
-        for L in self.Links:
-            if L['Name'] == name:
-                if 'Server' in c:
-                    yield c['Server'].close()
-                    del c['Server']
-                    c['Link'] = ''
-                try:
-                    yield L['Server'].open(L['Port'])
-                    c['Server'] = L['Server']
-                    c['Link'] = L['Port'] + ' on ' + L['ServerName']
-                    yield c['Server'].baudrate(115200L)
-                except:
-                    if 'Server' in c:
-                        yield c['Server'].close()
-                        del c['Server']
-                    raise Exception(1, "Can't open port!")
-        returnValue(c['Link'])
-
-
-    @setting(12, 'Disconnect', returns='')
-    def disconnect(self, c):
-        """Closes the link to talk to preamp."""
-        if 'Server' in c:
-            yield c['Server'].close()
-            del c['Server']
-            c['Name'] = ''
+    @inlineCallbacks
+    def findDevices(self):
+        """Find available devices from list stored in the registry."""
+        devs = []
+        for name, (server, port, cards) in self.serialLinks.items():
+            if server not in self.client.servers:
+                continue
+            server = self.client[server]
+            ports = yield server.list_serial_ports()
+            if port not in ports:
+                continue
+            devName = '{} - {}'.format(server, port)
+            devs += [(name, (server, port, cards))]
+        returnValue(devs)
 
 
     @setting(20, 'Select Card', data='w', returns='w')
     def select_card(self, c, data):
         """Sends a select card command."""
-        server = self.getServer(c)
-        yield server.write([long(data&63)])
-        returnValue(long(data&63))
+        dev = self.selectedDevice(c)
+        card = yield dev.selectCard(data)
+        returnValue(card)
 
+    @setting(70, 'init_dacs', returns='w')
+    def init_DACs(self, c):
+        """Initialize the DACs."""
+        dev = self.selectedDevice(c)
+        init = yield dev.initDACs()
+        returnValue(init)
 
-    def getServer(self, c):
-        if 'Server' not in c:
-            raise NoConnectionError()
-        else:
-            return c['Server']
+    @setting(60, 'Change High Pass Filter', channel='s', data='s')
+    def change_high_pass_filter(self, c, channel, data):
+        """Change high pass filter settings for preamp channel on selected card."""
+        dev = self.selectedDevice(c)
+        hp = yield dev.changeHighPassFilter(channel, data)
+        returnValue(hp)
 
+    @setting(34, 'Change Low Pass Filter', channel='s', data='s')
+    def change_low_pass_filter(self, c, channel, data):
+        """Change low pass filter settings for preamp channel on selected card."""
+        dev = self.selectedDevice(c)
+        lp = yield dev.changeLowPassFilter(channel, data)
+        returnValue(lp)
 
-    def doBusCmd(self, c, data, settings, keys=None):
-        """Send out a command from a dictionary of possibilities."""
-        server = self.getServer(c)
+    @setting(400, 'Change Polarity', channel='s', data='s')
+    def change_polarity(self, c, channel, data):
+        """Change polarity of preamp channel on selected card."""
+        dev = self.selectedDevice(c)
+        pol = yield dev.changePolarity(channel, data)
+        returnValue(pol)
 
-        if keys is None:
-            keys = sorted(settings.keys())
+    @setting(123, 'change_dc_offset', channel='s', data='w')
+    def change_dc_offset(self, c, channel, data): 
+        """Change DC offset for preamp channel on selected card."""
+        dev = self.selectedDevice(c)
+        offset = yield dev.changeDCOffset(channel, data)
+        returnValue(offset)
 
-        if data is None:
-            return keys
+    @setting(130, 'change monitor', channel='s', command='s')
+    def change_monitor(self, c, channel, command=None):
+        """Change monitor output."""
+        dev = self.selectedDevice(c)
+        change = yield dev.changeMonitor(channel, command)
+        returnValue(change)
 
-        if data not in settings:
-            raise Error('Allowed commands: %s.' % ', '.join(keys))
-
-        d = server.write([settings[data]])
-        return d.addCallback(lambda r: data)
-
-
-    @setting(30, 'Analog Bus', ID='w', channel='s',
-                 returns=['s', '*s'])
-    def abus(self, c, ID, channel=None):
-        """Select channel for output to analog bus.
-
-        Send ID only to see a list of available channels.
-        """
-        settings = [{'A': 80L, 'B': 81L, 'C': 82L, 'D': 83L},
-                    {'A': 88L, 'B': 89L, 'C': 90L, 'D': 91L}][ID]
-        return self.doBusCmd(c, channel, settings)
-
-
-    @setting(35, 'Digital Bus', ID='w', channel='s',
-                 returns=['s', '*s'])
-    def dbus(self, c, ID, channel=None):
-        """Select channel for output to digital bus.
-
-        Send ID only to see a list of available channels.
-        """
-        settings = [{'trigA':  64L, 'trigB': 65L, 'trigC':  66L, 'trigD': 67L,
-                     'dadata': 68L, 'done':  69L, 'strobe': 70L, 'clk':   71L},
-                    {'FOoutA': 72L, 'FOoutB':  73L, 'FOoutC': 74L, 'FOoutD':  75L,
-                     'dasyn':  76L, 'cardsel': 77L, 'Pbus0':  78L, 'Clockon': 79L}][ID]
-        return self.doBusCmd(c, channel, settings)
-
-
-    def cmdToList(self, data, regID):
-        l = [(data >> 18) & 0x3f | 0x80,
-             (data >> 12) & 0x3f | 0x80,
-             (data >>  6) & 0x3f | 0x80,
-              data        & 0x3f | 0x80,
-             regID]
-        return [long(n) for n in l]
-
-    def tupleToCmd(self, data):
-        return ((data[0] & 7) << 21) | \
-               ((data[1] & 7) << 18) | \
-               ((data[2] & 1) << 17) | \
-                (data[3] & 0xFFFF)
-
-    @setting(40, 'Register',
-                 channel='s',
-                 data=['w: Lowest 24 bits: Register content',
-                       '(wwww): High Pass, Low Pass, Polarity, DAC'],
-                 returns='w')
-    def register(self, c, channel, data):
-        """Sends a command to the specified register."""
-        server = self.getServer(c)
-        ID = {'A': 192, 'B': 193, 'C': 194, 'D': 195}[channel]
-        if isinstance(data, tuple):
-            data = self.tupleToCmd(data)
-        else:
-            data &= 0xFFFFFF
-        yield server.write(self.cmdToList(data, ID))
-        returnValue(data)
-
-
-    @setting(50, 'Ident',
-                 timeout=[': Use a read timeout of 1s',
-                          'v[s]: Use this read timeout'],
-                 returns='s')
-    def ident(self, c, timeout=Value(1, 's')):
-        """Sends an identification command."""
-        server = self.getServer(c)
-        p = server.packet()
-        p.timeout()
-        p.read()
-        p.write([96L])
-        p.timeout(timeout)
-        p.read(1, key = 'ID')
-        p.timeout()
-        p.read(key = 'ID')
-        try:
-            res = yield p.send()
-            returnValue(''.join(res['ID']))
-        except:
-            raise Exception('Ident error')
-
-
-    @setting(60, 'LEDs',
+    @setting(336, 'leds',
                  data=['w: Lowest 3 bits: LED flags',
                        '(bbb): Status of BP LED, FP FOout flash, FP Reg. Load Flash'],
                  returns='w')
     def LEDs(self, c, data):
         """Sets LED status."""
-        server = self.getServer(c)
-        if isinstance(data, tuple):
-            data = 224 + 4*data[0] + 2*data[1] + 1*data[2]
+        dev = self.selectedDevice(c)
+        p = yield dev.changeLEDs(data)
+        returnValue(p)
+
+
+    @setting(893, 'Ident', returns='s')
+    def ident(self, c):
+        dev = self.selectedDevice(c)
+        ident = yield dev.identSelf()
+        returnValue(ident)
+
+    @setting(565, 'list_cards', returns="*(ss)")
+    def list_cards(self, c):
+        """List cards configured in the registry (does not query cards directly)."""
+        dev = self.selectedDevice(c)
+        cards = dev.returnCardList()
+        return cards
+        #returnValue(cards) //no yield ==> no returnValue
+
+    @setting(455, 'get_preamp_state')
+    def getPreampState(self, c, cardNumber, channel):
+        dev = self.selectedDevice(c)
+        state = yield dev.preampState(cardNumber, channel)
+        returnValue(state)
+
+    @setting(421, 'get_led_state_from_registry',returns=['(bbb)', 'i'])
+    def get_led_state_from_registry(self, c):
+        dev = self.selectedDevice(c)
+        reg = self.client.registry()
+        ledState = yield dev.getLedStateFromRegistry(reg)
+        returnValue(ledState)
+
+    @setting(422, 'commit_led_state_to_registry',ledState='(bbb)')
+    def commit_led_state_to_registry(self, c, ledState):
+        dev = self.selectedDevice(c)
+        reg = self.client.registry()
+        yield dev.commitLedStateToRegistry(reg,ledState )
+
+    @setting(423, 'get_monitor_state')
+    def getMonitorState(self, c):
+        dev = self.selectedDevice(c)
+        state = yield dev.getMonitorState()
+        returnValue(state)
+
+    @setting(424, 'commit_monitor_state_to_registry')
+    def commit_monitor_state_to_registry(self, c):
+        dev = self.selectedDevice(c)
+        reg = self.client.registry()
+        yield dev.commitMonitorStateToRegistry(reg)
+
+    @setting(425, 'load_monitor_state_from_registry')
+    def load_monitor_state_from_registry(self, c):
+        dev = self.selectedDevice(c)
+        reg = self.client.registry()
+        yield dev.loadMonitorStateFromRegistry(reg)
+
+    @setting(867, 'commit_to_registry')
+    def commit_to_registry(self, c):
+        dev = self.selectedDevice(c)
+        reg = self.client.registry()
+        yield dev.commitToRegistry(reg)
+
+    @setting(868, 'load_from_registry')
+    def load_from_registry(self, c):
+        dev = self.selectedDevice(c)
+        reg = self.client.registry()
+        yield dev.loadFromRegistry(reg)
+
+    @setting(874, 'channel_set_voltage', card='w', channel='s', dac='w{0=Fine (unipolar), 1=Coarse (bipolar)}', slow='w', value='v[V]')
+    def channel_set_voltage(self, c, card, channel, dac, slow, value):
+        """Executes sequence of commands to set a voltage value.
+        card: the card ID (according to DIP switches on the PCB)
+        channel: A, B, C, or D
+        dac: 0 for FINE (unipolar 0..2.5 V) , 1 for COARSE (bipolar -2.5V to +2.5V)
+        slow: always 1 with FINE.  For coarse, set the RC time constant
+        value: set voltage.  Will be coerced into range for the selected DAC
+        """
+        dev = self.selectedDevice(c)
+        yield dev.setVoltage(card, channel, dac, slow, value)
+
+    @setting(875, 'channel_stream')
+    def channel_stream(self, c, card, channel):
+        """Executes sequence of commands to set a channel to streaming mode"""
+        dev = self.selectedDevice(c)
+        yield dev.setChannelStream(card, channel)
+
+
+class Preamp:
+    def __init__(self):
+        self.A = Channel('DC', '0', 'positive', 0)
+        self.B = Channel('DC', '0', 'positive', 0)
+        self.C = Channel('DC', '0', 'positive', 0)
+        self.D = Channel('DC', '0', 'positive', 0)
+        self.channels = {'A': self.A, 'B': self.B, 'C': self.C, 'D': self.D}
+
+
+class Channel:
+    def __init__(self, hp, lp, pol, ofs):
+        self.highPass = hp
+        self.lowPass = lp
+        self.polarity = pol
+        self.offset = ofs
+
+    def update(self, highPass=None, lowPass=None, polarity=None, offset=None):
+        """Update channel parameter(s) to the given values.
+        Before updating a given parameter, we check that it is valid by
+        looking it up in the appropriate map from name to code (for highPass,
+        lowPass, and polarity) or converting to an int (for offset).
+        """
+        if highPass is not None:
+            HIGH_PASS[highPass]
+            self.highPass = highPass
+
+        if lowPass is not None:
+            LOW_PASS[lowPass]
+            self.lowPass = lowPass
+
+        if polarity is not None:
+            POLARITY[polarity]
+            self.polarity = polarity
+
+        if offset is not None:
+            self.offset = int(offset)
+
+    def state(self):
+        """Returns the channel state as a tuple (str, str, str, int)"""
+        return (self.highPass, self.lowPass, self.polarity, self.offset)
+
+    def strState(self):
+        """Returns the channel state as a list of strings"""
+        #print self.state
+        #s = list(self.state)
+        s = list((self.highPass, self.lowPass, self.polarity, self.offset))
+        s[-1] = str(s[-1])
+        return s
+
+
+class Monitor:
+    def __init__(self):
+        self.dBus0 = ['0', 'null']
+        self.dBus1 = ['0', 'null']
+        self.aBus0 = ['0', 'null']
+        self.aBus1 = ['0', 'null']
+        self.busses = {'Abus0': self.aBus0, 'Abus1': self.aBus1, 'Dbus0': self.dBus0, 'Dbus1': self.dBus1}
+
+    def updateBus(self, bus, card, newState):
+        card = str(card)
+        self.busses[bus][0] = card
+        if card == '0':
+            self.busses[bus][1] = 'null'
         else:
-            data = 224 + (data & 7)
-        yield server.write([data])
-        returnValue(data & 7)
+            self.busses[bus][1] = newState
+
+    def monitorState(self):
+        return [self.dBus0, self.dBus1, self.aBus0, self.aBus1]
+
+    def monitorStrState(self):
+        return list(((self.dBus0[0],self.dBus0[1]),(self.dBus1[0],self.dBus1[1]), (self.aBus0[0],self.aBus0[1]), (self.aBus1[0],self.aBus1[1])))
 
 
-    @setting(70, 'Init DACs', returns='w')
-    def InitDACs(self, c):
-        """Initialize the DACs."""
-        server = self.getServer(c)
-        yield server.write([196])
-        returnValue(196L)
+TIMEOUT = 1 * labrad.units.s
 
-
-
-
-__server__ = PreampServer()
+__server__ = DcRackServer()
 
 if __name__ == '__main__':
     from labrad import util
