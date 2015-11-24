@@ -299,8 +299,6 @@ class StartAndBringUp:
         print('Please press [Run] button in the LabVIEW VI window.')
         self._waitTillEnterKeyIsPressed()
 
-
-# Define a main() function.
 def main():
     with StartAndBringUp() as inst:
         inst.startLabRAD()

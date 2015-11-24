@@ -96,7 +96,7 @@ class HEMTExperiment(expt.Experiment):
         Output:
             None.
         """
-        self._sweep_status= ''
+        self._sweep_status = ''
         self._sweep_msg = ''
         
         adc = self.boards.get_adc(adc)
