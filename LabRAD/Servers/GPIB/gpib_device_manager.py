@@ -53,6 +53,8 @@ def parseIDNResponse(s, idn_cmd='*IDN?'):
             model = s.strip(string.whitespace).split('REV')[0]
             if model == '08341B':       # HP8341B response string is expected to be similar to "08341BREV 01 AUG 86"
                 return 'HEWLETT-PACKARD 8341B'
+            elif model == '08340B':       # HP8340B response string is expected to be similar to "08341BREV 01 AUG 86"
+                return 'HEWLETT-PACKARD 8340B'
             else:
                 return s.strip(string.whitespace).split('REV')[0]
     else:
