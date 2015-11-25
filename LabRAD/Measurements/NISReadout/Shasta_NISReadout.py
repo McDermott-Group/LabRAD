@@ -7,6 +7,7 @@ from labrad.units import (us, ns, V, GHz, MHz, rad, dB, dBm,
                           DACUnits, PreAmpTimeCounts)
 
 import hemt_qubit_experiments
+import nis_experiments
 
                           
 comp_name = os.environ['COMPUTERNAME'].lower()
@@ -53,7 +54,7 @@ Resources = [ {
 
                 { # GPIB RF Generator
                     'Interface': 'RF Generator',
-                    'Address': comp_name + ' GPIB Bus - GPIB0::20::INSTR',
+                    'Address': comp_name + ' GPIB Bus - GPIB0::19::INSTR',
                     'Variables': {  
                                     'RF Power': {'Setting': 'Power'}, 
                                     'RF Frequency': {'Setting': 'Frequency'}
@@ -118,6 +119,6 @@ with nis_experiments.NISReadout() as run:
     run.value('NIS Bias Voltage', 1 * V)
     
     run.sweep('Bias to Readout Delay', np.linspace(0, 100, 101)*ns, # for >1D, do ['list','of','variables'],[linespaces]
-                print_data=['I', 'Q'], plot_data['I', 'Q'], save=True, runs=3) # runs does ex: 3X 3000 reps
+                print_data=['I', 'Q'], plot_data=['I', 'Q'], save=True, runs=3) # runs does ex: 3X 3000 reps
     
     

@@ -163,14 +163,14 @@ def waves2sram(waveA, waveB, ECL=[], Trig=True):
     
     return sram
     
-def serial2ECL(ECL0=[], ECL1=[], ECL2=[], ECL3=[])
+def serial2ECL(ECL0=[], ECL1=[], ECL2=[], ECL3=[]):
     """Convert lists defining ECL output to a single 4-bit word for the ECL serializer"""
     ECLlist = [ECL0, ECL1, ECL2, ECL3]
     
     #check if all lists are empty
     if all(len(x) == 0 for x in ECLlist):
         return []
-    length = max([len(x) for x in ECLlist)
+    length = max([len(x) for x in ECLlist])
     #check that they are all the same length
     if len([x for x in ECLlist if len(x) != length]) > 0:
         raise Exception('Length of all ECL data definitons should be equal.')
