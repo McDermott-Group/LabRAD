@@ -913,10 +913,15 @@ class Experiment(object):
         """
         if isinstance(v, units.Value):
             return v[units.Unit(v)]
-        if isinstance(v, np.ndarray):
-            return np.vectorize(self.strip_units)(v)
         if isinstance(v, (int, long, float, complex)):
             return v
+        if isinstance(v, np.ndarray):
+            shape = np.shape(v)
+            v = v.flatten()
+            stripped = np.empty(np.shape(v))
+            for k in range(np.size(v)):
+                stripped[k] = self.strip_units(v[k])
+            return stripped.reshape(shape)
         if isinstance(v, list):
             return np.vectorize(self.strip_units)(np.array(v))
         if isinstance(v, str):

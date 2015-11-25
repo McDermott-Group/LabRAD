@@ -129,55 +129,23 @@ def mem_simple(initTime, SRAMLength, SRAMStart, SRAMDelay):
     
     return memory
 
-def waves2sram(waveA, waveB, ECL=[], Trig=True):
-    """Construct SRAM sequence for a list of waveforms.
-        Optional input for controlling the ECL outputs."""
+def waves2sram(waveA, waveB, Trig=True):
+    """Construct SRAM sequence for a list of waveforms."""
     if not len(waveA) == len(waveB):
         raise Exception('Lengths of DAC A and DAC B waveforms must be equal.')
     if any(np.hstack((waveA, waveB)) > 1.0):
         raise Exception('The GHz DAC wave amplitude cannot exceed 1.0 [DAC units].')
-        
-    #if we are using the ECL outputs, make sure they are the correct length
-    #and use the correct format
-    if not len(ECL) == 0:
-        if not len(ECL) == len(waveA):
-            raise Exception('Length of ECL data must be the same as length of waveform data.')
-        
-    else:
-        ECL = np.zeros(waveA.shape)
-    
     dataA = [long(np.floor(0x1FFF * y)) for y in waveA]   # Multiply wave by full scale of DAC. DAC is 14 bit 2's compliment,
     dataB = [long(np.floor(0x1FFF * y)) for y in waveB]   # so full scale is 13 bits, i.e. 1 1111 1111 1111 = 1FFF.
     dataA = [y & 0x3FFF for y in dataA]                   # Chop off everything except lowest 14 bits.
     dataB = [y & 0x3FFF for y in dataB]
-    ECLdata = [y & 0xF for y in ECLdata]                  #for ECL data, keep only lowest 4 bits (1 bit per channel)
     dataB = [y << 14 for y in dataB]                      # Shift DAC B data by 14 bits.
-    ECLdata = [y << 28 for y in ECLdata]                  # shift ECL serial data by 28 bits.
-    sram=[dataA[i] | dataB[i] | ECLdata[i] for i in range(len(dataA))] # Combine DAC A and DAC B and ECL data
+    sram=[dataA[i] | dataB[i] for i in range(len(dataA))] # Combine DAC A and DAC B.
     if Trig:
         sram[4] |= 0xF0000000                             # Add trigger pulse near beginning of sequence.
         sram[5] |= 0xF0000000
         sram[6] |= 0xF0000000
         sram[7] |= 0xF0000000
-        sram[8] |= 0xF0000000                             # Add trigger pulse near beginning of sequence.
+        sram[8] |= 0xF0000000   
     
     return sram
-    
-def serial2ECL(ECL0=[], ECL1=[], ECL2=[], ECL3=[])
-    """Convert lists defining ECL output to a single 4-bit word for the ECL serializer"""
-    ECLlist = [ECL0, ECL1, ECL2, ECL3]
-    
-    #check if all lists are empty
-    if all(len(x) == 0 for x in ECLlist):
-        return []
-    length = max([len(x) for x in ECLlist)
-    #check that they are all the same length
-    if len([x for x in ECLlist if len(x) != length]) > 0:
-        raise Exception('Length of all ECL data definitons should be equal.')
-    for idx, ecl in enumerate(ECLlist):
-        if len(ecl) == 0:
-            ECLlist[idx] = np.zeros((length,))
-    ECLdata = np.zeros((length,))
-    return []
-        
-    
