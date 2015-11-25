@@ -1098,17 +1098,28 @@ class FPGAServer(DeviceServer):
 
 
     # ADC configuration
-
-    @setting(40, 'ADC Filter Func', bytes='s', stretchLen='w', stretchAt='w', returns='')
+    @setting(40, 'ADC Filter Func', bytes='s', stretchLen='w',
+            stretchAt='w', returns='')
     def adc_filter_func(self, c, bytes, stretchLen=0, stretchAt=0):
-        """Set the filter function to be used with the selected ADC board. (ADC only)
+        """Set the filter function to be used with the selected ADC
+        board (ADC only).
         
-        Each byte specifies the filter weight for a 4ns interval.  In addition,
-        you can specify a stretch which will repeat a value in the middle of the filter
-        for the specified length (in 4ns intervals).
+        In addition, you can specify a stretch which
+        will repeat a value in the middle of the filter for
+        the specified length (in 4 ns intervals).
+        
+        The amplitude of the filter function is stored as one byte of
+        memory for every 4 ns. The lookup table is 4024 bytes long,
+        which represents about 16 us of filter memory. To enable longer
+        filter times, the table lookup can be stretched (repeated) at
+        a definable time in the middle of the memory. The filter
+        amplitude ranges from 0 to 255.  The nominal "on" value is 128,
+        which guarantees that a full-scale negative or positive AD input
+        will not overflow the multipliers.  
         """
         dev = self.selectedADC(c)
-        assert len(bytes) <= dev.buildParams['FILTER_LEN'], 'Filter function max length is %d' % dev.buildParams['FILTER_LEN']
+        assert len(bytes) <= dev.buildParams['FILTER_LEN'], \
+            'Filter function max length is %d' % dev.buildParams['FILTER_LEN']
         bytes = np.fromstring(bytes, dtype='<u1')
         d = c.setdefault(dev, {})
         d['filterFunc'] = bytes
@@ -1124,7 +1135,6 @@ class FPGAServer(DeviceServer):
         N is the number of channels (currently 4).  sineAmp and cosineAmp are the magnitudes
         of the respective sine and cosine functions, ranging from 0 to 255.
         """
-        
         dev = self.selectedADC(c) #Get the ADC selected in this context. Raise an exception if selected device is not an ADC
         assert 0 <= channel < dev.buildParams['DEMOD_CHANNELS'], 'channel out of range: %d' % channel
         assert 0 <= sineAmp <= dev.buildParams['TRIG_AMP'], 'sine amplitude out of range: %d' % sineAmp

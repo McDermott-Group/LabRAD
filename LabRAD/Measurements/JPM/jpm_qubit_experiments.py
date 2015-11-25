@@ -34,7 +34,7 @@ import labrad.units as units
 import LabRAD.Measurements.General.experiment as expt
 import LabRAD.Measurements.General.pulse_shapes as pulse
 import LabRAD.Servers.Instruments.GHzBoards.command_sequences as seq
-import data_processing as dp
+import LabRAD.Measurements.General.data_processing as dp
 
 
 class JPMExperiment(expt.Experiment):

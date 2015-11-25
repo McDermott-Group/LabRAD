@@ -949,7 +949,6 @@ def phase(sample, cxn, sweepPhaseOf, freq=10.0*MHz, reps=30, phaseScan=np.linspa
         Q=np.mean(result[0][1])
         Is = np.hstack((Is,I))
         Qs = np.hstack((Qs,Q))
-        print('here')
     if plot:
         plt.figure()
         plt.plot(Is, Qs, '.', markersize=15)

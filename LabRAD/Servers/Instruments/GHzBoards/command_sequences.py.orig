@@ -148,7 +148,9 @@ def waves2sram(waveA, waveB, Trig=True):
         sram[7] |= 0xF0000000
         sram[8] |= 0xF0000000   
     
+<<<<<<< HEAD
     return sram
+    
 def serial2ECL(ECL0=[], ECL1=[], ECL2=[], ECL3=[]):
     """Convert lists defining ECL output to a single 4-bit word for the ECL serializer"""
     ECLlist = [ECL0, ECL1, ECL2, ECL3]
@@ -167,3 +169,6 @@ def serial2ECL(ECL0=[], ECL1=[], ECL2=[], ECL3=[]):
     return []
         
     
+=======
+    return sram
+>>>>>>> 9a22de5ed006b5d90a5ea55162cd024a4e21c64f

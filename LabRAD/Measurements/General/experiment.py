@@ -109,7 +109,7 @@ class Experiment(object):
         except:
             raise Exception('Connection to LabRAD could not be established.')
         # This flag controls the standard output upon pressing [O]
-        # during a experiment sweep.
+        # during an experiment sweep.
         self._standard_output = True
 
     def __del__(self):
@@ -159,18 +159,19 @@ class Experiment(object):
     ###SETUP METHODS####################################################
     def set_experiment(self, information, resources, variables):
         """
-        Sets experiment information, resources and experiment variables.
+        Set experiment information, resources and experiment variables.
         
         Inputs:
-            information: dictionary that should have the following 
-                parameters (as strings):
-                1. Device Name: Name of the resource under study
-                2. User: Who is running the experiment?
-                3. Base Path: initial path for data saving purposes.
-                4. Experiment Name: what are you doing?
-                5. Comments: any comments that will go in the header 
-                    file of each saved data file (optional, will be 
-                    blank if not included).
+            information: dictionary of the following format:
+                {'Device Name': 'name of the resource under study',
+                 'User': 'who is running the experiment?',
+                 'Base Path': 'initial path for data saving purposes',
+                 'Experiment Name': 'what are you doing?'
+                 'Comments': 'any comments that will go in the header 
+                        of each saved data file'}.
+                 Key 'Comments' is optional and will be set to '',
+                 if not included. The data will be saved in
+                 "Base Path\User\Device\Date\Experiment Name\".
             resources: list of resources in the following format:
               [ { # Generic resource.
                     'Interface': 'ResourceServerInterface',
@@ -204,6 +205,7 @@ class Experiment(object):
                 'Shasta Board ADC 11':  {
                                         'RunMode': 'demodulate', #'average'
                                         'FilterType': 'square',
+                                        'FilterStartAt': 0 * ns,
                                         'FilterWidth': 9500 * ns,
                                         'FilterLength': 10000 * ns,
                                         'FilterStretchAt': 0 * ns,
@@ -252,21 +254,6 @@ class Experiment(object):
         Output:
             None.
         """
-        self._set_information(information)
-        self._set_resources(resources)
-        self._set_variables(variables)
-        
-    def _set_information(self, information):
-        """
-        Sets experiment information, as well as base path for saving. 
-        Base path will be: Base Path\User\Device\Date\Experiment Name\
-        
-        Input:
-            information: dictionary (see set_experiment method for more 
-                information).
-        Output:
-            None.
-        """
         # Check that all variables are in information as expected.   
         if 'Device Name' not in information:
             raise ExperimentDefinitionError('Device name is not specified.')
@@ -297,21 +284,10 @@ class Experiment(object):
                 raise IOError('Could not create experiment save path!' + 
                               ' Is AFS on?')
 
-    def _set_resources(self, resources):
-        """
-        Set electronics information (which DACs, ADCs, and RF generators,
-        Lab Bricks, etc. we are running), initializes connections to the
-        LabRAD servers.
-        
-        This methods also creates a map of the experiment variables 
-        defined in resources to these resources.
-        
-        Input:
-            resources: a list of resource dictionaries (see 
-                set_experiment method for more information).
-        Output:
-            None.
-        """
+        # Set electronics information (which DACs, ADCs, and RF
+        # generators, Lab Bricks, etc.), initialize connections
+        # to the LabRAD servers, create a map of the experiment
+        # variables (defined in resources) to the resources.
         self._vars = {}     # Dictionary of the experiment variables.
         
         def _msg(key, resource):
@@ -373,21 +349,8 @@ class Experiment(object):
                 else:
                     print("Warning: resource type '" + str(res['Interface']) +
                           "' is not yet supported.")
-    
-    def _set_variables(self, variables):
-        """
-        Set experiment variables.
-        
-        Input:
-            variables: experiment variable dictionary 
-                in the {'Variable Name': Value,...} format.
-        Output:
-            None.
-        """
-        if not hasattr(self, '_vars'):
-            raise ExperimentDefinitionError('Experiment resources ' + 
-                    'should be set prior setting experiment variables.')
-        
+
+        # Set experiment variables.
         for var in variables:
             if var in self._vars:
                 self.value(var, variables[var])
@@ -640,25 +603,15 @@ class Experiment(object):
             # This is to avoid duplicative saving of the sweep variables
             # when a parallel scan was run with the same variable name.
             for key in data:
-                if ('Type' in data[key] and 'Value' in data[key] and 
-                        data[key]['Type'] == 'Independent'):
+                if self._is_indep(data[key]):
                     outfile.write("Name: '" + key + "'\n")
-                    outfile.write('Units: ' + self.get_units(data[key]['Value'])
-                            + '\n')
                     outfile.write('Type: independent\n')
-                    outfile.write('Size: ' +
-                            str(list(np.shape(data[key]['Value'])))[1:-1] +
-                            '\n')
-                    self._ndarray_txt_save(outfile, 
-                            self.strip_units(data[key]['Value']))
+                    self._write_var(outfile, data[key]['Value'])
 
             outfile.write('====Data Variables====\n');
             for key in data:
-                if ('Type' in data[key] and 'Value' in data[key] and 
-                        data[key]['Type'] == 'Dependent'):
+                if self._is_dep(data[key]):
                     outfile.write("Name: '" + key + "'\n")
-                    outfile.write('Units: ' + self.get_units(data[key]['Value'])
-                            + '\n')
                     outfile.write('Type: dependent\n')
                     if 'Dependencies' in data[key] and data[key]['Dependencies']:
                         outfile.write('Dependencies: ' +
@@ -666,11 +619,24 @@ class Experiment(object):
                     if 'Distribution' in data[key] and data[key]['Distribution']:
                         outfile.write('Distribution: ' +
                                 data[key]['Distribution'] + '\n')
-                    outfile.write('Size: ' +
-                                str(list(np.shape(data[key]['Value'])))[1:-1] +
-                                '\n')
-                    self._ndarray_txt_save(outfile, 
-                            self.strip_units(data[key]['Value']))                
+                    self._write_var(outfile, data[key]['Value'])
+            
+    def _write_var(self, outfile, vals):
+        """
+        Write variable values into a text file, starting with the
+        data size.
+        
+        Inputs:
+            outfile: file handle to write the data into.
+            vals: variable values.
+        Output:
+            None.
+        """
+        units = self.get_units(vals)
+        if units != '':
+            outfile.write('Units: ' + units + '\n')
+        outfile.write('Size: ' + str(list(np.shape(vals)))[1:-1] + '\n')
+        self._ndarray_txt_save(outfile, self.strip_units(vals))
 
     def _ndarray_txt_save(self, outfile, array):
         """
@@ -789,8 +755,7 @@ class Experiment(object):
         # Find independent variables with a single value.
         rm_vars = []
         for key in data:
-            if ('Value' in data[key] and 'Type' in data[key] and
-                    data[key]['Type'] == 'Independent' and
+            if (self._is_indep(data[key]) and
                     np.size(data[key]['Value']) == 1):
                 self.add_var(key, data[key]['Value'][0])
                 rm_vars.append(key)
@@ -813,9 +778,10 @@ class Experiment(object):
                 data[key]['Dependencies'] = [var for var 
                         in data[key]['Dependencies'] if var not in rm_vars]
         
-        # Remove 'Repetition Index' and 'Run Iteration' independent 
-        # variables if they are not actually used. This may happen when
-        # the data dimensions are truncated.
+        # Remove 'Repetition Index', 'Run Iteration', and 'Long
+        # Repetition Index' independent  variables if they are not
+        # actually used. This may happen when the data dimensions are
+        # truncated.
         
         # Create a list containing all independent variable.
         indep_vars = []
@@ -825,7 +791,8 @@ class Experiment(object):
                     indep_vars.append(var)
 
         # Remove unnecessary independent variables.
-        for var in ['Repetition Index', 'Run Iteration']:
+        for var in ['Repetition Index', 'Run Iteration',
+                'Long Repetition Index']:
             if var not in indep_vars:
                 data.pop(var, None)
             self._vars.pop(var, None)
@@ -835,28 +802,20 @@ class Experiment(object):
         print('The data has been saved.')
     
     ###UTILITIES########################################################
-    def get_units(self, v, brackets=False):
+    def get_units(self, v):
         """
         Return variable units.
         
-        Inputs:
+        Input:
             v: value or name of the variable.
-            brackets: boolean that specifies whether the variable units 
-                should be enclosed in brackets (default: False).
         Output:
-            units: units the variable is specified with. 
+            units: the variable units. 
         """
-        def _place_in_brackets(unit):
-            if brackets and unit != '':
-                return ' [' + unit + ']'
-            else:
-                return unit
-
         if v is None:
             return ''
         
         if isinstance(v, units.Value):
-            return _place_in_brackets(str(units.Unit(v)))
+            return str(units.Unit(v))
         
         if isinstance(v, list):
             if len(v) == 1 and isinstance(v[0], str):
@@ -866,7 +825,7 @@ class Experiment(object):
             elif all([isinstance(val, units.Value) for val in v]):
                 unit = list(set([units.Unit(val) for val in v]))
                 if len(unit) == 1:
-                    return _place_in_brackets(str(units.Unit(unit[0])))
+                    return str(units.Unit(unit[0]))
                 else:
                     raise Exception("More than one physical unit is" +
                                     " found: " + str(unit) + ".")
@@ -879,7 +838,7 @@ class Experiment(object):
             if all([isinstance(val, (np.ndarray, units.Value)) for val in v.flatten()]):
                 unit = list(set([self.get_units(val) for val in v.flatten()]))
                 if len(unit) == 1:
-                    return _place_in_brackets(str(units.Unit(unit[0])))
+                    return str(units.Unit(unit[0]))
                 else:
                     raise Exception("More than one physical unit is" +
                                     " found: " + str(unit) + ".")
@@ -890,7 +849,7 @@ class Experiment(object):
             self._check_var(v, check_interface=False)
             value = self._vars[v]['Value']
             if isinstance(value, units.Value):
-                return _place_in_brackets(str(units.Unit(value)))
+                return str(units.Unit(value))
             else:
                 return ''
         
@@ -913,10 +872,15 @@ class Experiment(object):
         """
         if isinstance(v, units.Value):
             return v[units.Unit(v)]
-        if isinstance(v, np.ndarray):
-            return np.vectorize(self.strip_units)(v)
         if isinstance(v, (int, long, float, complex)):
             return v
+        if isinstance(v, np.ndarray):
+            shape = np.shape(v)
+            v = v.flatten()
+            stripped = np.empty(np.shape(v))
+            for k in range(np.size(v)):
+                stripped[k] = self.strip_units(v[k])
+            return stripped.reshape(shape)
         if isinstance(v, list):
             return np.vectorize(self.strip_units)(np.array(v))
         if isinstance(v, str):
@@ -1121,63 +1085,136 @@ class Experiment(object):
             run_data = self.run_once()
             if self._standard_output:
                 sys.stdout.write('Progress: %5.1f%%\r' %(100. * (idx + 1) / runs))
-            if idx == 0:
-                if self._sweep_pts_acquired == 0:
-                    self._run_n_data = self._process_data(run_data)
-                    self._run_n_data_deps = [key for key in run_data
-                            if ('Value' in self._run_n_data[key] and 
-                                 'Type' in self._run_n_data[key] and 
-                                self._run_n_data[key]['Type'] == 'Dependent')]
-                    for key in self._run_n_data_deps:
-                        entry_shape = (runs,) + np.shape(run_data[key]['Value'])
-                        if self.get_units(run_data[key]['Value']) != '':
-                            self._run_n_data[key]['Value'] = np.empty(entry_shape,
-                                                dtype=units.Value)
-                        else:
-                            self._run_n_data[key]['Value'] = np.empty(entry_shape)
-                    self._run_n_data['Run Iteration'] = {'Value': 
-                            np.linspace(1, runs, runs),
-                            'Type': 'Independent'} 
+            
+            reps = self.value('Reps')
+            
+            if idx == 0 and self._sweep_pts_acquired == 0:
+                self._run_n_data = self._process_data(run_data)
+                n_data = self._run_n_data
+                self._run_n_data_deps = [key for key in run_data
+                        if self._is_dep(n_data[key])]
+
+                self._run_n_data_flat = []
+                if reps is not None and reps > 1:
+                    for key in run_data:
+                        if (self._is_dep(n_data[key]) and
+                                len(n_data[key]['Dependencies']) > 0 and
+                                n_data[key]['Dependencies'][0] == \
+                                'Repetition Index'):
+                            n_data[key]['Dependencies'][0] = \
+                                'Long Repetition Index'
+                            self._run_n_data_flat.append(key)
+                            self._run_n_data_deps.remove(key)
+
+                for key in self._run_n_data_deps:
+                    entry_shape = (runs,) + np.shape(run_data[key]['Value'])
+                    if self.get_units(run_data[key]['Value']) != '':
+                        n_data[key]['Value'] = np.empty(entry_shape,
+                                            dtype=units.Value)
+                    else:
+                        n_data[key]['Value'] = np.empty(entry_shape)
+                n_data['Run Iteration'] = {'Value': 
+                        np.linspace(1, runs, runs), 'Type': 'Independent'}
+
+                for key in self._run_n_data_flat:
+                    entry_shape = (runs * reps,) + np.shape(run_data[key]['Value'])[1:]
+                    if self.get_units(run_data[key]['Value']) != '':
+                        n_data[key]['Value'] = np.empty(entry_shape,
+                                            dtype=units.Value)
+                    else:
+                        n_data[key]['Value'] = np.empty(entry_shape)
+                    n_data['Long Repetition Index'] = {'Value': 
+                            np.linspace(1, runs * reps, runs * reps),
+                            'Type': 'Independent'}
+            else:
+                n_data = self._run_n_data
+
             for key in self._run_n_data_deps:
-                self._run_n_data[key]['Value'][idx] = run_data[key]['Value']
+                n_data[key]['Value'][idx] = run_data[key]['Value']
+                
+            for key in self._run_n_data_flat:
+                n_data[key]['Value'][reps*idx:reps*(idx+1)] = \
+                    run_data[key]['Value']
+            
             self._listen_to_keyboard()
             if self._sweep_status == 'abort':
                 # Delete unrun 'Run Iterations'.
-                self._run_n_data['Run Iteration']['Value'] = np.delete(
-                        self._run_n_data['Run Iteration']['Value'],
+                n_data['Run Iteration']['Value'] = np.delete(
+                        n_data['Run Iteration']['Value'],
                         np.s_[idx+1:], None)
+                if self._run_n_data_flat:
+                    n_data['Long Repetition Index']['Value'] = np.delete(
+                        n_data['Long Repetition Index']['Value'],
+                        np.s_[reps*(idx+1):], None)
                 # Delete unfilled data points.
                 for key in self._run_n_data_deps:
-                    self._run_n_data[key]['Value'] = np.delete(
-                            self._run_n_data[key]['Value'],
+                    n_data[key]['Value'] = np.delete(n_data[key]['Value'],
                             np.s_[idx+1:], 0)
+                for key in self._run_n_data_flat:
+                    n_data[key]['Value'] = np.delete(n_data[key]['Value'],
+                            np.s_[reps*(idx+1):], 0)
                 break
+ 
+        self.average_data()
+        return self._avg_data
 
-        return self.average_data(self._run_n_data)
-
-    def average_data(self, data):
+    def average_data(self):
         """
-        Average the data returned by the run_once method.
-
-        Input:
-            data: data dictionary.
+        Average the data acquired by method run_n_times.
         """
+        data = self._data
         if self._sweep_pts_acquired == 0:
             self._avg_data = {key: data[key].copy() for key in data}
 
+        avg = self._avg_data
         for key in data:
-            if ('Value' in data[key] and 'Type' in data[key]
-                    and data[key]['Type'] == 'Dependent'):
+            if self._is_dep(data[key]):
                 vals = self.strip_units(data[key]['Value'])
                 u = self.unit_factor(data[key]['Value'])
-                self._avg_data[key]['Distribution'] = 'normal'
-                self._avg_data[key]['Value'] = np.mean(vals, axis=0) * u
-                self._avg_data[key + ' Std Dev'] = data[key].copy()
-                self._avg_data[key + ' Std Dev']['Distribution'] = ''
-                self._avg_data[key + ' Std Dev']['Value'] = np.std(vals, axis=0) * u
+                avg[key]['Distribution'] = 'normal'
+                avg[key]['Value'] = np.mean(vals, axis=0) * u
+                avg[key + ' Std Dev'] = data[key].copy()
+                avg[key + ' Std Dev']['Distribution'] = ''
+                avg[key + ' Std Dev']['Value'] = np.std(vals, axis=0) * u
 
-        return self._avg_data
-
+    def _is_indep(self, data_subdict):
+        """
+        Check wheather a given data subdictionary corresponds to
+        an independent variable.
+        
+        Input:
+            data_subdict: data subdictionary, e.g. if data is
+                a dictionary that contains all data and var is
+                an independent variable then data_subdict is data[var].
+        Output:
+            bool: True or False.
+        """
+        if ('Value' in data_subdict and
+             'Type' in data_subdict and
+                       data_subdict['Type'] == 'Independent'):
+            return True
+        else:
+            return False
+            
+    def _is_dep(self, data_subdict):
+        """
+        Check wheather a given data subdictionary corresponds to
+        a dependent variable.
+        
+        Input:
+            data_subdict: data subdictionary, e.g. if data is
+                a dictionary that contains all data and var is
+                a dependent variable then data_subdict is data[var].
+        Output:
+            bool: True or False.
+        """
+        if ('Value' in data_subdict and
+             'Type' in data_subdict and
+                       data_subdict['Type'] == 'Dependent'):
+            return True
+        else:
+            return False
+        
     def _process_data(self, raw_data):
         """
         Check that the data dictionary returned by a single run of
@@ -1342,9 +1379,7 @@ class Experiment(object):
                         
                         # Preallocate the memory resources.
                         for key in self._1d_data:
-                            if ('Value' in self._1d_data[key] and 
-                                 'Type' in self._1d_data[key] and
-                                 self._1d_data[key]['Type'] == 'Dependent'):
+                            if self._is_dep(self._1d_data[key]):
                                 entry_shape = (np.shape(values[0][0]) + 
                                         np.shape(self._1d_data[key]['Value']))
                                 if len(entry_shape) <= max_data_dim:
@@ -1452,9 +1487,7 @@ class Experiment(object):
                     
                     data_deps = []
                     for key in data: 
-                        if ('Value' in data[key] and 
-                             'Type' in data[key] and
-                             data[key]['Type'] == 'Dependent'):
+                        if self._is_dep(data[key]):
                             entry_shape = (np.shape(values[0][0]) + 
                                     np.shape(data[key]['Value']))
                             if len(entry_shape) <= max_data_dim:
@@ -1548,7 +1581,7 @@ class Experiment(object):
         """
         if not hasattr(self, '_vars'):
             raise Exception('Experiment resources and variables should' + 
-            ' be set prior attempting any scans.')
+            ' be set prior attempting any sweep measurements.')
 
         excpt_msg = ('The first argument in sweep method should be'
         ' either a string (for a 1D simple scan), a list of strings'
@@ -1740,7 +1773,7 @@ class Experiment(object):
                 ' unambigiously matched to sweep variables.')
 
         # Save the current sweep variables values. This allows running
-        # several sweeps in a row without worrying about the sweep
+        # several sweeps in a sequence without worrying about the sweep
         # variables too much. For example, one can start a frequency
         # sweep followed by a bias voltage sweep. Instead of leaving the
         # frequency at the last value of the sweep range, we want it to
@@ -1788,8 +1821,7 @@ class Experiment(object):
                 # independent measurements are done in parallel.
                 if dependencies is None and len(names) == 1:
                     dependencies = [[key for key in data 
-                            if 'Type' in data[key]
-                            and data[key]['Type'] == 'Dependent']]
+                            if self._is_dep(data[key])]]
                 if dependencies is not None:
                     for list_idx, dep_list in enumerate(dependencies):
                         for dep in dep_list:
@@ -1880,6 +1912,21 @@ class Experiment(object):
                 getch()
 
     ###PLOTTING METHODS#################################################
+    def _in_brackets(self, v):
+        """
+        Return variable units in brackets.
+        
+        Input:
+            v: value or name of the variable.
+        Output:
+            units: the variable units in brackets.
+        """
+        unit = self.get_units(v)
+        if unit != '':
+            return ' [' + unit + ']'
+        else:
+            return unit
+    
     def _init_1d_plot(self, names, values, data, plot_data_vars):  
         # Make a list of the data variables that should be plotted.
         if plot_data_vars is not None:
@@ -1925,7 +1972,7 @@ class Experiment(object):
         xlabel = ''
         for var in self._comb_strs(independent_vars):
             if var != 'Run Iteration - Fast Axis':
-                xlabel = xlabel + var + self.get_units(var, True) + ', '
+                xlabel = xlabel + var + self._in_brackets(var) + ', '
             else:
                 xlabel = xlabel + var + ', '
         xlabel = xlabel[:-2]
@@ -1948,10 +1995,10 @@ class Experiment(object):
                 ylabel = (ylabel + name + ', ')
             else:
                 ylabel = (ylabel + name + 
-                        self.get_units(data[var]['Value'], True) + ', ')  
+                        self._in_brackets(data[var]['Value']) + ', ')  
         ylabel = ylabel[:-2]
         if same_y_units:
-            ylabel = ylabel + self.get_units(data[var]['Value'], True)
+            ylabel = ylabel + self._in_brackets(data[var]['Value'])
  
         # Initialize the plot.
         plt.figure(1)

@@ -400,38 +400,32 @@ class GHzFPGABoards(object):
             self._results.append(p.send(wait=False))
         
     def filter_bytes(self, settings):
-        """Set the filter for a specific experiment."""
-        # ADC collects at a 2 ns acquisition rate, but the filter function
-        # has a 4 ns resolution.
+        """Set the ADC filter for a specific experiment."""
+        # ADC collects at a 2 ns acquisition rate, but the 
+        # filter function must have a 4 ns resolution.
         filter_func = settings['FilterType'].lower()
-        sigma = settings['FilterWidth']['ns']
-        window = np.zeros(int(settings['FilterLength']['ns'] / 4))
+        window_len = int(settings['FilterLength']['ns'] / 4)
+        start_len = int(settings['FilterStartAt']['ns'] / 4)
         if filter_func == 'square':
-            window = window + (128)
-            filt = np.append(window, np.zeros(self.consts['FILTER_LEN'] -
-                    len(window)))
-            filt = np.array(filt, dtype='<u1')
+            env = np.full(window_len, 127.)
         elif filter_func == 'gaussian':
-            env = np.linspace(-0.5, 0.5, len(window))
-            env = np.floor(128 * np.exp(-((env / (2 * sigma))**2)))
-            filt =  np.append(env, np.zeros(self.consts['FILTER_LEN'] -
-                    len(env)))
-            filt = np.array(filt, dtype='<u1')        
+            env = np.linspace(-.5 * settings['FilterLength']['ns'],
+                               .5 * settings['FilterLength']['ns'],
+                               window_len)
+            env = np.floor(127 * np.exp(-(env / (2 * settings['FilterWidth']['ns']))**2))    
         elif filter_func == 'hann':
-            env = np.linspace(0, len(window) - 1, len(window))
-            env = np.floor(128 * np.sin(np.pi * env / (len(window) - 1))**2)
-            filt =  np.append(env, np.zeros(self.consts['FILTER_LEN'] - len(env)))
-            filt = np.array(filt, dtype='<u1')
+            env = np.linspace(0, window_len - 1, window_len)
+            env = np.floor(127 * np.sin(np.pi * env / (window_len - 1))**2)
         elif filter_func == 'exp':
-            env = np.linspace(0,(len(window) - 1) * 4, len(window))
-            env = np.floor(128 * np.exp(-env / sigma))
-            filt =  np.append(env, np.zeros(self.consts['FILTER_LEN'] -
-                    len(env)))
-            filt = np.array(filt, dtype='<u1')
+            env = np.linspace(0, 4 * (window_len - 1), window_len)
+            env = np.floor(127 * np.exp(-env / settings['FilterWidth']['ns']))
         else:
             raise Exception('Filter function %s not recognized.'
                     %filter_func)
-        return filt.tostring()
+
+        filt = np.hstack([np.zeros(start_len), env, 
+                np.zeros(self.consts['FILTER_LEN'] - len(env) - start_len)])
+        return np.array(filt, dtype='<u1').tostring()
 
     def load(self, dac_srams, dac_mems):
         """
@@ -508,9 +502,29 @@ class GHzFPGABoards(object):
         """
         while True:
             try:
-                return self.server.run_sequence(int(reps), self._data_flag)
+                result = self.server.run_sequence(int(reps), self._data_flag)
+                # Check the status of the FPGA internal GHz serializer
+                # PLLs.
+                p = self.server.packet()
+                for dac in self.dacs:
+                    p.select_device(dac)
+                    p.pll_query(key=dac)
+                status = p.send()
+                # List all DACs to reset.
+                dacs2reset = [dac for dac in self.dacs if status[dac]]
+                if not dacs2reset:
+                    return result
+                else:
+                    # Reset the FPGA internal GHz serializer PLLs and
+                    # reload the boards.
+                    for dac in dacs2reset:
+                        p.select_device(dac)
+                        p.pll_reset()
+                    p.send()
+                    self.load(self._dac_srams, self._dac_mems)
             except (Error, TimeoutError):
                 # self.auto_recovery()
+                # Restart the GHz FPGA Server and reload the boards.
                 self.restart()
                 self.load(self._dac_srams, self._dac_mems)
             except:
