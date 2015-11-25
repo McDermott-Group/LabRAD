@@ -42,7 +42,10 @@ from labrad.units import Unit,Value
 UNKNOWN = '<unknown>'
 
 def parseIDNResponse(s, idn_cmd='*IDN?'):
-    """Parse the response from *IDN? or 'ID?' to get mfr and model info in the "MANUFACTURER MODEL" format."""
+    """
+    Parse the response from *IDN? or 'ID?' to get mfr and model info
+    in the "MANUFACTURER MODEL" format.
+    """
     if s is not None and s != '':
         if idn_cmd == '*IDN?':
             mfr, model, ver, rev = s.upper().split(',')
@@ -51,9 +54,13 @@ def parseIDNResponse(s, idn_cmd='*IDN?'):
             return s.upper().split(',')[0]
         elif idn_cmd == 'OI':
             model = s.strip(string.whitespace).split('REV')[0]
-            if model == '08341B':       # HP8341B response string is expected to be similar to "08341BREV 01 AUG 86"
+            # HP8341B response string is expected to be similar to
+            # "08341BREV 01 AUG 86".
+            if model == '08341B':
                 return 'HEWLETT-PACKARD 8341B'
-            elif model == '08340B':       # HP8340B response string is expected to be similar to "08341BREV 01 AUG 86"
+            # HP8340B response string is expected to be similar to
+            # "08340BREV DD MON YY".
+            elif model == '08340B':
                 return 'HEWLETT-PACKARD 8340B'
             else:
                 return s.strip(string.whitespace).split('REV')[0]
