@@ -50,20 +50,27 @@ class FIM(expt.Experiment):
         mem_lists = self.boards.init_mem_lists()
        
         mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
+        mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0})
+        
         mem_lists[0].append({'Type': 'Delay', 'Time': self.value('Init Time')['us']})
-        mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': self.value('Bias Voltage')['V']})
+        
+        mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': self.value('Bias Voltage 1')['V']})
+        mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': self.value('Bias Voltage 2')['V']})
+        
         mem_lists[0].append({'Type': 'Delay', 'Time': self.value('Bias Time')['us']})
+ 
+        
         mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
+        mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0})
+        
         mem_lists[0].append({'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay})
+        
         mem_lists[0].append({'Type': 'Timer', 'Time': 0})
         
-        mem_lists[1].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0})
-        mem_lists[1].append({'Type': 'Delay', 'Time': self.value('Init Time')['us']})
-        mem_lists[1].append({'Type': 'Bias', 'Channel': 2, 'Voltage': self.value('Bias Voltage')['V']})
-        mem_lists[1].append({'Type': 'Delay', 'Time': self.value('Bias Time')['us']})
-        mem_lists[1].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0})
-        mem_lists[1].append({'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay})
-        mem_lists[1].append({'Type': 'Timer', 'Time': 0})
+        
+        
+        
+        
 
         mems = [seq.mem_from_list(mem_list) for mem_list in mem_lists]
 
