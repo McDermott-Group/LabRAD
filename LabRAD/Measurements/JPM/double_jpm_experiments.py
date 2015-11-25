@@ -33,7 +33,7 @@ import labrad.units as units
 import LabRAD.Measurements.General.pulse_shapes as pulse
 import LabRAD.Measurements.General.server_interfaces as si
 import LabRAD.Servers.Instruments.GHzBoards.command_sequences as seq
-import data_processing as dp
+import LabRAD.Measurements.General.data_processing as dp
 from jpm_qubit_experiments import JPMExperiment
 
 

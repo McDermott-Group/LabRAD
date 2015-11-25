@@ -34,10 +34,10 @@ import labrad.units as units
 import LabRAD.Measurements.General.experiment as expt
 import LabRAD.Measurements.General.pulse_shapes as pulse
 import LabRAD.Servers.Instruments.GHzBoards.command_sequences as seq
-import data_processing as dp
+import LabRAD.Measurements.General.data_processing as dp
 
 
-class HEMTExperiment(expt.Experiment):        
+class ADCExperiment(expt.Experiment):        
     def single_shot_iqs(self, adc=None, save=False, plot_data=None):
         """
         Run a single experiment, saving individual I and Q points.
@@ -284,61 +284,60 @@ class HEMTExperiment(expt.Experiment):
                         'Value': self.acknowledge_request('Temperature')}
                    }
 
-    def average_data(self, data):
+    def average_data(self):
+        """
+        Average the data acquired by method run_n_times.
+        """
+        data = self._run_n_data
         if self._sweep_pts_acquired == 0:
             self._avg_data = {key: data[key].copy() for key in data}
-            for key in ['Is', 'Qs', 'Amplitudes', 'Phases']:
-                if key in data:
-                    self._avg_data[key]['Dependencies'] = (['Run Iteration'] +
-                            data[key]['Dependencies'])
 
+        avg = self._avg_data
         if 'Is' in data and 'Qs' in data:
             Is = self.strip_units(self._avg_data['Is']['Value'])
             Qs = self.strip_units(self._avg_data['Qs']['Value'])
-            self._avg_data['I']['Value'] = np.mean(Is) * units.ADCUnits
-            self._avg_data['Q']['Value'] = np.mean(Qs) * units.ADCUnits
-            self._avg_data['I Std Dev']['Value'] = np.std(Is) * units.ADCUnits
-            self._avg_data['Q Std Dev']['Value'] = np.std(Qs) * units.ADCUnits
+            avg['I']['Value'] = np.mean(Is) * units.ADCUnits
+            avg['Q']['Value'] = np.mean(Qs) * units.ADCUnits
+            avg['I Std Dev']['Value'] = np.std(Is) * units.ADCUnits
+            avg['Q Std Dev']['Value'] = np.std(Qs) * units.ADCUnits
             
             As = np.hypot(Is, Qs)
-            self._avg_data['Mean Absolute Amplitude']['Value'] = np.mean(As) * units.ADCUnits
-            self._avg_data['Mean Absolute Amplitude Std Dev']['Value'] = np.std(As) * units.ADCUnits
+            avg['Mean Absolute Amplitude']['Value'] = np.mean(As) * units.ADCUnits
+            avg['Mean Absolute Amplitude Std Dev']['Value'] = np.std(As) * units.ADCUnits
             
-            I = self.strip_units(self._avg_data['I']['Value'])
-            Q = self.strip_units(self._avg_data['Q']['Value'])
-            self._avg_data['Amplitude']['Value'] = np.hypot(I, Q) * units.ADCUnits
-            self._avg_data['Phase']['Value'] = np.arctan2(Q, I) * units.rad
+            I = self.strip_units(avg['I']['Value'])
+            Q = self.strip_units(avg['Q']['Value'])
+            avg['Amplitude']['Value'] = np.hypot(I, Q) * units.ADCUnits
+            avg['Phase']['Value'] = np.arctan2(Q, I) * units.rad
         else:
-            It = data['I']['Value']
-            Qt = data['Q']['Value']
-            self._avg_data['I']['Value'] = np.mean(It, axis=0) * units.ADCUnits
-            self._avg_data['Q']['Value'] = np.mean(Qt, axis=0) * units.ADCUnits
-            self._avg_data['I']['Distribution'] = 'normal'
-            self._avg_data['Q']['Distribution'] = 'normal'
-            self._avg_data['I Std Dev']['Value'] = np.std(It, axis=0) * units.ADCUnits
-            self._avg_data['Q Std Dev']['Value'] = np.std(Qt, axis=0) * units.ADCUnits
+            It = self.strip_units(data['I']['Value'])
+            Qt = self.strip_units(data['Q']['Value'])
+            avg['I']['Value'] = np.mean(It, axis=0) * units.ADCUnits
+            avg['Q']['Value'] = np.mean(Qt, axis=0) * units.ADCUnits
+            avg['I']['Distribution'] = 'normal'
+            avg['Q']['Distribution'] = 'normal'
+            avg['I Std Dev']['Value'] = np.std(It, axis=0) * units.ADCUnits
+            avg['Q Std Dev']['Value'] = np.std(Qt, axis=0) * units.ADCUnits
 
             Id = self.strip_units(data['Software Demod I']['Value'])
             Qd = self.strip_units(data['Software Demod Q']['Value'])
-            self._avg_data['Software Demod I']['Value'] = np.mean(Id) * units.ADCUnits
-            self._avg_data['Software Demod Q']['Value'] = np.mean(Qd) * units.ADCUnits
-            self._avg_data['Software Demod I']['Distribution'] = 'normal'
-            self._avg_data['Software Demod Q']['Distribution'] = 'normal'
-            self._avg_data['Software Demod I Std Dev'] = {'Value': np.std(Id) * units.ADCUnits}
-            self._avg_data['Software Demod Q Std Dev'] = {'Value': np.std(Qd) * units.ADCUnits}
+            avg['Software Demod I']['Value'] = np.mean(Id) * units.ADCUnits
+            avg['Software Demod Q']['Value'] = np.mean(Qd) * units.ADCUnits
+            avg['Software Demod I']['Distribution'] = 'normal'
+            avg['Software Demod Q']['Distribution'] = 'normal'
+            avg['Software Demod I Std Dev'] = {'Value': np.std(Id) * units.ADCUnits}
+            avg['Software Demod Q Std Dev'] = {'Value': np.std(Qd) * units.ADCUnits}
             
-            self._avg_data['Software Demod Amplitude']['Value'] = np.hypot(Id, Qd) * units.ADCUnits
-            self._avg_data['Software Demod Phase']['Value'] = np.arctan2(Qd, Id) * units.rad
+            avg['Software Demod Amplitude']['Value'] = np.hypot(Id, Qd) * units.ADCUnits
+            avg['Software Demod Phase']['Value'] = np.arctan2(Qd, Id) * units.rad
 
         if 'Temperature' in data:
             T = self.strip_units(data['Temperature']['Value'])
-            self._avg_data['Temperature']['Value'] = (np.mean(T) *
+            avg['Temperature']['Value'] = (np.mean(T) *
                     self.unit_factor(data['Temperature']['Value']))
 
-        return self._avg_data
         
-        
-class HEMTQubitReadout(HEMTExperiment):
+class ADCQubitReadout(ADCExperiment):
     """
     Read out a qubit connected to a resonator.
     """
@@ -427,11 +426,12 @@ class HEMTQubitReadout(HEMTExperiment):
         mems = [seq.mem_simple(self.value('Init Time')['us'], sram_length, 0, sram_delay)
                 for dac in self.boards.dacs]
         
-        ###RUN#####################################################################################
+        ###LOAD####################################################################################
         result = self.boards.load(dac_srams, mems)
         self.acknowledge_requests()
 
-class HEMTRamsey(HEMTExperiment):
+
+class ADCRamsey(ADCExperiment):
     """
     Ramsey drive and readout of a qubit connected to a resonator.
     """
@@ -523,11 +523,12 @@ class HEMTRamsey(HEMTExperiment):
         mems = [seq.mem_simple(self.value('Init Time')['us'], sram_length, 0, sram_delay)
                 for dac in self.boards.dacs]
         
-        ###RUN#####################################################################################
+        ###LOAD####################################################################################
         result = self.boards.load(dac_srams, mems)
         self.acknowledge_requests()        
 
-class HEMTStarkShift(HEMTExperiment):
+
+class ADCStarkShift(ADCExperiment):
     """
     Read out a qubit connected to a resonator.
     """
@@ -624,12 +625,12 @@ class HEMTStarkShift(HEMTExperiment):
         mems = [seq.mem_simple(self.value('Init Time')['us'], sram_length, 0, sram_delay)
                 for dac in self.boards.dacs]
         
-        ###RUN#####################################################################################
+        ###LOAD####################################################################################
         result = self.boards.load(dac_srams, mems)
         self.acknowledge_requests()
         
 
-class ADCDemodTest(HEMTExperiment):
+class ADCDemodTest(ADCExperiment):
     """
     Test the ADC demodulation.
     """
@@ -721,9 +722,9 @@ class ADCDemodTest(HEMTExperiment):
         self.acknowledge_requests()
 
         
-class HEMTCavityJPM(HEMTExperiment):
+class ADCCavityJPM(ADCExperiment):
     """
-    Probe a resonator that is driven by a switching JPM with a HEMT.
+    Probe a resonator that is driven by a switching JPM with a ADC.
     """
     def load_once(self, adc=None, plot_waveforms=False):
         #RF DRIVE (READOUT) VARIABLES##############################################################
@@ -793,6 +794,6 @@ class HEMTCavityJPM(HEMTExperiment):
 
         mems = [seq.mem_from_list(mem_list) for mem_list in mem_lists]
         
-        ###RUN#####################################################################################
+        ###LOAD####################################################################################
         self.acknowledge_requests()
         self.boards.load(dac_srams, mems)
