@@ -42,7 +42,7 @@ import LabRAD.Measurements.General.experiment as expt
 import LabRAD.Measurements.General.pulse_shapes as pulse
 import LabRAD.Servers.Instruments.GHzBoards.command_sequences as seq
 import LabRAD.Measurements.General.data_processing as dp
-from LabRAD.Measurements.JPM.adc_qubit_experiment import ADCExperiment
+from   LabRAD.Measurements.JPM.adc_qubit_experiments import ADCExperiment
 
 
 class NISReadout(ADCExperiment):

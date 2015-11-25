@@ -57,6 +57,14 @@ class FIM(expt.Experiment):
         mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': self.value('Bias Voltage 1')['V']})
         mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': self.value('Bias Voltage 2')['V']})
         
+        \
+        \
+        
+        
+        
+        
+        
+         
         mem_lists[0].append({'Type': 'Delay', 'Time': self.value('Bias Time')['us']})
  
         

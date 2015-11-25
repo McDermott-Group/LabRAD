@@ -118,7 +118,7 @@ with nis_experiments.NISReadout() as run:
     
     run.value('NIS Bias Voltage', 1 * V)
     
-    run.sweep('Bias to Readout Delay', np.linspace(0, 100, 101)*ns, # for >1D, do ['list','of','variables'],[linespaces]
+    run.sweep(['Bias to Readout Delay','RF Frequency'], [np.linspace(0, 100, 101)*ns, np.linspace(4.9, 5, 101)*GHz], # for >1D, do ['list','of','variables'],[linespaces]
                 print_data=['I', 'Q'], plot_data=['I', 'Q'], save=True, runs=3) # runs does ex: 3X 3000 reps
     
     
