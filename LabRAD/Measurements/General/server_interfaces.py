@@ -228,6 +228,8 @@ class GHzFPGABoards(object):
     def bringup(self):
         """Bring up the GHz FPGA boards.
         
+        Input:
+            None.
         Output:
             status (boolean): true if the bring-up succeeded, false
                 otherwise.
@@ -254,6 +256,47 @@ class GHzFPGABoards(object):
         while not success:
             self.restart()
             success = self.bringup()
+            
+    def check_plls(self):
+        """
+        Check the status of the FPGA internal GHz serializer PLLs.
+        
+        Input:
+            None.
+        Output: 
+            dacs2reset: list of DACs that have the PLL lost lock
+                since the last reset.
+            adcs2init: list of ADCs that have the PLL lost lock.
+        """
+        p = self.server.packet()
+        for board in self.dacs + self.adcs:
+            p.select_device(board)
+            p.pll_query(key=board)
+        status = p.send()
+        dacs2reset = [dac for dac in self.dacs if status[dac]]
+        adcs2init  = [adc for adc in self.adcs if status[adc]]
+        return dacs2reset, adcs2init
+        
+    def reset_or_init_plls(self, dacs2reset=[], adcs2init=[]):
+        """
+        Reset (for DACs) or initialize (for ADCs) the PLLs. 
+        
+        Input:
+            dacs2reset: list of DACs to reset.
+            adcs2init: list of ADCs to initialize.
+        Output: 
+            None.
+        """
+        p = self.server.packet()
+        # Reset the DAC FPGA internal GHz serializer PLLs.
+        for dac in dacs2reset:
+            p.select_device(dac)
+            p.pll_reset()
+        # Send the initialization sequence to the ADC PLLs.
+        for adc in adcs2init:
+            p.select_device(adc)
+            p.pll_init()
+        p.send()
 
     def process_waveforms(self, waveforms):
         """
@@ -503,25 +546,14 @@ class GHzFPGABoards(object):
         while True:
             try:
                 result = self.server.run_sequence(int(reps), self._data_flag)
-                # Check the status of the FPGA internal GHz serializer
-                # PLLs.
-                p = self.server.packet()
-                for dac in self.dacs:
-                    p.select_device(dac)
-                    p.pll_query(key=dac)
-                status = p.send()
-                # List all DACs to reset.
-                dacs2reset = [dac for dac in self.dacs if status[dac]]
-                if not dacs2reset:
-                    return result
-                else:
-                    # Reset the FPGA internal GHz serializer PLLs and
-                    # reload the boards.
-                    for dac in dacs2reset:
-                        p.select_device(dac)
-                        p.pll_reset()
-                    p.send()
+                dacs2reset, adcs2init = self.check_plls()
+                # Apparently, ADC PLL query always return True...
+                if dacs2reset:
+                    self.reset_or_init_plls(dacs2reset, adcs2init)
+                    # Reload the boards, just in case.
                     self.load(self._dac_srams, self._dac_mems)
+                else:
+                    return result
             except (Error, TimeoutError):
                 # self.auto_recovery()
                 # Restart the GHz FPGA Server and reload the boards.
