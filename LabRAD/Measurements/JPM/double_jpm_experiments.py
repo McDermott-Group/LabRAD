@@ -50,8 +50,8 @@ class DoubleJPMCorrelation(JPMExperiment):
             raise Exception("'DC Bias Voltage' should not exceed 30 mV.")
 
         #RF VARIABLES##############################################################################
-        self.set('RF Attenuation')                             # RF attenuation
-        self.set('RF Power')                                   # RF power
+        self.set('RF Attenuation')                                      # RF attenuation
+        self.set('RF Power')                                            # RF power
         if self.value('RF Frequency') is not None:
             if self.value('RF SB Frequency') is not None:               # RF frequency
                 self.set('RF Frequency',                

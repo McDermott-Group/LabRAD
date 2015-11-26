@@ -1,10 +1,9 @@
 import os
 import numpy as np
 
-from labrad.units import (us, ns, mV, V, GHz, MHz, rad, dB, dBm,
-                          DACUnits, PreAmpTimeCounts)
+from labrad.units import us, ns, mV, V
 
-import FIM_CorrExp
+import fim_corr_expt
 
 
 comp_name = os.environ['COMPUTERNAME'].lower()
@@ -23,7 +22,8 @@ Resources = [   {
                 'Variables': {  # Default values.
                                 'Init Time': {},
                                 'Bias Time': {},
-                                'Bias Voltage': {}
+                                'Bias Voltage 1': {},
+                                'Bias Voltage 2': {}
                              }
                 },
                 { # ADR3
@@ -62,9 +62,9 @@ ExptVars = {
             'Bias Voltage 2': 1 * mV,
            }
 
-with FIM_CorrExp.FIM() as run:
+with fim_corr_expt.FIM() as run:
     run.set_experiment(ExptInfo, Resources, ExptVars)
     
     run.sweep('Bias Voltage 1', np.linspace(2200, 2500, 11) * mV,
         save=False, print_data=['Temperature'], plot_data=['Temperature'],
-        runs=1, max_data_dim=1)   
+        runs=1, max_data_dim=1)

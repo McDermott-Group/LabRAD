@@ -1,4 +1,4 @@
-# Copyright (C) 2015 Ivan Pechenezhskiy
+# Copyright (C) 2015
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -28,8 +28,6 @@ if LABRAD_PATH not in sys.path:
 
 import numpy as np
 
-import labrad.units as units
-
 import LabRAD.Measurements.General.experiment as expt
 import LabRAD.Measurements.General.pulse_shapes as pulse
 import LabRAD.Servers.Instruments.GHzBoards.command_sequences as seq
@@ -56,18 +54,9 @@ class FIM(expt.Experiment):
         
         mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': self.value('Bias Voltage 1')['V']})
         mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': self.value('Bias Voltage 2')['V']})
-        
-        \
-        \
-        
-        
-        
-        
-        
-         
+
         mem_lists[0].append({'Type': 'Delay', 'Time': self.value('Bias Time')['us']})
- 
-        
+         
         mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
         mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0})
         
@@ -75,11 +64,6 @@ class FIM(expt.Experiment):
         
         mem_lists[0].append({'Type': 'Timer', 'Time': 0})
         
-        
-        
-        
-        
-
         mems = [seq.mem_from_list(mem_list) for mem_list in mem_lists]
 
         self.get('Temperature')

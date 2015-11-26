@@ -111,7 +111,7 @@ class JPMExperiment(expt.Experiment):
 
 class JPMQubitReadout(JPMExperiment):
     """
-    Read the qubit state with a JPM by applying a read-out and 
+    Read the qubit state with a JPM by applying a readout and 
     a displacement (reset) pulses.
     """
     def load_once(self, plot_waveforms=False):
