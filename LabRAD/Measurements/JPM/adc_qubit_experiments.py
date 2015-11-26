@@ -117,8 +117,7 @@ class ADCQubitReadout(ADCExperiment):
         # Delay from the start of the readout pulse to the start of the demodulation.
         ADC_wait_time = self.value('ADC Wait Time')['ns']
         self.boards.set_adc_setting('FilterStartAt', (DAC_ZERO_PAD_LEN +
-                ADC_wait_time + QB_time + QBtoRO + RO_time) * units.ns
-                , adc)
+                ADC_wait_time + QB_time + QBtoRO + RO_time) * units.ns, adc)
         self.boards.set_adc_setting('ADCDelay', 0 * units.ns, adc)
 
         mems = [seq.mem_simple(self.value('Init Time')['us'], sram_length, 0, sram_delay)

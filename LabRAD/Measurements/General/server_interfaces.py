@@ -330,9 +330,9 @@ class GHzFPGABoards(object):
     def get_adc(self, adc=None):
         """
         If only a single ADC board is present, return its name. If more
-        than one board is present, check that a board with a a given name
-        actually exists, otherwise raise an error. Return the board index
-        as a second parameter.
+        than one board is present, check that the board with the
+        specified name exists, otherwise raise an error.
+        Return the board index as a second parameter.
         
         Input:
             adc (optional): ADC board name (default: None).
@@ -350,13 +350,14 @@ class GHzFPGABoards(object):
  
     def set_adc_setting(self, setting, value, adc=None):
         """
-        Change one of the ADC settings.
+        Change an ADC setting.
         
         Inputs:
             setting: name of setting you want to change.
             value: value to change the setting to.
-            adc: ADC board name. If None and only one board in is
-            present the board name will be automatically recognized.
+            adc: ADC board name. If None and only one board is
+                detected, the board name will be automatically
+                recognized.
         Output:
             None.
         """
