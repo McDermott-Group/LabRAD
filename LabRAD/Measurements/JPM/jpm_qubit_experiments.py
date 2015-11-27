@@ -63,6 +63,7 @@ class JPMExperiment(expt.Experiment):
         plt.ylabel('Counts')
         plt.xlim(0, preamp_timeout) 
         plt.draw()
+        plt.ion()
         plt.pause(0.05)
         
     def run_once(self):

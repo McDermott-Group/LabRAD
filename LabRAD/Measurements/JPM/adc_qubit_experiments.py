@@ -30,7 +30,7 @@ import numpy as np
 
 import labrad.units as units
 
-import LabRAD.Servers.Instruments.GHzBoards.command_sequences as seq
+import LabRAD.Servers.Instruments.GHzBoards.mem_sequences as ms
 import LabRAD.Measurements.General.waveform as wf
 import LabRAD.Measurements.General.data_processing as dp
 from LabRAD.Measurements.General.adc_experiment import ADCExperiment
@@ -71,7 +71,7 @@ class ADCQubitReadout(ADCExperiment):
                 wf.Waveform('Readout I', RO_I), wf.Waveform('Readout Q', RO_Q),
                 wf.Waveform('Qubit I',   QB_I), wf.Waveform('Qubit Q',   QB_Q))
 
-        dac_srams, sram_length, sram_delay = self.boards.process_waveforms(waveforms)
+        dac_srams, sram_length = self.boards.process_waveforms(waveforms)
 
         # wf.plot_wfs(waveforms, waveforms.keys())
 
@@ -83,8 +83,8 @@ class ADCQubitReadout(ADCExperiment):
                 RO_I.end + self.value('ADC Wait Time')['ns']) * units.ns, adc)
         self.boards.set_adc_setting('ADCDelay', 0 * units.ns, adc)
 
-        mems = [seq.mem_simple(self.value('Init Time')['us'],
-                sram_length, 0, sram_delay) for dac in self.boards.dacs]
+        mems = [ms.simple_sequence(self.value('Init Time'), sram_length, 0)
+                for dac in self.boards.dacs]
         
         ###LOAD####################################################################################
         result = self.boards.load(dac_srams, mems)
@@ -133,7 +133,7 @@ class ADCRamsey(ADCExperiment):
                 wf.Waveform('Qubit I', QB1_I, QB2_I),
                 wf.Waveform('Qubit Q', QB1_Q, QB2_Q))
 
-        dac_srams, sram_length, sram_delay = self.boards.process_waveforms(waveforms)
+        dac_srams, sram_length = self.boards.process_waveforms(waveforms)
 
         # wf.plot_wfs(waveforms, waveforms.keys())
 
@@ -145,7 +145,7 @@ class ADCRamsey(ADCExperiment):
                 RO_I.end + self.value('ADC Wait Time')['ns']) * units.ns, adc)
         self.boards.set_adc_setting('ADCDelay', 0 * units.ns, adc)
 
-        mems = [seq.mem_simple(self.value('Init Time')['us'], sram_length, 0, sram_delay)
+        mems = [ms.simple_sequence(self.value('Init Time'), sram_length, 0)
                 for dac in self.boards.dacs]
         
         ###LOAD####################################################################################
@@ -176,7 +176,7 @@ class ADCStarkShift(ADCExperiment):
         ###WAVEFORMS###############################################################################
         Stark_I, Stark_Q = wf.Harmonic(amplitude = self.value('Stark Amplitude'),
                                        frequency = self.value('Readout SB Frequency'),
-                                       start     = 0),
+                                       start     = 0,
                                        duration  = self.value('Stark Time'))
         
         QB_I, QB_Q = wf.Harmonic(amplitude = self.value('Qubit Amplitude'),
@@ -195,7 +195,7 @@ class ADCStarkShift(ADCExperiment):
                 wf.Waveform('Qubit I', QB_I),
                 wf.Waveform('Qubit Q', QB_Q))
 
-        dac_srams, sram_length, sram_delay = self.boards.process_waveforms(waveforms)
+        dac_srams, sram_length  = self.boards.process_waveforms(waveforms)
 
         # wf.plot_wfs(waveforms, waveforms.keys())
 
@@ -207,7 +207,7 @@ class ADCStarkShift(ADCExperiment):
                 RO_I.end + self.value('ADC Wait Time')['ns']) * units.ns, adc)
         self.boards.set_adc_setting('ADCDelay', 0 * units.ns, adc)
 
-        mems = [seq.mem_simple(self.value('Init Time')['us'], sram_length, 0, sram_delay)
+        mems = [ms.simple_sequence(self.value('Init Time'), sram_length, 0)
                 for dac in self.boards.dacs]
         
         ###LOAD####################################################################################
@@ -225,50 +225,48 @@ class ADCCavityJPM(ADCExperiment):
         self.set('RF Power')                                            # RF power
         self.set('RF Frequency', self.value('RF Frequency') +           # RF frequency
                 self.value('RF SB Frequency'))
-                self.set('RF Frequency')
 
         #DC BIAS VARIABLES#########################################################################
         self.set('Qubit Flux Bias Voltage')
 
         ###WAVEFORMS###############################################################################
-        JPM = wf.Square(amplitude = self.value('Fast Pulse Amplitude'),
-                        start     = 0,
-                        duration  = self.value('Fast Pulse Time'))
+        JPM = wf.DC(amplitude = self.value('Fast Pulse Amplitude'),
+                    start     = 0,
+                    duration  = self.value('Fast Pulse Time'))
         
         waveforms, offset = wf.wfs_dict(self.boards.consts['DAC_ZERO_PAD_LEN'],
                 wf.Waveform('JPM Fast Pulse', JPM))
         
-        dac_srams, sram_length, sram_delay = self.boards.process_waveforms(waveforms)
+        dac_srams, sram_length = self.boards.process_waveforms(waveforms)
 
         # wf.plot_wfs(waveforms, waveforms.keys())
 
         ###SET BOARDS PROPERLY#####################################################################
-        self.boards.set_adc_setting('DemodFreq', -self.value('Readout SB Frequency'), adc)
+        self.boards.set_adc_setting('DemodFreq', -self.value('RF SB Frequency'), adc)
 
         # Delay between the end of the readout pulse to the start of the demodulation.
         self.boards.set_adc_setting('FilterStartAt', (offset +
-                RO_I.end + self.value('ADC Wait Time')['ns']) * units.ns, adc)
+                JPM.end + self.value('ADC Wait Time')['ns']) * units.ns, adc)
         self.boards.set_adc_setting('ADCDelay', 0 * units.ns, adc)
         
         # Create a memory command list.
-        # The format is described in Servers.Instruments.GHzBoards.command_sequences.
-        mem_lists = self.boards.init_mem_lists()
-        
-        mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
-        mem_lists[0].append({'Type': 'Delay', 'Time': self.value('Init Time')['us']})
-        mem_lists[0].append({'Type': 'Bias', 'Channel': 1,
-                'Voltage': self.value('Bias Voltage')['V']})
-        mem_lists[0].append({'Type': 'Delay', 'Time': self.value('Bias Time')['us']})
-        mem_lists[0].append({'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay})
-        mem_lists[0].append({'Type': 'Timer', 'Time': self.value('Measure Time')['us']})
-        mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
+        # The format is described in Servers.Instruments.GHzBoards.mem_sequences.
+        mem_seqs = self.boards.init_mem_lists()
 
-        mem_lists[1].append({'Type': 'Delay', 'Time': self.value('Init Time')['us'] +
-                                      self.value('Bias Time')['us']})
-        mem_lists[1].append({'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay})
-        mem_lists[1].append({'Type': 'Timer', 'Time': self.value('Measure Time')['us']})
+        mem_seqs[0].firmware(1, version='1.0')
+        mem_seqs[0].bias(1, voltage=0)
+        mem_seqs[0].delay(self.value('Init Time'))
+        mem_seqs[0].bias(1, voltage=self.value('Bias Voltage'))
+        mem_seqs[0].delay(self.value('Bias Time'))
+        mem_seqs[0].sram(sram_length=sram_length, sram_start=0)
+        mem_seqs[0].timer(self.value('Measure Time'))
+        mem_seqs[0].bias(1, voltage=0)
 
-        mems = [seq.mem_from_list(mem_list) for mem_list in mem_lists]
+        for k in range(1, len(self.boards.dacs)):
+            mem_seqs[k].delay(self.value('Init Time') + self.value('Bias Time'))
+            mem_seqs[k].sram(sram_length=sram_length, sram_start=0)
+            mem_seqs[k].timer(self.value('Measure Time'))
+        mems = [mem_seq.sequence() for mem_seq in mem_seqs]
         
         ###LOAD####################################################################################
         self.acknowledge_requests()

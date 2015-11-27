@@ -92,12 +92,12 @@ Resources = [ {
                     'Serial Number': 7032,
                     'Variables': 'Readout Attenuation'
                 },
-                { # SIM Voltage Source.
-                    'Interface': 'SIM928 Voltage Source',
-                    'Address': ('SIM900 - ' + comp_name + 
-                                ' GPIB Bus - GPIB0::26::INSTR::SIM900::3'),
-                    'Variables': 'Qubit Flux Bias Voltage'
-                },
+                # { # SIM Voltage Source.
+                    # 'Interface': 'SIM928 Voltage Source',
+                    # 'Address': ('SIM900 - ' + comp_name + 
+                                # ' GPIB Bus - GPIB0::26::INSTR::SIM900::3'),
+                    # 'Variables': 'Qubit Flux Bias Voltage'
+                # },
                 { # Leiden
                     'Interface': 'Leiden',
                     'Variables': {'Temperature': {'Setting': 'Mix Temperature'}}
@@ -113,7 +113,7 @@ ExptInfo = {
             'Device Name': 'MH060',
             'User': 'Ivan Pechenezhskiy',
             'Base Path': 'Z:\mcdermott-group\Data\Syracuse Qubits\Leiden DR 2015-10-22 - Qubits and JPMs',
-            'Experiment Name': 'Optimizations',
+            'Experiment Name': 'FluxBiasQBFreq2D',
             'Comments': 'ADC band pass filters removed. DC blocks and filters on Lab Brick attenuators. Updated filter functions.' 
            }
  
@@ -139,11 +139,11 @@ ExptVars = {
             'Qubit Power': 13 * dBm,
             'Qubit Attenuation': 11 * dB, # should be in (0, 63] range
             'Qubit SB Frequency': 62.5 * MHz,
-            'Qubit Amplitude': 0.0 * DACUnits, #1.0 * DACUnits,
-            'Qubit Time': 60 * ns, #60 * ns,
+            'Qubit Amplitude': 1.0 * DACUnits, #1.0 * DACUnits,
+            'Qubit Time': 5000 * ns, #60 * ns,
             # 'Qubit T2 Delay': 0 * ns,
 
-            'Qubit Flux Bias Voltage': 0 * V,
+            # 'Qubit Flux Bias Voltage': 0 * V,
                         
             'ADC Wait Time': 148 * ns,
             # 'ADC Demod Frequency': -50 * MHz
@@ -205,10 +205,10 @@ with adc_qubit_experiments.ADCQubitReadout() as run:
         # plot_data = ['Amplitude', 'I', 'Q'],
         # save=True, runs=2, max_data_dim=2)
     
-    run.sweep('ADC Wait Time', np.linspace(-110, 290, 101) * ns,
-        print_data = ['Amplitude', 'Temperature'],
-        plot_data = ['Amplitude', 'I', 'Q'],
-        save=True, runs=8, max_data_dim=1)
+    # run.sweep('ADC Wait Time', np.linspace(-110, 290, 101) * ns,
+        # print_data = ['Amplitude', 'Temperature'],
+        # plot_data = ['Amplitude', 'I', 'Q'],
+        # save=True, runs=8, max_data_dim=1)
     
     # run.sweep(['Qubit Frequency', 'Readout Frequency'], 
       # [np.linspace(4, 5, 101) * GHz, np.linspace(4., 5, 101) * GHz],
@@ -267,9 +267,9 @@ with adc_qubit_experiments.ADCQubitReadout() as run:
         # [np.linspace(-0.5, 2, 13) * V, np.linspace(3.9, 4.7, 401) * GHz],
         # save=True, print_data='Amplitude', runs=1, max_data_dim=2)
         
-    # run.sweep(['Qubit Flux Bias Voltage', 'Qubit Frequency'], 
-        # [np.linspace(-.1, .1, 11) * V, np.linspace(4.5, 4.65, 151) * GHz],
-        # save=True, print_data='Amplitude', runs=10, max_data_dim=2)
+    run.sweep(['Qubit Flux Bias Voltage', 'Qubit Frequency'], 
+        [np.linspace(-.1, .1, 11) * V, np.linspace(4.5, 4.65, 151) * GHz],
+        save=True, print_data='Amplitude', runs=10, max_data_dim=2)
         
     # run.sweep('Qubit Frequency', np.linspace(4.50, 4.65, 301) * GHz,
              # print_data=['I', 'Q'], plot_data=['I', 'Q', 'Amplitude'],

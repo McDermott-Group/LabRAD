@@ -417,6 +417,7 @@ def plot_wfs(waveforms, wf_labels, wf_colors=['r', 'g', 'm', 'b', 'k']):
     plt.xlabel('Time [ns]')
     plt.ylabel('Waveforms')
     plt.draw()
+    plt.ion()
     plt.pause(0.05)
 
 

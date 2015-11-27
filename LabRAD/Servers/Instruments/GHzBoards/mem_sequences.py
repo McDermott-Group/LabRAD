@@ -20,6 +20,35 @@ import labrad.units as units
 import mem_commands as Mem
 
 
+def _us(time):
+    """
+    Convert time to microseconds. Return an integer without any
+    units attached.
+    
+    Input:
+        time: time.
+    Output:
+        time: time in microseconds without any units attached.
+    """
+    if isinstance(time, units.Value):
+        time = time['us']
+    return int(np.round(time))
+    
+def _V(voltage):
+    """
+    Convert voltage to volts. Return a float number without any
+    units attached.
+    
+    Input:
+        voltage: voltage.
+    Output:
+        voltage: voltage in volts without any units attached.
+    """
+    if isinstance(voltage, units.Value):
+        voltage = voltage['V']
+    return float(voltage)
+
+
 class MemSequence():
     """
     Build a memory sequence from a list of atomic operations.
@@ -34,24 +63,6 @@ class MemSequence():
         # DACs: {Channel: firmware_version,...}. 
         self.FastBiasDACMode = {1: 'NotSelected', 2: 'NotSelected'}
         self.FastBiasFirmware = {1: '2.1', 2: '2.1'}
-   
-    def _us(self, time):
-        """
-        Convert time to microseconds. Return an integer without any
-        units attached.
-        """
-        if isinstance(time, units.Value):
-            time = time['us']
-        return int(np.round(time))
-        
-    def _V(self, time):
-        """
-        Convert voltage to volts. Return a float number without any
-        units attached.
-        """
-        if isinstance(voltage, units.Value):
-            voltage = voltage['V']
-        return float(voltage)
     
     def delay(self, time=0):
         """
@@ -60,7 +71,7 @@ class MemSequence():
         Input:
             time: delay time in microseconds.
         """
-        self.mem = Mem.AppendMemDelay(self.mem, self._us(time))
+        self.mem = Mem.AppendMemDelay(self.mem, _us(time))
         
     def firmware(self, channel=1, version='2.1'):
         """
@@ -100,7 +111,7 @@ class MemSequence():
                 'Fine' (or, alternatively, 'DAC1 Fast', 'DAC1 Slow',
                 'DAC0').
         """
-        voltage = self._V(voltage)
+        voltage = _V(voltage)
         if mode != 'NotSelected':
             self.FastBiasDACMode[channel] = mode
             self.mem = Mem.AppendMemSetVoltage(self.mem, voltage, 
@@ -110,7 +121,7 @@ class MemSequence():
             self.mem = Mem.AppendMemSetVoltage(self.mem, voltage,
                     self.FastBiasDACMode[channel], channel,
                     self.FastBiasFirmware[channel])
-        elif self.FastBiasDACMode[memOp['Channel']] == 'NotSelected':
+        elif self.FastBiasDACMode[channel] == 'NotSelected':
             # This option is to maintain the backward compatibility.
             self.FastBiasDACMode[channel] = 'Fast'
             if self.FastBiasFirmware[channel] == '1.0':
@@ -136,7 +147,7 @@ class MemSequence():
             time: delay time in microseconds.
         """
         self.bias(channel, voltage, mode)
-        self.mem = Mem.AppendMemDelay(self.mem, self._us(time))
+        self.mem = Mem.AppendMemDelay(self.mem, _us(time))
 
     def sram(self, sram_length, sram_start=0):
         """
@@ -160,7 +171,7 @@ class MemSequence():
             time: stop time in microseconds.
         """       
         self.mem = Mem.AppendMemStartTimer(self.mem)
-        self.mem = Mem.AppendMemDelay(self.mem, self._us(time))
+        self.mem = Mem.AppendMemDelay(self.mem, _us(time))
         self.mem = Mem.AppendMemStopTimer(self.mem)
     
     def sequence(self):
@@ -171,18 +182,23 @@ class MemSequence():
         # list is requested.
         return Mem.AppendMemEnd(self.mem)
 
-def simple_sequence(initTime, SRAMLength, SRAMStart):
+def simple_sequence(init_time, sram_length, sram_start=0):
     """
     Build a simple memory sequence that waits initTime, then starts
     SRAM.
-    """
+    
+    Inputs:
+        init_time: initialization time in microseconds.
+        sram_length: SRAM length.
+        sram_start: SRAM start time.
+    """ 
     memory = []
     memory = Mem.AppendMemNoOp(memory)
-    memory = Mem.AppendMemDelay(memory, initTime)
-    memory = Mem.AppendMemSRAMStartAddress(memory, SRAMStart)
-    memory = Mem.AppendMemSRAMEndAddress(memory, SRAMStart + SRAMLength - 1)
+    memory = Mem.AppendMemDelay(memory, _us(init_time))
+    memory = Mem.AppendMemSRAMStartAddress(memory, sram_start)
+    memory = Mem.AppendMemSRAMEndAddress(memory, sram_start + sram_length - 1)
     memory = Mem.AppendMemCallSRAM(memory)
-    memory = Mem.AppendMemDelay(memory, np.ceil(sramLength / 1000))
+    memory = Mem.AppendMemDelay(memory, np.ceil(sram_length / 1000))
     memory = Mem.AppendMemStartTimer(memory)
     memory = Mem.AppendMemStopTimer(memory)
     memory = Mem.AppendMemDelay(memory, 10)

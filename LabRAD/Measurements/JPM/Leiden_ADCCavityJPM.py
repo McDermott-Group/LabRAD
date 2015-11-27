@@ -33,6 +33,7 @@ Resources = [ {
                                         'RunMode': 'demodulate', #'average'
                                         'FilterType': 'square',
                                         'FilterWidth': 9500 * ns,
+                                        'FilterStartAt': 0 * ns,
                                         'FilterLength': 10000 * ns,
                                         'FilterStretchAt': 0 * ns,
                                         'FilterStretchLen': 0 * ns,
@@ -68,12 +69,12 @@ Resources = [ {
                     'Serial Number': 7032,
                     'Variables': ['RF Attenuation']
                 },
-                { # SIM Voltage Source.
-                    'Interface': 'SIM928 Voltage Source',
-                    'Address': ('SIM900 - ' + comp_name + 
-                                ' GPIB Bus - GPIB0::26::INSTR::SIM900::3'),
-                    'Variables': 'Qubit Flux Bias Voltage'
-                },
+                # { # SIM Voltage Source.
+                    # 'Interface': 'SIM928 Voltage Source',
+                    # 'Address': ('SIM900 - ' + comp_name + 
+                                # ' GPIB Bus - GPIB0::26::INSTR::SIM900::3'),
+                    # 'Variables': 'Qubit Flux Bias Voltage'
+                # },
                 { # Leiden
                     'Interface': 'Leiden',
                     'Variables': {'Temperature': {'Setting': 'Mix Temperature'}}
