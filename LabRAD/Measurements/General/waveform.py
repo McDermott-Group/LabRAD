@@ -37,7 +37,7 @@ class _WavePulse():
     def _ns(self, time):
         """
         Convert time to nanoseconds. Return an integer without any
-        attached units.
+        units attached.
         """
         if isinstance(time, units.Value):
             time = time['ns']

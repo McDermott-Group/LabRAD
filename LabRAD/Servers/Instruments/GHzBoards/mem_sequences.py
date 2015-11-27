@@ -15,102 +15,163 @@
 
 import numpy as np
 
+import labrad.units as units
+
 import mem_commands as Mem
 
-def mem_from_list(memList):
+
+class MemSequence():
     """
-    For more complex memory sequences, automatically build a memory
-    sequence from a list of atomic operations. The memList should be
-    a list of dictionaries, each dictionary representing a memory
-    operation. Start and End operations are added automatically.
-    
-    Each dictionary should have the format: {'Type': type_of_command,
-        'Value1', val1, 'Value2', val2, ...}
-    
-    Recognized dictionaries:
-        {'Type': 'Delay', 'Time': delay_time_in_us}
-        {'Type': 'Switch', 'Channel': channel_number, 'Mode': mode}
-        {'Type': 'Bias', 'Channel': channel_number,
-            'Voltage': voltage_in_volts, ['Mode': mode]}
-        {'Type': 'BiasThenWait', 'Channel': channel_number,
-            'Voltage': voltage_in_volts, 
-            'Time': time_to_wait_at_voltage, ['Mode': mode]}
-        {'Type': 'SRAM', 'Start': SRAM_start_address,
-            'Length': SRAM_length, 'Delay': SRAM_delay}
-        {'Type': 'Timer', 'Time': time_to_poll_for_responses}
-        {'Type': 'Firmware', 'Channel': channel_number,
-            'Version': version}
+    Build a memory sequence from a list of atomic operations.
     """ 
-    mem = []
-    mem = Mem.AppendMemNoOp(mem)
-
-    # FastBiasDACMode contains the current mode of the FastBias DACs:
-    # {Channel: mode,...}. 
-    # FastBiasFirmware contains the firmware versions of the FastBias
-    # DACs: {Channel: firmware_version,...}. 
-    FastBiasDACMode = {1: 'NotSelected', 2: 'NotSelected'}
-    FastBiasFirmware = {1: '2.1', 2: '2.1'}
-    for memOp in memList:
-        if memOp['Type'] == 'Delay':
-            mem = Mem.AppendMemDelay(mem, memOp['Time'])
-
-        elif memOp['Type'] == 'Firmware':
-            FastBiasFirmware[memOp['Channel']] = memOp['Version']
-            
-        elif memOp['Type'] == 'Switch':
-            FastBiasDACMode[memOp['Channel']] = memOp['Mode']
-            if FastBiasFirmware[memOp['Channel']] != '2.1':
-                mem = Mem.AppendMemSwitchDAC(mem, memOp['Mode'],
-                                                  memOp['Channel'])
-                
-        elif memOp['Type'] in ['Bias', 'BiasThenWait']:
-            if 'Mode' in memOp:
-                FastBiasDACMode[memOp['Channel']] = memOp['Mode']
-                mem = Mem.AppendMemSetVoltage(mem, memOp['Voltage'], 
-                        memOp['Mode'], memOp['Channel'],
-                        FastBiasFirmware[memOp['Channel']])
-            elif (FastBiasDACMode[memOp['Channel']].lower() in
-                    ['dac0', 'fine', 'dac1slow', 'slow', 'dac1fast', 'fast']):
-                mem = Mem.AppendMemSetVoltage(mem, memOp['Voltage'],
-                        FastBiasDACMode[memOp['Channel']],
-                        memOp['Channel'],
-                        FastBiasFirmware[memOp['Channel']])
-            elif FastBiasDACMode[memOp['Channel']] == 'NotSelected':
-                # This option is to maintain the backward compatibility.
-                FastBiasDACMode[memOp['Channel']] = 'Fast'
-                if FastBiasFirmware[memOp['Channel']] == '1.0':
-                    mem = Mem.AppendMemSwitchDAC(mem, 'Fast', memOp['Channel'])
-                Mem.AppendMemSetVoltage(mem, memOp['Voltage'],
-                        FastBiasDACMode[memOp['Channel']],
-                        memOp['Channel'],
-                        FastBiasFirmware[memOp['Channel']])
-            else:
-                raise Exception("Invalid FastBias 'Mode' setting: " +
-                        FastBiasDACMode[memOp['Channel']] + '.')
-            if memOp['Type'] == 'BiasThenWait':
-                mem = Mem.AppendMemDelay(mem, memOp['Time'])
-            
-        elif memOp['Type'] == 'SRAM':
-            mem = Mem.AppendMemSRAMStartAddress(mem, memOp['Start'])
-            mem = Mem.AppendMemSRAMEndAddress(mem, memOp['Start'] + 
-                                                   memOp['Length'] - 1)
-            mem = Mem.AppendMemCallSRAM(mem)
-            mem = Mem.AppendMemDelay(mem, memOp['Delay'])
+    def __init__(self):
+        self.mem = []
+        self.mem = Mem.AppendMemNoOp(self.mem)
         
-        elif memOp['Type'] == 'Timer': 
-            mem = Mem.AppendMemStartTimer(mem)
-            mem = Mem.AppendMemDelay(mem, memOp['Time'])
-            mem = Mem.AppendMemStopTimer(mem)
+        # FastBiasDACMode contains the current mode of the FastBias DACs:
+        # {Channel: mode,...}. 
+        # FastBiasFirmware contains the firmware versions of the FastBias
+        # DACs: {Channel: firmware_version,...}. 
+        self.FastBiasDACMode = {1: 'NotSelected', 2: 'NotSelected'}
+        self.FastBiasFirmware = {1: '2.1', 2: '2.1'}
+   
+    def _us(self, time):
+        """
+        Convert time to microseconds. Return an integer without any
+        units attached.
+        """
+        if isinstance(time, units.Value):
+            time = time['us']
+        return int(np.round(time))
+        
+    def _V(self, time):
+        """
+        Convert voltage to volts. Return a float number without any
+        units attached.
+        """
+        if isinstance(voltage, units.Value):
+            voltage = voltage['V']
+        return float(voltage)
+    
+    def delay(self, time=0):
+        """
+        Delay in microseconds.
+        
+        Input:
+            time: delay time in microseconds.
+        """
+        self.mem = Mem.AppendMemDelay(self.mem, self._us(time))
+        
+    def firmware(self, channel=1, version='2.1'):
+        """
+        FastBias firmware version.
+        
+        Inputs:
+            channel: fiberoptic channel, should be either 1 or 2.
+            version: FastBias firmware version, should be either
+                '1.0' or '2.1'.
+        """
+        self.FastBiasFirmware[channel] = version
+     
+    def switch(self, channel=1, mode='NotSelected', version='2.1'):
+        """
+        FastBias mode switch.
+        
+        Inputs:
+            channel: fiberoptic channel, should be either 1 or 2.
+            mode: FastBias DAC mode, should be either 'Fast', 'Slow', or
+                'Fine' (or, alternatively, 'DAC1 Fast', 'DAC1 Slow',
+                'DAC0').
+            version: FastBias firmware version, should be either
+                '1.0' or '2.1'.
+        """
+        self.FastBiasDACMode[channel] = mode
+        if self.FastBiasFirmware[channel] != '2.1':
+            self.mem = Mem.AppendMemSwitchDAC(self.mem, mode, channel)
             
+    def bias(self, channel=1, voltage=0, mode='NotSelected'):
+        """
+        Set FastBias output voltage.
+        
+        Inputs:
+            channel: fiberoptic channel, should be either 1 or 2.
+            voltage: output voltage in volts.
+            mode: FastBias DAC mode, should be either 'Fast', 'Slow', or
+                'Fine' (or, alternatively, 'DAC1 Fast', 'DAC1 Slow',
+                'DAC0').
+        """
+        voltage = self._V(voltage)
+        if mode != 'NotSelected':
+            self.FastBiasDACMode[channel] = mode
+            self.mem = Mem.AppendMemSetVoltage(self.mem, voltage, 
+                    mode, channel, self.FastBiasFirmware[channel])
+        elif (self.FastBiasDACMode[channel].lower().replace(' ', '') in
+                ['dac0', 'fine', 'dac1slow', 'slow', 'dac1fast', 'fast']):
+            self.mem = Mem.AppendMemSetVoltage(self.mem, voltage,
+                    self.FastBiasDACMode[channel], channel,
+                    self.FastBiasFirmware[channel])
+        elif self.FastBiasDACMode[memOp['Channel']] == 'NotSelected':
+            # This option is to maintain the backward compatibility.
+            self.FastBiasDACMode[channel] = 'Fast'
+            if self.FastBiasFirmware[channel] == '1.0':
+                self.mem = Mem.AppendMemSwitchDAC(self.mem, 'Fast', channel)
+            Mem.AppendMemSetVoltage(self.mem, voltage,
+                    self.FastBiasDACMode[channel], channel,
+                    self.FastBiasFirmware[channel])
         else:
-            raise Exception("Unrecognized operation '" + memOp['Type'] + 
-                    "' is specified in the memory list.")
-    
-    mem = Mem.AppendMemEnd(mem)
-    
-    return mem
+            raise Exception("Invalid FastBias mode setting: " +
+                    str(self.FastBiasDACMode[channel]) + '.')
+                    
+    def bias_then_wait(self, channel=1, voltage=0, mode='NotSelected',
+        time=0):
+        """
+        Set FastBias output voltage.
+        
+        Inputs:
+            channel: fiberoptic channel, should be either 1 or 2.
+            voltage: output voltage in volts.
+            mode: FastBias DAC mode, should be either 'Fast', 'Slow', or
+                'Fine' (or, alternatively, 'DAC1 Fast', 'DAC1 Slow',
+                'DAC0').
+            time: delay time in microseconds.
+        """
+        self.bias(channel, voltage, mode)
+        self.mem = Mem.AppendMemDelay(self.mem, self._us(time))
 
-def mem_simple(initTime, SRAMLength, SRAMStart, SRAMDelay):
+    def sram(self, sram_length, sram_start=0):
+        """
+        Append SRAM memory commands.
+        
+        Inputs:
+            sram_length: SRAM length.
+            sram_start: SRAM start time.
+        """
+        self.mem = Mem.AppendMemSRAMStartAddress(self.mem, sram_start)
+        self.mem = Mem.AppendMemSRAMEndAddress(self.mem, sram_start + 
+                sram_length - 1)
+        self.mem = Mem.AppendMemCallSRAM(self.mem)
+        self.mem = Mem.AppendMemDelay(self.mem, np.ceil(sram_length / 1000))
+        
+    def timer(self, time=0):
+        """
+        Append timer commands.
+        
+        Inputs:
+            time: stop time in microseconds.
+        """       
+        self.mem = Mem.AppendMemStartTimer(self.mem)
+        self.mem = Mem.AppendMemDelay(self.mem, self._us(time))
+        self.mem = Mem.AppendMemStopTimer(self.mem)
+    
+    def sequence(self):
+        """
+        Append the end command.
+        """
+        # Automatically append the end command when the memory command
+        # list is requested.
+        return Mem.AppendMemEnd(self.mem)
+
+def simple_sequence(initTime, SRAMLength, SRAMStart):
     """
     Build a simple memory sequence that waits initTime, then starts
     SRAM.
@@ -121,12 +182,11 @@ def mem_simple(initTime, SRAMLength, SRAMStart, SRAMDelay):
     memory = Mem.AppendMemSRAMStartAddress(memory, SRAMStart)
     memory = Mem.AppendMemSRAMEndAddress(memory, SRAMStart + SRAMLength - 1)
     memory = Mem.AppendMemCallSRAM(memory)
-    memory = Mem.AppendMemDelay(memory, SRAMDelay)
+    memory = Mem.AppendMemDelay(memory, np.ceil(sramLength / 1000))
     memory = Mem.AppendMemStartTimer(memory)
     memory = Mem.AppendMemStopTimer(memory)
     memory = Mem.AppendMemDelay(memory, 10)
     memory = Mem.AppendMemEnd(memory)
-    
     return memory
 
 def waves2sram(waveA, waveB, Trig=True):
@@ -147,7 +207,6 @@ def waves2sram(waveA, waveB, Trig=True):
         sram[6] |= 0xF0000000
         sram[7] |= 0xF0000000
         sram[8] |= 0xF0000000   
-
     return sram
 
 def serial2ECL(ECL0=[], ECL1=[], ECL2=[], ECL3=[]):
@@ -155,13 +214,13 @@ def serial2ECL(ECL0=[], ECL1=[], ECL2=[], ECL3=[]):
     the ECL serializer."""
     ECLlist = [ECL0, ECL1, ECL2, ECL3]
     
-    #check if all lists are empty
+    # Check if all lists are empty.
     if all(len(x) == 0 for x in ECLlist):
         return []
     length = max([len(x) for x in ECLlist])
-    #check that they are all the same length
+    # Check that they are all the same length.
     if len([x for x in ECLlist if len(x) != length]) > 0:
-        raise Exception('Length of all ECL data definitons should be equal.')
+        raise Exception('ECL data definitons should be of an equal length.')
     for idx, ecl in enumerate(ECLlist):
         if len(ecl) == 0:
             ECLlist[idx] = np.zeros((length,))

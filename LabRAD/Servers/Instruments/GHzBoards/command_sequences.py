@@ -165,5 +165,47 @@ def serial2ECL(ECL0=[], ECL1=[], ECL2=[], ECL3=[]):
             ECLlist[idx] = np.zeros((length,))
     ECLdata = np.zeros((length,))
     return []
-        
+
+if __name__ == "__main__":
+    """
+    Compare the output of this module with the output of mem_sequencies.
+    """
+    import mem_sequencies as ms
+    
+    print('Test simple memory list...')
+    init_time = 100
+    sram_length = 1500
+    sram_delay = np.ceil(sram_length / 1000)
+    
+    prev = mem_simple(init_time, sram_length, 0, sram_delay)
+    print('Previous version result: ' + str(prev))
+    
+    new = ms.simple_sequence(init_time, sram_length, 0)
+    print('New version result: ' + str(new))
+    
+    print('Test a specific FastBias memory list...')
+    voltage = .5
+    bias_time = 200
+    meas_time = 50
+
+    prev.append({'Type': 'Firmware', 'Channel': 1, 'Version': '2.1'})
+    prev.append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
+    prev.append({'Type': 'Delay', 'Time': init_time})
+    prev.append({'Type': 'Bias', 'Channel': 1, 'Voltage': voltage})
+    prev.append({'Type': 'Delay', 'Time': bias_time})
+    prev.append({'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay})
+    prev.append({'Type': 'Timer', 'Time': meas_time})
+    prev.append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
+    print('Previous version result: ' + str(prev))
+    
+    new = ms.MemSequence()
+    new.firmware(1, version='2.1')
+    new.bias(1, voltage=0)
+    new.delay(init_time)
+    new.bias(1, voltage=voltage)
+    new.delay(bias_time)
+    new.sram(sram_length=sram_length, sram_start=0)
+    new.delay(meas_time)
+    new.bias(1, voltage=0)
+    print('New version result: ' + str(new.sequence()))
     
