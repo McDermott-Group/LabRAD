@@ -34,7 +34,7 @@ import labrad.units as units
 import LabRAD.Measurements.General.experiment as expt
 import LabRAD.Measurements.General.pulse_shapes as pulse
 import LabRAD.Servers.Instruments.GHzBoards.command_sequences as seq
-import data_processing as dp
+import LabRAD.Measurements.General.data_processing as dp
 
 
 class JPMExperiment(expt.Experiment):
@@ -45,7 +45,7 @@ class JPMExperiment(expt.Experiment):
         data = np.array(data)
         plt.figure(3)
         plt.get_current_fig_manager().window.wm_geometry("800x550+700+25")
-        plt.ion()
+        plt.ioff()
         plt.clf()
         if number_of_devices == 1: 
             plt.hist(data[0,:], bins=preamp_timeout, range=(1, preamp_timeout-1),
@@ -63,6 +63,7 @@ class JPMExperiment(expt.Experiment):
         plt.ylabel('Counts')
         plt.xlim(0, preamp_timeout) 
         plt.draw()
+        plt.ion()
         plt.pause(0.05)
         
     def run_once(self):
@@ -111,42 +112,27 @@ class JPMExperiment(expt.Experiment):
 
 class JPMQubitReadout(JPMExperiment):
     """
-    Read the qubit state with a JPM by applying a read-out and 
+    Read the qubit state with a JPM by applying a readout and 
     a displacement (reset) pulses.
     """
     def load_once(self, plot_waveforms=False):
         #RF VARIABLES##############################################################################
         self.set('RF Attenuation')                                      # RF attenuation
         self.set('RF Power')                                            # RF power
-        if self.value('RF Frequency') is not None:
-            if self.value('RF SB Frequency') is not None:               # RF frequency
-                self.set('RF Frequency',
-                        self.value('RF Frequency') + 
-                        self.value('RF SB Frequency'))
-            else:
-                self.set('RF Frequency')
+        self.set('RF Frequency', self.value('RF Frequency') +           # RF frequency
+                self.value('RF SB Frequency'))
 
         #QUBIT VARIABLES###########################################################################
         self.set('Qubit Attenuation')                                   # qubit attenuation
         self.set('Qubit Power')                                         # qubit power
-        if self.value('Qubit Frequency') is not None:
-            if self.value('Qubit SB Frequency') is not None:            # qubit frequency
-                self.set('Qubit Frequency',
-                        self.value('Qubit Frequency') + 
-                        self.value('Qubit SB Frequency'))
-            else:
-                self.set('Qubit Frequency')
+        self.set('Qubit Frequency', self.value('Qubit Frequency') +     # qubit frequency
+                self.value('Qubit SB Frequency'))
     
         #RF DRIVE (READOUT) VARIABLES##############################################################
         self.set('Readout Attenuation')                                 # readout attenuation
         self.set('Readout Power')                                       # readout power
-        if self.value('Readout Frequency') is not None:
-            if self.value('Readout SB Frequency') is not None:          # readout frequency
-                self.set('Readout Frequency',
-                        self.value('Readout Frequency') + 
-                        self.value('Readout SB Frequency'))
-            else:
-                self.set('Readout Frequency')
+        self.set('Readout Frequency', self.value('Readout Frequency') + # readout frequency
+                self.value('Readout SB Frequency'))
 
         #DC BIAS VARIABLES#########################################################################
         self.set('Qubit Flux Bias Voltage')
@@ -258,24 +244,14 @@ class JPMStarkShift(JPMExperiment):
         #QUBIT VARIABLES###########################################################################
         self.set('Qubit Attenuation')                                   # qubit attenuation
         self.set('Qubit Power')                                         # qubit power
-        if self.value('Qubit Frequency') is not None:
-            if self.value('Qubit SB Frequency') is not None:            # qubit frequency
-                self.set('Qubit Frequency',
-                        self.value('Qubit Frequency') + 
-                        self.value('Qubit SB Frequency'))
-            else:
-                self.set('Qubit Frequency')
+        self.set('Qubit Frequency', self.value('Qubit Frequency') +     # qubit frequency
+                self.value('Qubit SB Frequency'))
     
         #RF DRIVE (READOUT) VARIABLES##############################################################
         self.set('Readout Attenuation')                                 # readout attenuation
         self.set('Readout Power')                                       # readout power
-        if self.value('Readout Frequency') is not None:
-            if self.value('Readout SB Frequency') is not None:          # readout frequency
-                self.set('Readout Frequency',
-                        self.value('Readout Frequency') + 
-                        self.value('Readout SB Frequency'))
-            else:
-                self.set('Readout Frequency')
+        self.set('Readout Frequency', self.value('Readout Frequency') + # readout frequency
+                self.value('Readout SB Frequency'))
 
         #DC BIAS VARIABLES#########################################################################
         self.set('Qubit Flux Bias Voltage')
@@ -387,24 +363,14 @@ class JPMTwoPhotonSpectroscopy(JPMExperiment):
         #RF1 VARIABLES#############################################################################
         self.set('RF1 Attenuation')                                     # RF1 attenuation
         self.set('RF1 Power')                                           # RF1 power
-        if self.value('RF1 Frequency') is not None:
-            if self.value('RF1 SB Frequency') is not None:              # RF1 frequency
-                self.set('RF1 Frequency',
-                        self.value('RF1 Frequency') + 
-                        self.value('RF1 SB Frequency'))
-            else:
-                self.set('RF1 Frequency')
+        self.set('RF1 Frequency', self.value('RF1 Frequency') +         # RF1 frequency
+                self.value('RF1 SB Frequency'))
     
         #RF2 VARIABLES#############################################################################
         self.set('RF2 Attenuation')                                     # RF2 attenuation
         self.set('RF2 Power')                                           # RF2 power
-        if self.value('RF2 Frequency') is not None:
-            if self.value('RF2 SB Frequency') is not None:              # RF2 frequency
-                self.set('RF2 Frequency',
-                        self.value('RF2 Frequency') + 
-                        self.value('RF2 SB Frequency'))
-            else:
-                self.set('RF2 Frequency')
+        self.set('RF2 Frequency', self.value('RF2 Frequency') +         # RF2 frequency
+                self.value('RF2 SB Frequency'))
 
         #RF VARIABLES##############################################################################
         RF1_SB_freq = self.value('RF1 SB Frequency')['Hz']              # RF1 sideband frequency
@@ -535,24 +501,14 @@ class DoubleJunctionJPMQubitReadout(JPMExperiment):
         #QUBIT VARIABLES###########################################################################
         self.set('Qubit Attenuation')                                   # qubit attenuation
         self.set('Qubit Power')                                         # qubit power
-        if self.value('Qubit Frequency') is not None:
-            if self.value('Qubit SB Frequency') is not None:            # qubit frequency
-                self.set('Qubit Frequency',
-                        self.value('Qubit Frequency') + 
-                        self.value('Qubit SB Frequency'))
-            else:
-                self.set('Qubit Frequency')
+        self.set('Qubit Frequency', self.value('Qubit Frequency') +     # qubit frequency
+                self.value('Qubit SB Frequency'))
     
         #RF DRIVE (READOUT) VARIABLES##############################################################
         self.set('Readout Attenuation')                                 # readout attenuation
         self.set('Readout Power')                                       # readout power
-        if self.value('Readout Frequency') is not None:
-            if self.value('Readout SB Frequency') is not None:          # readout frequency
-                self.set('Readout Frequency',
-                        self.value('Readout Frequency') + 
-                        self.value('Readout SB Frequency'))
-            else:
-                self.set('Readout Frequency')
+        self.set('Readout Frequency', self.value('Readout Frequency') + # readout frequency
+                self.value('Readout SB Frequency'))
 
         #DC BIAS VARIABLES#########################################################################
         self.set('Qubit Flux Bias Voltage')

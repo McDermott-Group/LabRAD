@@ -7,11 +7,11 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import os
 if __file__ in [f for f in os.listdir('.') if os.path.isfile(f)]:
@@ -33,7 +33,7 @@ import labrad.units as units
 import LabRAD.Measurements.General.pulse_shapes as pulse
 import LabRAD.Measurements.General.server_interfaces as si
 import LabRAD.Servers.Instruments.GHzBoards.command_sequences as seq
-import data_processing as dp
+import LabRAD.Measurements.General.data_processing as dp
 from jpm_qubit_experiments import JPMExperiment
 
 
@@ -50,15 +50,10 @@ class DoubleJPMCorrelation(JPMExperiment):
             raise Exception("'DC Bias Voltage' should not exceed 30 mV.")
 
         #RF VARIABLES##############################################################################
-        self.set('RF Attenuation')                             # RF attenuation
-        self.set('RF Power')                                   # RF power
-        if self.value('RF Frequency') is not None:
-            if self.value('RF SB Frequency') is not None:               # RF frequency
-                self.set('RF Frequency',                
-                        self.value('RF Frequency') + 
-                        self.value('RF SB Frequency'))
-            else:
-                self.set('RF Frequency')
+        self.set('RF Attenuation')                                      # RF attenuation
+        self.set('RF Power')                                            # RF power
+        self.set('RF Frequency', self.value('RF Frequency') +           # RF frequency
+                self.value('RF SB Frequency'))
  
         #RF DRIVE VARIABLES########################################################################
         RF_SB_freq = self.value('RF SB Frequency')['GHz']               # readout sideband frequency

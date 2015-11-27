@@ -13,38 +13,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
-#experiment calling order:
-# init_expt()
-# load_once()
-# run_once()
-# exit_expt()
-
-import os
-if __file__ in [f for f in os.listdir('.') if os.path.isfile(f)]:
-    # This is executed when the script is loaded by the labradnode.
-    SCRIPT_PATH = os.path.dirname(os.getcwd())
-else:
-    # This is executed if the script is started by clicking or
-    # from a command line.
-    SCRIPT_PATH = os.path.dirname(__file__)
-LABRAD_PATH = os.path.join(SCRIPT_PATH.rsplit('LabRAD', 1)[0])
 import sys
-if LABRAD_PATH not in sys.path:
-    sys.path.append(LABRAD_PATH)
-
 import numpy as np
 import matplotlib.pyplot as plt
 
 import labrad.units as units
 
-import LabRAD.Measurements.General.experiment as expt
-import LabRAD.Measurements.General.pulse_shapes as pulse
-import LabRAD.Servers.Instruments.GHzBoards.command_sequences as seq
+import experiment as expt
 import data_processing as dp
 
 
-class HEMTExperiment(expt.Experiment):        
+class ADCExperiment(expt.Experiment):        
     def single_shot_iqs(self, adc=None, save=False, plot_data=None):
         """
         Run a single experiment, saving individual I and Q points.
@@ -173,9 +152,10 @@ class HEMTExperiment(expt.Experiment):
 
         # Save the data.
         if ((save and self._sweep_status != 'abort') or
-            self._sweep_status == 'abort-and-save'):
+                self._sweep_status == 'abort-and-save'):
             self._save_data(data)
-         
+        
+        # Restore the original state of some special variables.
         self.rm_var('Runs')
         if 'prev_reps' in locals(): 
             self.add_var('Reps', prev_reps)
@@ -189,10 +169,13 @@ class HEMTExperiment(expt.Experiment):
         plt.xlabel('I [ADC Units]')
         plt.ylabel('Q [ADC Units]')
         plt.title('Single Shot Is and Qs')
+        plt.axis('equal')
         plt.draw()
         plt.pause(0.05)
 
     def init_expt(self):
+        # This solves a potential issue when 'Reps' are overwritten
+        # by the run_once or load_once methods.
         if self.value('Reps') is not None:
             self._prev_reps = self.value('Reps')
     
@@ -200,8 +183,7 @@ class HEMTExperiment(expt.Experiment):
         if hasattr(self, '_prev_reps'):
             self.value('Reps', self._prev_reps)
         
-    def run_once(self, adc=None): 
-        ###DATA POST-PROCESSING####################################################################
+    def run_once(self, adc=None):
         self.get('Temperature')
         result = self.boards.run(self.value('Reps'))
         Is, Qs = result[0] 
@@ -290,117 +272,54 @@ class HEMTExperiment(expt.Experiment):
                         'Value': self.acknowledge_request('Temperature')}
                    }
 
-    def average_data(self, data):
+    def average_data(self):
+        """
+        Average the data acquired by method run_n_times.
+        """
+        data = self._run_n_data
         if self._sweep_pts_acquired == 0:
             self._avg_data = {key: data[key].copy() for key in data}
-            for key in ['Is', 'Qs', 'Amplitudes', 'Phases']:
-                if key in data:
-                    self._avg_data[key]['Dependencies'] = (['Run Iteration'] +
-                            data[key]['Dependencies'])
 
+        avg = self._avg_data
         if 'Is' in data and 'Qs' in data:
             Is = self.strip_units(self._avg_data['Is']['Value'])
             Qs = self.strip_units(self._avg_data['Qs']['Value'])
-            self._avg_data['I']['Value'] = np.mean(Is) * units.ADCUnits
-            self._avg_data['Q']['Value'] = np.mean(Qs) * units.ADCUnits
-            self._avg_data['I Std Dev']['Value'] = np.std(Is) * units.ADCUnits
-            self._avg_data['Q Std Dev']['Value'] = np.std(Qs) * units.ADCUnits
+            avg['I']['Value'] = np.mean(Is) * units.ADCUnits
+            avg['Q']['Value'] = np.mean(Qs) * units.ADCUnits
+            avg['I Std Dev']['Value'] = np.std(Is) * units.ADCUnits
+            avg['Q Std Dev']['Value'] = np.std(Qs) * units.ADCUnits
             
             As = np.hypot(Is, Qs)
-            self._avg_data['Mean Absolute Amplitude']['Value'] = np.mean(As) * units.ADCUnits
-            self._avg_data['Mean Absolute Amplitude Std Dev']['Value'] = np.std(As) * units.ADCUnits
+            avg['Mean Absolute Amplitude']['Value'] = np.mean(As) * units.ADCUnits
+            avg['Mean Absolute Amplitude Std Dev']['Value'] = np.std(As) * units.ADCUnits
             
-            I = self.strip_units(self._avg_data['I']['Value'])
-            Q = self.strip_units(self._avg_data['Q']['Value'])
-            self._avg_data['Amplitude']['Value'] = np.hypot(I, Q) * units.ADCUnits
-            self._avg_data['Phase']['Value'] = np.arctan2(Q, I) * units.rad
+            I = self.strip_units(avg['I']['Value'])
+            Q = self.strip_units(avg['Q']['Value'])
+            avg['Amplitude']['Value'] = np.hypot(I, Q) * units.ADCUnits
+            avg['Phase']['Value'] = np.arctan2(Q, I) * units.rad
         else:
-            It = data['I']['Value']
-            Qt = data['Q']['Value']
-            self._avg_data['I']['Value'] = np.mean(It, axis=0) * units.ADCUnits
-            self._avg_data['Q']['Value'] = np.mean(Qt, axis=0) * units.ADCUnits
-            self._avg_data['I']['Distribution'] = 'normal'
-            self._avg_data['Q']['Distribution'] = 'normal'
-            self._avg_data['I Std Dev']['Value'] = np.std(It, axis=0) * units.ADCUnits
-            self._avg_data['Q Std Dev']['Value'] = np.std(Qt, axis=0) * units.ADCUnits
+            It = self.strip_units(data['I']['Value'])
+            Qt = self.strip_units(data['Q']['Value'])
+            avg['I']['Value'] = np.mean(It, axis=0) * units.ADCUnits
+            avg['Q']['Value'] = np.mean(Qt, axis=0) * units.ADCUnits
+            avg['I']['Distribution'] = 'normal'
+            avg['Q']['Distribution'] = 'normal'
+            avg['I Std Dev']['Value'] = np.std(It, axis=0) * units.ADCUnits
+            avg['Q Std Dev']['Value'] = np.std(Qt, axis=0) * units.ADCUnits
 
             Id = self.strip_units(data['Software Demod I']['Value'])
             Qd = self.strip_units(data['Software Demod Q']['Value'])
-            self._avg_data['Software Demod I']['Value'] = np.mean(Id) * units.ADCUnits
-            self._avg_data['Software Demod Q']['Value'] = np.mean(Qd) * units.ADCUnits
-            self._avg_data['Software Demod I']['Distribution'] = 'normal'
-            self._avg_data['Software Demod Q']['Distribution'] = 'normal'
-            self._avg_data['Software Demod I Std Dev'] = {'Value': np.std(Id) * units.ADCUnits}
-            self._avg_data['Software Demod Q Std Dev'] = {'Value': np.std(Qd) * units.ADCUnits}
+            avg['Software Demod I']['Value'] = np.mean(Id) * units.ADCUnits
+            avg['Software Demod Q']['Value'] = np.mean(Qd) * units.ADCUnits
+            avg['Software Demod I']['Distribution'] = 'normal'
+            avg['Software Demod Q']['Distribution'] = 'normal'
+            avg['Software Demod I Std Dev'] = {'Value': np.std(Id) * units.ADCUnits}
+            avg['Software Demod Q Std Dev'] = {'Value': np.std(Qd) * units.ADCUnits}
             
-            self._avg_data['Software Demod Amplitude']['Value'] = np.hypot(Id, Qd) * units.ADCUnits
-            self._avg_data['Software Demod Phase']['Value'] = np.arctan2(Qd, Id) * units.rad
+            avg['Software Demod Amplitude']['Value'] = np.hypot(Id, Qd) * units.ADCUnits
+            avg['Software Demod Phase']['Value'] = np.arctan2(Qd, Id) * units.rad
 
         if 'Temperature' in data:
             T = self.strip_units(data['Temperature']['Value'])
-            self._avg_data['Temperature']['Value'] = (np.mean(T) *
+            avg['Temperature']['Value'] = (np.mean(T) *
                     self.unit_factor(data['Temperature']['Value']))
-
-        return self._avg_data
-        
-        
-class NISReadout(HEMTExperiment):
-    """
-    Read out a qubit connected to a resonator.
-    """
-    def load_once(self, adc=None, plot_waveforms=False):
-        #RF VARIABLES###########################################################################
-        self.set('RF Power')                                         # qubit power
-        if self.value('RF Frequency') is not None:
-            if self.value('RF SB Frequency') is not None:            # qubit frequency
-                self.set('RF Frequency',
-                        value=self.value('RF Frequency') + 
-                              self.value('RF SB Frequency'))
-            else:
-                self.set('RF Frequency')
-    
-
-
-        InitTime = self.value('Init Time')['us']
-        NISBiasVoltage = self.value('NIS Bias Voltage')['V']
-        NISBiasTime = self.value('NIS Bias Time')['us']
-        ReadoutDelay = self.value('Bias to Readout Delay')['ns']
-      
-        ###WAVEFORMS###############################################################################
-        DAC_ZERO_PAD_LEN = self.boards.consts['DAC_ZERO_PAD_LEN']['ns']
-
-        waveforms = {}
-        if 'None' in self.boards.requested_waveforms:
-            waveforms['None'] = np.hstack([pulse.DC(2 * DAC_ZERO_PAD_LEN, 0)])
- 
-        dac_srams, sram_length, sram_delay = self.boards.process_waveforms(waveforms)
-
-        if plot_waveforms:
-            self._plot_waveforms([waveforms[wf] for wf in self.boards.requested_waveforms],
-                    ['r', 'g', 'b', 'k'], self.boards.requested_waveforms)
-        
-        
-        self.boards.set_adc_setting('ADCDelay', (DAC_ZERO_PAD_LEN + ReadoutDelay) * units.ns, adc) #adc is for if there are more than one ADC
-
-        # Create a memory command list.
-        # The format is described in Servers.Instruments.GHzBoards.command_sequences.
-        mem_lists = self.boards.init_mem_lists()
-
-        mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0, 'Mode': 'Fast'})
-        mem_lists[0].append({'Type': 'Delay', 'Time': self.value('Init Time')['us']})
-        mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': self.value('NIS Bias Voltage')['V']})
-        mem_lists[0].append({'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay})        
-        mem_lists[0].append({'Type': 'Delay', 'Time': self.value('NIS Bias Time')['us']})
-        mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0, 'Mode': 'Fast'})
-        
-        mem_lists[1].append({'Type': 'Delay', 'Time': self.value('Init Time')['us']})
-        mem_lists[1].append({'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay})
-        mem_lists[1].append({'Type': 'Delay', 'Time': self.value('NIS Bias Time')['us']})
-        mem_lists[1].append({'Type': 'Timer', 'Time': self.value('Measure Time')['us']})
-
-        mems = [seq.mem_from_list(mem_list) for mem_list in mem_lists]    
-
-        
-        ###RUN#####################################################################################
-        result = self.boards.load(dac_srams, mems)
-        self.acknowledge_requests()

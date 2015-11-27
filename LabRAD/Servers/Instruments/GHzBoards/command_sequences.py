@@ -149,3 +149,109 @@ def waves2sram(waveA, waveB, Trig=True):
         sram[8] |= 0xF0000000   
     
     return sram
+def serial2ECL(ECL0=[], ECL1=[], ECL2=[], ECL3=[]):
+    """Convert lists defining ECL output to a single 4-bit word for the ECL serializer"""
+    ECLlist = [ECL0, ECL1, ECL2, ECL3]
+    
+    #check if all lists are empty
+    if all(len(x) == 0 for x in ECLlist):
+        return []
+    length = max([len(x) for x in ECLlist])
+    #check that they are all the same length
+    if len([x for x in ECLlist if len(x) != length]) > 0:
+        raise Exception('Length of all ECL data definitons should be equal.')
+    for idx, ecl in enumerate(ECLlist):
+        if len(ecl) == 0:
+            ECLlist[idx] = np.zeros((length,))
+    ECLdata = np.zeros((length,))
+    return []
+
+if __name__ == "__main__":
+    """
+    Compare the output of this module with the output of mem_sequencies.
+    """
+    import mem_sequences as ms
+    
+    print('Test simple memory list...')
+    init_time = 100
+    sram_length = 1500
+    sram_delay = np.ceil(sram_length / 1000)
+    
+    prev = mem_simple(init_time, sram_length, 0, sram_delay)
+    print('Previous version result:\n' + str(prev))
+    
+    new = ms.simple_sequence(init_time, sram_length, 0)
+    print('New version result:\n' + str(new))
+    
+    if len(prev) == len(new) and np.all(prev == new):
+            print('The lists are equal!')
+    else:
+        print('The lists do not match...')
+    
+    print('\nTest a specific FastBias memory list...')
+    voltage = .5
+    bias_time = 200
+    meas_time = 50
+
+    prev = []
+    prev.append({'Type': 'Firmware', 'Channel': 1, 'Version': '2.1'})
+    prev.append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
+    prev.append({'Type': 'Delay', 'Time': init_time})
+    prev.append({'Type': 'Bias', 'Channel': 1, 'Voltage': voltage})
+    prev.append({'Type': 'Delay', 'Time': bias_time})
+    prev.append({'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay})
+    prev.append({'Type': 'Timer', 'Time': meas_time})
+    prev.append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
+    prev = mem_from_list(prev)
+    print('Previous version result:\n' + str(prev))
+    
+    new = ms.MemSequence()
+    new.firmware(1, version='2.1')
+    new.bias(1, voltage=0)
+    new.delay(init_time)
+    new.bias(1, voltage=voltage)
+    new.delay(bias_time)
+    new.sram(sram_length=sram_length, sram_start=0)
+    new.timer(meas_time)
+    new.bias(1, voltage=0)
+    new = new.sequence()
+    print('New version result:\n' + str(new))
+    
+    if len(prev) == len(new) and np.all(prev == new):
+        print('The lists are equal!')
+    else:
+        print('The lists do not match...')
+
+    print('\nTest a specific FastBias memory list...')
+    voltage = -.25
+    bias_time = 100
+    meas_time = 200
+
+    prev = []
+    prev.append({'Type': 'Firmware', 'Channel': 1, 'Version': '1.0'})
+    prev.append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
+    prev.append({'Type': 'Delay', 'Time': init_time})
+    prev.append({'Type': 'Bias', 'Channel': 1, 'Voltage': voltage})
+    prev.append({'Type': 'Delay', 'Time': bias_time})
+    prev.append({'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay})
+    prev.append({'Type': 'Timer', 'Time': meas_time})
+    prev.append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
+    prev = mem_from_list(prev)
+    print('Previous version result:\n' + str(prev))
+    
+    new = ms.MemSequence()
+    new.firmware(1, version='1.0')
+    new.bias(1, voltage=0)
+    new.delay(init_time)
+    new.bias(1, voltage=voltage)
+    new.delay(bias_time)
+    new.sram(sram_length=sram_length, sram_start=0)
+    new.timer(meas_time)
+    new.bias(1, voltage=0)
+    new = new.sequence()
+    print('New version result:\n' + str(new))
+    
+    if len(prev) == len(new) and np.all(prev == new):
+        print('The lists are equal!')
+    else:
+        print('The lists do not match...')

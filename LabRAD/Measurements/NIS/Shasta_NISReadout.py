@@ -1,14 +1,13 @@
-# read out of an NIS junction connected to a resonator.
+# Read out of an NIS junction connected to a resonator.
 
 import os
 import numpy as np
 
-from labrad.units import (us, ns, V, GHz, MHz, rad, dB, dBm,
-                          DACUnits, PreAmpTimeCounts)
+from labrad.units import us, ns, mV, V, GHz, MHz, rad, dB, dBm, DACUnits
 
-import hemt_qubit_experiments
+import nis_experiments
 
-                          
+
 comp_name = os.environ['COMPUTERNAME'].lower()
 Resources = [ {
                 'Interface': 'GHz FPGA Boards',
@@ -30,6 +29,7 @@ Resources = [ {
                 'Shasta Board ADC 11': {
                                         'RunMode': 'demodulate', #'average'
                                         'FilterType': 'square',
+                                        'FilterStartAt': 0 * ns,
                                         'FilterWidth': 4000 * ns,
                                         'FilterLength': 4000 * ns,
                                         'FilterStretchAt': 0 * ns,
@@ -41,19 +41,20 @@ Resources = [ {
                                         'ADCDelay': 0 * ns,
                                         'Data': True
                                       },
-                'Variables': {
+                'Variables': {  # These are default values, you should
+                                # normally overwrite these values in
+                                # your particular experiment run.
                                 'Init Time': {'Value': 100 * us},
                                 'NIS Bias Voltage': {'Value': 0 * V},
                                 'NIS Bias Time': {'Value': 10 * us},
                                 'Bias to Readout Delay': {'Value': 100 *ns},
                                 'ADC Wait Time': {'Value': 0 * ns},
-                                'ADC Demod Frequency': {'Value': -50 * MHz}
                              }
                 },
 
-                { # GPIB RF Generator
+                { # GPIB RF Generator, 'Address' field is required only
+                  # when more than one GPIB RF generator is present.
                     'Interface': 'RF Generator',
-                    'Address': comp_name + ' GPIB Bus - GPIB0::20::INSTR',
                     'Variables': {  
                                     'RF Power': {'Setting': 'Power'}, 
                                     'RF Frequency': {'Setting': 'Frequency'}
@@ -72,7 +73,7 @@ Resources = [ {
                 # },
                 { # ADR3
                     'Interface': 'ADR3',
-                    'Variables': {'Temperature': {'Setting':'Temperature', 'Stage': 'FAA'}}
+                    'Variables': {'Temperature': {'Setting':'Temperatures', 'Stage': 'FAA'}}
                 },
                 { # Readings entered manually, software parameters.
                     'Interface': None,
@@ -85,29 +86,25 @@ ExptInfo = {
             'Device Name': 'NIS1',
             'User': 'Chris',
             'Base Path': 'Z:\mcdermott-group\Data\NIS Junctions',
-            'Experiment Name': 'CavityEvolution',
-            'Comments': 'ADC band pass filters removed.' 
+            'Experiment Name': 'Test',
+            'Comments': 'Test' 
            }
  
 # Experiment Variables
 ExptVars = {
-            'Reps': 3000, # should not exceed ~5,000, use agrument "runs" in sweep parameters instead 
+            'Reps': 10000, # should not exceed ~5,000, use argument "runs" in sweep parameters instead 
 
             'Init Time': 100 * us,
-            
-            # 'Stark Amplitude': 0 * DACUnits,
-            # 'Stark Time': 10000 * ns,
 
-            'RF Frequency': 4.9188 * GHz, #4.9139 * GHz,
+            'RF Frequency': 4.9188 * GHz,
             'RF Power': 10 * dBm,
             
-            'NIS Bias Voltage': 1.2 * V, # -2.5 to 2.5V
+            'NIS Bias Voltage': 1.2 * V, # -2.5 to 2.5 V or 0 to 5 V
             'NIS Bias Time': 10 * us,
             
-            'Bias to Readout Delay': 100 * ns,
+            'Bias to Readout Delay': 100 * us,
      
-            'ADC Wait Time': 0 * ns, # time delay between the start of the readout pulse and the start of the demodulation
-            # 'ADC Demod Frequency': -50 * MHz
+            'ADC Wait Time': 0 * ns,
            }
 
 
@@ -117,7 +114,11 @@ with nis_experiments.NISReadout() as run:
     
     run.value('NIS Bias Voltage', 1 * V)
     
-    run.sweep('Bias to Readout Delay', np.linspace(0, 100, 101)*ns, # for >1D, do ['list','of','variables'],[linespaces]
-                print_data=['I', 'Q'], plot_data['I', 'Q'], save=True, runs=3) # runs does ex: 3X 3000 reps
+    run.sweep('Bias to Readout Delay', np.linspace(0, 100, 101) * us,
+              print_data=['I', 'Q'], plot_data=['I', 'Q'], max_data_dim=1,
+              save=True, runs=3)
     
-    
+    run.sweep(['Bias to Readout Delay', 'RF Frequency'],
+              [np.linspace(0, 100, 101) * ns, np.linspace(4.9, 5, 101) * GHz],
+               print_data=['I', 'Q'], plot_data=['I', 'Q'], 
+               save=True, runs=3) # runs does ex: 3X 3000 reps

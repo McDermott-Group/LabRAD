@@ -7,11 +7,11 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 """
 This module contains simplified interface to some specific 
@@ -40,7 +40,7 @@ from twisted.internet.error import TimeoutError
 import labrad.units as units
 from labrad.types import Error
 
-import LabRAD.Servers.Instruments.GHzBoards.command_sequences as sq
+import LabRAD.Servers.Instruments.GHzBoards.mem_sequences as ms
 import LabRAD.Servers.Instruments.GHzBoards.auto_ghz_fpga_bringup as br
 
 
@@ -228,6 +228,8 @@ class GHzFPGABoards(object):
     def bringup(self):
         """Bring up the GHz FPGA boards.
         
+        Input:
+            None.
         Output:
             status (boolean): true if the bring-up succeeded, false
                 otherwise.
@@ -254,6 +256,47 @@ class GHzFPGABoards(object):
         while not success:
             self.restart()
             success = self.bringup()
+            
+    def check_plls(self):
+        """
+        Check the status of the FPGA internal GHz serializer PLLs.
+        
+        Input:
+            None.
+        Output: 
+            dacs2reset: list of DACs that have the PLL lost lock
+                since the last reset.
+            adcs2init: list of ADCs that have the PLL lost lock.
+        """
+        p = self.server.packet()
+        for board in self.dacs + self.adcs:
+            p.select_device(board)
+            p.pll_query(key=board)
+        status = p.send()
+        dacs2reset = [dac for dac in self.dacs if status[dac]]
+        adcs2init  = [adc for adc in self.adcs if status[adc]]
+        return dacs2reset, adcs2init
+        
+    def reset_or_init_plls(self, dacs2reset=[], adcs2init=[]):
+        """
+        Reset (for DACs) or initialize (for ADCs) the PLLs. 
+        
+        Input:
+            dacs2reset: list of DACs to reset.
+            adcs2init: list of ADCs to initialize.
+        Output: 
+            None.
+        """
+        p = self.server.packet()
+        # Reset the DAC FPGA internal GHz serializer PLLs.
+        for dac in dacs2reset:
+            p.select_device(dac)
+            p.pll_reset()
+        # Send the initialization sequence to the ADC PLLs.
+        for adc in adcs2init:
+            p.select_device(adc)
+            p.pll_init()
+        p.send()
 
     def process_waveforms(self, waveforms):
         """
@@ -276,20 +319,18 @@ class GHzFPGABoards(object):
                         self.dac_settings[idx][channel] +
                         "' is not recognized.")
         
-        dac_srams = [sq.waves2sram(waveforms[self.dac_settings[k]['DAC A']], 
+        dac_srams = [ms.waves2sram(waveforms[self.dac_settings[k]['DAC A']], 
                                    waveforms[self.dac_settings[k]['DAC B']])
                                    for k, dac in enumerate(self.dacs)]
-        sram_length = len(waveforms[self.dac_settings[0]['DAC A']])
-        sram_delay = np.ceil(sram_length / 1000)
         
-        return dac_srams, sram_length, sram_delay
+        return dac_srams, waveforms[self.dac_settings[0]['DAC A']].size
     
     def get_adc(self, adc=None):
         """
         If only a single ADC board is present, return its name. If more
-        than one board is present, check that a board with a a given name
-        actually exists, otherwise raise an error. Return the board index
-        as a second parameter.
+        than one board is present, check that the board with the
+        specified name exists, otherwise raise an error.
+        Return the board index as a second parameter.
         
         Input:
             adc (optional): ADC board name (default: None).
@@ -307,13 +348,14 @@ class GHzFPGABoards(object):
  
     def set_adc_setting(self, setting, value, adc=None):
         """
-        Change one of the ADC settings.
+        Change an ADC setting.
         
         Inputs:
             setting: name of setting you want to change.
             value: value to change the setting to.
-            adc: ADC board name. If None and only one board in is
-            present the board name will be automatically recognized.
+            adc: ADC board name. If None and only one board is
+                detected, the board name will be automatically
+                recognized.
         Output:
             None.
         """
@@ -449,7 +491,7 @@ class GHzFPGABoards(object):
             raise Exception('Not enough memory commands to ' +
                     'populate the boards!')
         
-        # Save the command sequences in case, the recovery will be
+        # Save the command sequences in case the recovery will be
         # attempted.
         self._dac_srams = dac_srams
         self._dac_mems = dac_mems
@@ -503,25 +545,14 @@ class GHzFPGABoards(object):
         while True:
             try:
                 result = self.server.run_sequence(int(reps), self._data_flag)
-                # Check the status of the FPGA internal GHz serializer
-                # PLLs.
-                p = self.server.packet()
-                for dac in self.dacs:
-                    p.select_device(dac)
-                    p.pll_query(key=dac)
-                status = p.send()
-                # List all DACs to reset.
-                dacs2reset = [dac for dac in self.dacs if status[dac]]
-                if not dacs2reset:
-                    return result
-                else:
-                    # Reset the FPGA internal GHz serializer PLLs and
-                    # reload the boards.
-                    for dac in dacs2reset:
-                        p.select_device(dac)
-                        p.pll_reset()
-                    p.send()
+                dacs2reset, adcs2init = self.check_plls()
+                # Apparently, ADC PLL query always return True...
+                if dacs2reset:
+                    self.reset_or_init_plls(dacs2reset, adcs2init)
+                    # Reload the boards, just in case.
                     self.load(self._dac_srams, self._dac_mems)
+                else:
+                    return result
             except (Error, TimeoutError):
                 # self.auto_recovery()
                 # Restart the GHz FPGA Server and reload the boards.
@@ -558,27 +589,25 @@ class GHzFPGABoards(object):
         
     def init_mem_lists(self):
         """
-        Initialize memory command lists. The output is a list with the
-        length that corresponds to the number of DAC boards. Each list
-        item is a list on its own that should be populated with the
-        memory commands corresponding to the board. The memory command
-        format is described in
-        Servers.Instruments.GHzBoards.command_sequences.
+        Initialize memory command sequences. The output is a list
+        with the length that is equal to the number of the DAC boards.
+        Each list item is a MemSequence object. The MemSequence methods
+        are described in Servers.Instruments.GHzBoards.mem_sequences.
         
         Input:
             None.
         Output:
-            mem_lists: list of memory command lists.
+            mem_seqs: list of memory command lists.
         """
-        mem_lists = [[] for dac in self.dacs]
+        mem_seqs = [ms.MemSequence() for dac in self.dacs]
         for idx, settings in enumerate(self.dac_settings):
             if 'FO1 FastBias Firmware Version' in settings:
-                mem_lists[idx].append({'Type': 'Firmware', 'Channel': 1, 
-                              'Version': settings['FO1 FastBias Firmware Version']})
+                mem_seqs[idx].firmware(channel=1,
+                        version=settings['FO1 FastBias Firmware Version'])
             if 'FO2 FastBias Firmware Version' in settings:
-                mem_lists[idx].append({'Type': 'Firmware', 'Channel': 2, 
-                              'Version': settings['FO2 FastBias Firmware Version']})
-        return mem_lists
+                mem_seqs[idx].firmware(channel=2,
+                        version=settings['FO2 FastBias Firmware Version'])
+        return mem_seqs
 
 
 class BasicInterface(object):

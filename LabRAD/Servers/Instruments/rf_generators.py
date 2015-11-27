@@ -156,6 +156,7 @@ class RFGeneratorServer(GPIBManagedServer):
     name = 'GPIB RF Generators'
     deviceWrappers={'HEWLETT-PACKARD 83620A': HP83620AWrapper,
                     'HEWLETT-PACKARD 83712B': HP83712BWrapper,
+                    'HEWLETT-PACKARD 8340B':  HP8341BWrapper,
                     'HEWLETT-PACKARD 8341B':  HP8341BWrapper}
 
     @setting(9, 'Reset')

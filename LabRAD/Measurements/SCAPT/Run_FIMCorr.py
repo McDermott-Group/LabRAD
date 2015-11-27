@@ -1,10 +1,9 @@
 import os
 import numpy as np
 
-from labrad.units import (us, ns, mV, V, GHz, MHz, rad, dB, dBm,
-                          DACUnits, PreAmpTimeCounts)
+from labrad.units import us, ns, mV, V
 
-import fim_experiment
+import fim_corr_expt
 
 
 comp_name = os.environ['COMPUTERNAME'].lower()
@@ -23,7 +22,8 @@ Resources = [   {
                 'Variables': {  # Default values.
                                 'Init Time': {},
                                 'Bias Time': {},
-                                'Bias Voltage': {}
+                                'Bias Voltage 1': {},
+                                'Bias Voltage 2': {}
                              }
                 },
                 { # ADR3
@@ -47,23 +47,24 @@ ExptInfo = {
             'Device Name': 'Test',
             'User': 'Test User',
             'Base Path': 'Z:\mcdermott-group\Data\Test',
-            'Experiment Name': 'Joe is a cool guy',
-            'Comments': 'What am I doing?' 
+            'Experiment Name': 'FIM Correlation Test 11202015',
+            'Comments': '2X 1um Detectors' 
            }
  
 # Experiment Variables
 ExptVars = {
             'Reps': 301, # should not exceed ~50,000
 
-            'Init Time': 500 * us,
+            'Init Time': 15000 * us,
             'Bias Time': 10000 * us,
           
-            'Bias Voltage': 100 * mV,
+            'Bias Voltage 1': 1000 * mV,
+            'Bias Voltage 2': 1 * mV,
            }
 
-with fim_experiment.FIM() as run:
+with fim_corr_expt.FIM() as run:
     run.set_experiment(ExptInfo, Resources, ExptVars)
     
-    run.sweep('Bias Voltage', np.linspace(900, 901, 11) * mV,
-        save=True, print_data=['Temperature'], plot_data=['Temperature'],
-        runs=100, max_data_dim=1)   
+    run.sweep('Bias Voltage 1', np.linspace(2200, 2500, 11) * mV,
+        save=False, print_data=['Temperature'], plot_data=['Temperature'],
+        runs=1, max_data_dim=1)
