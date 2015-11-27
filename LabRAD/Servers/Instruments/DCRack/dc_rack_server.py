@@ -360,7 +360,7 @@ class DcRackWrapper(DeviceWrapper):
         monitorKeyName = self.server.name.split(" ")[0]
         yield reg.cd(['', 'Servers', 'DC Racks', 'Monitor'], True)
         content = yield reg.dir()
-        if [monitorKeyName] in content:
+        if monitorKeyName in content[1]:
             p = reg.packet()
             p.get(monitorKeyName, key=monitorKeyName)
             result =yield p.send()

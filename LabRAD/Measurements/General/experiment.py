@@ -7,11 +7,11 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 """
 Base class for all python-based LabRAD experiments. This class should be
@@ -2002,7 +2002,7 @@ class Experiment(object):
  
         # Initialize the plot.
         plt.figure(1)
-        plt.ion()
+        plt.ioff()
         plt.clf()
         plt.xlabel(xlabel)
         plt.ylabel(ylabel)
@@ -2065,6 +2065,7 @@ class Experiment(object):
             values = np.array(range(idx + 1))
 
         plt.figure(1)
+        plt.ioff()
         
         # Set data.
         for var in plot_data_vars:
@@ -2088,26 +2089,5 @@ class Experiment(object):
         
         # Redraw.
         plt.draw()
-        plt.pause(0.05)
-
-    def _plot_waveforms(self, values, colors, labels):
-        if not isinstance(values, list):
-            values = [values]
-        if not isinstance(colors, list):
-            colors = [colors]
-        if not isinstance(labels, list):
-            labels = [lables]
-        if not len(values) == len(colors) == len(labels):
-            return
-        time = np.linspace(0, values[0].size - 1, values[0].size)
-        plt.figure(2)
         plt.ion()
-        plt.clf()
-        for idx, val in enumerate(values):
-            plt.plot(time, val, colors[idx], label=labels[idx])
-        plt.xlim(time[0], time[-1])
-        plt.legend()
-        plt.xlabel('Time [ns]')
-        plt.ylabel('DAC Waveforms [DAC units]')
-        plt.draw()
         plt.pause(0.05)

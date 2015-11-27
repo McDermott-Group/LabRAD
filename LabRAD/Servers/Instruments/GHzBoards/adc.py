@@ -113,7 +113,7 @@ def processReadback(resp):
     a = np.fromstring(resp, dtype='<u1')
     return {
         'build': a[0],
-        'noPllLatch': bool(a[1] > 0),
+        'noPllLatch': bool(a[1] & 1),   # bit0 = NOT(LED1 light) = no PLL in external 1GHz clock 
         'executionCount': (a[3]<<8) + a[2]
     }
 
