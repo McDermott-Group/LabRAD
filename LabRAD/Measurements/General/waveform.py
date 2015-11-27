@@ -22,6 +22,11 @@ examples.
 import numpy as np
 import scipy.signal as ss
 
+import warnings
+import matplotlib.pyplot as plt
+import matplotlib.cbook
+warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
+
 import labrad.units as units
 
 
@@ -29,7 +34,7 @@ class _WavePulse():
     """
     Base pulse class that contains shared methods.
     """
-    def _ns(time):
+    def _ns(self, time):
         """
         Convert time to nanoseconds. Return an integer without any
         attached units.
@@ -46,6 +51,9 @@ class _WavePulse():
             start: start time of the pulse.
             duration: duration of the pulse.
             end: end time of the pulse.
+            
+        Output:
+            None.
         """
         if [start, duration, end].count(None) > 1:
             raise ValueError("A pair of time parameters is required " +
@@ -75,43 +83,64 @@ class _WavePulse():
                     "the pulse starts at " + str(self.start) + " ns, " +
                     "and it ends at " + str(self.end) + " ns.")
                     
-       if self.end - self.start + 1 > self.duration:
+        if self.end - self.start + 1 != self.duration:
             raise ValueError("Inconsistent time parameters: the pulse" +
                     " starts at " + str(self.start) + " ns, its " +
-                    "duration is " + str(self.duration) + " ns, and " +
-                    "it ends at " + str(self.end) + " ns.")
+                    "duration is " + str(self.duration) + " ns, while" +
+                    " the pulse is expected to end at " +
+                    str(self.end) + " ns.")
     
-    def _init_amplitude(self, amplitude):
+    def _amplitude(self, amplitude):
         """
-        Define the amplitude (strip units from the amplitude value).
+        Process the amplitude (strip units from the amplitude value).
         
         Input:
             amplitude: amplitude of the pulse.
+
+        Output:
+            amplitude: amplitude of the pulse.
         """
         if isinstance(amplitude, units.Value):
-            self.amplitude = amplitude[units.Unit(amplitude)]
+            return amplitude[units.Unit(amplitude)]
         else:
-            self.amplitude = float(amplitude)
-        if abs(self.amplitude) > 1:
-            raise ValueError("The pulse amplitude should not exceed 1.")
+            return float(amplitude)
         
-    def _init_harmonic(frequency, phase):
+    def _harmonic(self, frequency, phase):
         """
-        Define the pulse frequency and phase.
+        Process the pulse frequency and phase.
         
         Inputs:
             frequency: frequency of the harmonic pulse.
             phase: phase of the harmonic pulse.
+
+        Outputs:
+            frequency: frequency of the harmonic pulse.
+            phase: phase of the harmonic pulse.
         """
         if isinstance(frequency, units.Value):
-            self.frequency = frequency['GHz']
+            frequency = frequency['GHz']
         else:
-            self.frequency = float(frequency)
+            frequency = float(frequency)
         
         if isinstance(phase, units.Value):
-            self.phase = phase['rad']
+            phase = phase['rad']
         else:
-            self.phase = float(phase)
+            phase = float(phase)
+            
+        return frequency, phase
+        
+    def _check_pulse(self):
+        """
+        Check wheather the pulse aplitudes are in -1.0 to 1.0 range.
+        
+        Input:
+            None.
+
+        Output:
+            None.
+        """
+        if any(abs(self.pulse) > 1):
+            raise ValueError('The pulse amplitude should not exceed 1.')
     
     def after(self, time=0):
         """
@@ -119,6 +148,9 @@ class _WavePulse():
         
         Input:
             time: time delay after this pulse in ns.
+
+        Output:
+            time: absolute time.
         """
         return self.end + 1 + self._ns(time)
         
@@ -128,10 +160,13 @@ class _WavePulse():
         
         Input:
             time: time delay before this pulse in ns.
+
+        Output:
+            time: absolute time.
         """
         return self.start - 1 - self._ns(time)
        
-       
+
 class DC(_WavePulse):
     """
     DC pulse.
@@ -144,9 +179,10 @@ class DC(_WavePulse):
     """
     def __init__(self, amplitude=0, start=None, duration=None, end=None):
         self._init_times(start, duration, end)
-        self._init_amplitude(amplitude)
+        amplitude = self._amplitude(amplitude)
         
-        self.pulse = np.full(self.duration, self.amplitude)
+        self.pulse = np.full(self.duration, amplitude)
+        self._check_pulse()
 
 
 class Sine(_WavePulse):
@@ -161,17 +197,19 @@ class Sine(_WavePulse):
         duration: length of the sine pulse.
         end: ending time of the sine pulse.
     """
-    def __init__(self, amplitude=0, frequency=0, phase=0,
+    def __init__(self, amplitude=0, frequency=0, phase=0, offset=0,
             start=None, duration=None, end=None):
         self._init_times(start, duration, end)
-        self._init_amplitude(amplitude)
-        self._init_harmonic(frequency, phase)
+        amplitude = self._amplitude(amplitude)
+        frequency, phase = self._harmonic(frequency, phase)
+        offset = self._amplitude(offset)
 
         t = np.linspace(0, self.duration - 1, self.duration)
-        self.pulse = (self.amplitude *
-                np.sin(2 * np.pi * self.frequency * t + self.phase))
+        self.pulse = (offset + amplitude *
+                np.sin(2 * np.pi * frequency * t + phase))
+        self._check_pulse()
 
-                
+
 class Cosine(_WavePulse):
     """
     Cosine pulse.
@@ -184,15 +222,17 @@ class Cosine(_WavePulse):
         duration: length of the cosine pulse.
         end: ending time of the cosine pulse.
     """
-    def __init__(self, amplitude=0, frequency=0, phase=0,
+    def __init__(self, amplitude=0, frequency=0, phase=0, offset=0,
             start=None, duration=None, end=None):
         self._init_times(start, duration, end)
-        self._init_amplitude(amplitude)
-        self._init_harmonic(frequency, phase)
+        amplitude = self._amplitude(amplitude)
+        frequency, phase = self._harmonic(frequency, phase)
+        offset = self._amplitude(offset)
 
         t = np.linspace(0, self.duration - 1, self.duration)
-        self.pulse = (self.amplitude *
-                np.cos(2 * np.pi * self.frequency * t + self.phase))
+        self.pulse = (offset + amplitude *
+                np.cos(2 * np.pi * frequency * t + phase))
+        self._check_pulse()
 
 
 class Gaussian(_WavePulse):
@@ -208,13 +248,14 @@ class Gaussian(_WavePulse):
     """
     def __init__(self, amplitude=0, start=None, duration=None, end=None):
         self._init_times(start, duration, end)
-        self._init_amplitude(amplitude)
+        amplitude = self._amplitude(amplitude)
 
         sigma = (float(self.duration) - 1) / np.sqrt(112 * np.log(2))
-        self.pulse = self.amplitude * ss.gaussian(self.duration, sigma)
+        self.pulse = amplitude * ss.gaussian(self.duration, sigma)
+        self._check_pulse()
 
 
-class WaveForm():
+class Waveform():
     """
     Create a waveform from pulses.
     
@@ -230,7 +271,10 @@ class WaveForm():
             classes such as DC, Sine, Cosine, etc.
     """
     def __init__(self, label='None', *args):
+        if not isinstance(label, str):
+            raise ValueError('Invalid waveform label.')
         self.label = label
+
         pulses = []
         for arg in args:
             if isinstance(arg, _WavePulse):
@@ -263,12 +307,34 @@ class WaveForm():
         else:
             self.pulses = np.array([0])
             
-    self.start = pulses[0].start
-    self.end = pulses[-1].end
-    self.duration = self.end - self.start + 1
+        self.start = pulses[0].start
+        self.end = pulses[-1].end
+        self.duration = self.end - self.start + 1
 
-            
-def wfs2dict(min_length=20, *args):
+
+def Harmonic(amplitude=0, frequency=0, phase=0,
+            cosine_offset=0, sine_offset=0,
+            start=None, duration=None, end=None):
+    """
+    Return cosine and sine pulses.
+
+    Inputs:
+        amplitude: amplitude of the pulses.
+        frequency: frequency of the pulses.
+        phase: phase of the pusles.
+        start: starting time of the pulses.
+        duration: length of the cosine pulse.
+        end: ending time of the cosine pulse.
+    Outputs:
+        sine: Sine pulse object.
+        cosine: Cosine pulse object.
+    """
+    return (Cosine(amplitude, frequency, phase, cosine_offset,
+            start, duration, end),
+            Sine(amplitude, frequency, phase, sine_offset,
+            start, duration, end))
+
+def wfs_dict(wf_min_length=20, *args):
     """
     Return a waveform dictionary with the waveform labels as the keys.
     
@@ -276,40 +342,87 @@ def wfs2dict(min_length=20, *args):
     the waveforms are of an equal length and that they are longer than
     the minimum length.
     
-    Input:
-        min_length: mininum allowed length of the final wavefrom. Short
-            waveforms will be padded with zeros.
-        args: arbitrarily long set of WaveForms.
+    Inputs:
+        wf_min_length: mininum allowed length of the final wavefrom.
+            Short waveforms are padded with zeros.
+        args: arbitrarily long set of Waveforms.
         
-    Output:
+    Outputs:
         waveforms: dictionary with the processed waveforms.
+        offset: difference between the corresponding index values
+            of the waveform numpy ndarrays and the time values that
+            specify the start and end times for the waveforms:
+            offset = ndarray_index - assigned_time_value, i.e.
+            ndarray_index = assigned_time_value + offset
     """
+    if isinstance(wf_min_length, units.Value):
+        wf_min_length = wf_min_length['ns']
+    try:
+        wf_min_length = int(np.round(wf_min_length))
+    except:
+        raise Exception('Invalid minimum waveform length.')
+
     wfs = []
     for arg in args:
-        if isinstance(arg, _WavePulse):
+        if isinstance(arg, Waveform):
             wfs.append(arg)
     
-    # Align the waveforms and append a zero to the start and end.
-    start = min([wf.start for wf in wfs]) - 1
-    for i in range(len(wfs)):
-        wfs[i].pulses = np.hstack([np.zeros(wfs[i].start - start),
-                                   wf[i].pulses, 0])
+    # Align the waveforms.
+    start_offset = min([wf.start for wf in wfs])
+    for wf in wfs:
+        wf.pulses = np.hstack([np.zeros(wf.start - start_offset), wf.pulses])
+   
+    # Create an empty waveform 'None'.
+    wfs.append(Waveform('None', DC(start=start_offset, duration=1)))
      
     # Ensure that the waveforms are long enough and are of an equal
     # length.
-    length = max([wf.pulses.size for wf in wfs])
-    start = max(0, (min_length - length) / 2)
-    for i in range(len(wfs)):
-        end = length - start - wfs[i].pulses.size
-        wfs[i].pulses = np.hstack([np.zeros(start), wfs[i].pulses,
-                                   np.zeros(end)])
+    # Add 2 to compensate for padding with at least one zero at the
+    # beginning and end of the waveform.
+    max_length = max([wf.pulses.size for wf in wfs]) + 2
+    start = max(1, (wf_min_length - max_length + 1) / 2)
+    for wf in wfs:
+        end = max(1, max(wf_min_length, max_length) - start - wf.pulses.size)
+        wf.pulses = np.hstack([np.zeros(start), wf.pulses, np.zeros(end)])
+
+    return {wf.label: wf.pulses for wf in wfs}, start - start_offset
+
+def plot_wfs(waveforms, wf_labels, wf_colors=['r', 'g', 'm', 'b', 'k']):
+    """
+    Plot waveforms.
+    
+    Input:
+        waveforms: dictionary with the processed waveforms.
+        wf_labels: waveform labels to plot.
+        wf_colors: colors for waveform colorcoding.
         
-    return {wf.label: wf.pulses for wf in wfs}
+    Output:
+        None.
+    """
+    if not isinstance(wf_colors, list):
+        wf_colors = list(wf_colors)
+    
+    if not isinstance(wf_labels, list):
+        wf_labels = list(wf_labels)
+
+    time = waveforms[wf_labels[0]].size
+    time = np.linspace(0, time - 1, time)
+    plt.figure(2)
+    plt.ioff()
+    plt.clf()
+    for idx, wf in enumerate(wf_labels):
+        plt.plot(time, waveforms[wf], wf_colors[idx], label=wf_labels[idx])
+    plt.xlim(time[0], time[-1])
+    plt.legend()
+    plt.xlabel('Time [ns]')
+    plt.ylabel('Waveforms')
+    plt.draw()
+    plt.pause(0.05)
 
 
 if __name__ == "__main__":
     """
-    Tests and examples. Feel free to add your test/example at the end.
+    Tests and examples. Feel free to add your test/example.
     """
     # Cosine pulse with amplitude of 1 and frequency of 0.25 GHz
     # starting at t = 2 ns and ending at t = 8 ns.
@@ -326,40 +439,56 @@ if __name__ == "__main__":
     
     # Combine the two pulses into one waveform. The waveform class
     # automatically puts the wave pulses in the correct order.
-    waveformB = WaveForm('B', pulseB1, pulseB2)
+    waveformB = Waveform('B', pulseB1, pulseB2)
     
     # Specifing the start, duration and end times at the same time will
     # work only if these parameters are consistent, i.e. if the equation
     # self.duration = self.end - self.start + 1 is satisfied.
-    pulseA2 = DC(start=pulseB2.after(-1), duration=11, end=pulseB2.end)
+    pulseA2 = DC(start=pulseB2.start, duration=10, end=pulseB2.end)
     try:
         # Incosistent specifications.
         pulseA2 = DC(start=pulseB2.after(-1), duration=12, end=pulseB2.end)
-    except ValueError
-        print('The error has been correctly caught.')
+    except ValueError:
+        print('The inconsistent time error has been correctly caught.')
+    
+    try:
+        # Amplitude should not exceed 1.
+        pulseA2 = Sine(amplitude=1, frequency=.25, offset=.1,
+                       start=pulseB2.after(-1), duration=12)
+    except ValueError:
+        print('The amplitude error has been correctly caught.')
     
     # Sine pulse with amplitude of 1 and frequency of 0.1 GHz
-    # starting 2 ns after pulseB2 and ending at the same time as 
+    # starting 2 ns after pulseB1 and ending at the same time as 
     # pulseB2.
     pulseA2 = Sine(amplitude=1, phase=np.pi/2, frequency=0.1,
-                   start=pulseB2.after(2), end=pulseB2.end)
+                   start=pulseB1.after(2), end=pulseB2.end)
     
     # Combine the two pulses into one waveform. The waveform class
     # automatically puts the wave pulses in the correct order.
-    waveformA = WaveForm('A', pulseA1, pulseA2)
+    waveformA = Waveform('A', pulseA1, pulseA2)
     
     # Create a waveform dictionary with the waveform labels as the keys.
     # The waveforms will be aligned based on their start times. They
-    # will be zero-padded to ensure equal length that is longer
-    # a minimum length (min_lenght=20, by default)
-    waveforms = wfs2dict(waveformA, waveformB)
-    print(waveforms)
+    # will be zero-padded to ensure equal length that is longer than
+    # a minimum length, which is 20 in this example.
+    wfs, time_offset = wfs_dict(20, waveformA, waveformB)
+    print(wfs)
+    print('Time offset = %d ns.' %time_offset)
 
-    # Gaussian pulse with amplitude of 1 and frequency of 0.25 GHz
-    # starting at t = 0 ns and ending at t = 14 ns (duration is equal
-    # 15 ns).
-    pulseC = Gaussian(amplitude=1, start=0, duration=15, end=pulseB2.end)
-    waveformC = WaveForm('C', pulseC)
+    # Gaussian pulse with amplitude of 1 starting at t = 0 ns and
+    # ending at t = 14 ns (duration is equal to 15 ns).
+    pulseC = Gaussian(amplitude=1, start=0, duration=15, end=14)
+    waveformC = Waveform('C', pulseC)
     
-    waveforms = wfs2dict(waveformA, waveformB, waveformC)
-    print(waveforms)
+    wfs, time_offset = wfs_dict(20, waveformA, waveformB, waveformC)
+    print(wfs)
+    print('Time offset = %d ns.' %time_offset)
+    
+    # Create an in-phase and quadrature components of a harmonic pulse.
+    I, Q = Harmonic(amplitude=0.25, frequency=0.05, start=0, duration=150)
+    wfs, time_offset = wfs_dict(20, Waveform('I', I), Waveform('Q', Q))
+    print(wfs)
+    print('Time offset = %d ns.' %time_offset)
+    # Plot the waveforms for inspection.
+    plot_wfs(wfs, ['I', 'Q'], ['r', 'b'])

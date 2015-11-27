@@ -322,7 +322,7 @@ class GHzFPGABoards(object):
         dac_srams = [sq.waves2sram(waveforms[self.dac_settings[k]['DAC A']], 
                                    waveforms[self.dac_settings[k]['DAC B']])
                                    for k, dac in enumerate(self.dacs)]
-        sram_length = len(waveforms[self.dac_settings[0]['DAC A']])
+        sram_length = waveforms[self.dac_settings[0]['DAC A']].size
         sram_delay = np.ceil(sram_length / 1000)
         
         return dac_srams, sram_length, sram_delay

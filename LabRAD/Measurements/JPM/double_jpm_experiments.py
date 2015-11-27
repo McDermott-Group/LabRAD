@@ -52,13 +52,8 @@ class DoubleJPMCorrelation(JPMExperiment):
         #RF VARIABLES##############################################################################
         self.set('RF Attenuation')                                      # RF attenuation
         self.set('RF Power')                                            # RF power
-        if self.value('RF Frequency') is not None:
-            if self.value('RF SB Frequency') is not None:               # RF frequency
-                self.set('RF Frequency',                
-                        self.value('RF Frequency') + 
-                        self.value('RF SB Frequency'))
-            else:
-                self.set('RF Frequency')
+        self.set('RF Frequency', self.value('RF Frequency') +           # RF frequency
+                self.value('RF SB Frequency'))
  
         #RF DRIVE VARIABLES########################################################################
         RF_SB_freq = self.value('RF SB Frequency')['GHz']               # readout sideband frequency
