@@ -113,7 +113,7 @@ ExptInfo = {
             'Device Name': 'MH060',
             'User': 'Ivan Pechenezhskiy',
             'Base Path': 'Z:\mcdermott-group\Data\Syracuse Qubits\Leiden DR 2015-10-22 - Qubits and JPMs',
-            'Experiment Name': 'FluxBiasQBFreq2D',
+            'Experiment Name': 'QBFreqROFreq2D',
             'Comments': 'ADC band pass filters removed. DC blocks and filters on Lab Brick attenuators. Updated filter functions.' 
            }
  
@@ -267,9 +267,9 @@ with adc_qubit_experiments.ADCQubitReadout() as run:
         # [np.linspace(-0.5, 2, 13) * V, np.linspace(3.9, 4.7, 401) * GHz],
         # save=True, print_data='Amplitude', runs=1, max_data_dim=2)
         
-    run.sweep(['Qubit Flux Bias Voltage', 'Qubit Frequency'], 
-        [np.linspace(-.1, .1, 11) * V, np.linspace(4.5, 4.65, 151) * GHz],
-        save=True, print_data='Amplitude', runs=10, max_data_dim=2)
+    # run.sweep(['Qubit Flux Bias Voltage', 'Qubit Frequency'], 
+        # [np.linspace(-.1, .1, 11) * V, np.linspace(4.5, 4.65, 151) * GHz],
+        # save=True, print_data='Amplitude', runs=10, max_data_dim=2)
         
     # run.sweep('Qubit Frequency', np.linspace(4.50, 4.65, 301) * GHz,
              # print_data=['I', 'Q'], plot_data=['I', 'Q', 'Amplitude'],
@@ -295,3 +295,13 @@ with adc_qubit_experiments.ADCQubitReadout() as run:
     # run.sweep(['Qubit Attenuation', 'Qubit Frequency'], 
         # [np.linspace(1, 21, 11) * dB, np.linspace(4.55, 4.6, 125) * GHz],
         # save=True, print_data='Amplitude', runs=2, max_data_dim=2)
+        
+    run.value('Qubit Amplitude', 1 * DACUnits)   
+    run.sweep(['Qubit Frequency', 'Readout Frequency'], 
+        [np.linspace(4.5, 4.65, 76) * GHz, np.linspace(4.91, 4.925, 76) * GHz],
+        save=True, print_data='Amplitude', runs=2, max_data_dim=2)
+        
+    run.value('Qubit Amplitude', 0 * DACUnits)   
+    run.sweep(['Qubit Frequency', 'Readout Frequency'], 
+        [np.linspace(4.5, 4.65, 76) * GHz, np.linspace(4.91, 4.925, 76) * GHz],
+        save=True, print_data='Amplitude', runs=2, max_data_dim=2)

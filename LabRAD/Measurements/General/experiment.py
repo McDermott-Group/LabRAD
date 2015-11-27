@@ -155,9 +155,6 @@ class Experiment(object):
                 
         print('The instrument resources have been safely terminated! ' + 
               'Have a nice day.')
-              
-        plt.figure(1)
-        plt.ion()
   
     ###SETUP METHODS####################################################
     def set_experiment(self, information, resources, variables):
@@ -2068,6 +2065,7 @@ class Experiment(object):
             values = np.array(range(idx + 1))
 
         plt.figure(1)
+        plt.ioff()
         
         # Set data.
         for var in plot_data_vars:
@@ -2091,4 +2089,5 @@ class Experiment(object):
         
         # Redraw.
         plt.draw()
+        plt.ion()
         plt.pause(0.05)
