@@ -104,6 +104,7 @@ class Experiment(object):
         Output:
             None.
         """
+        print('Connecting to the LabRAD manager...')
         password = None
         # Open the LabRAD initialization file.
         script_path = os.path.dirname(__file__)
@@ -120,7 +121,8 @@ class Experiment(object):
         try:
             self.cxn = labrad.connect(password=password)
         except:
-            raise Exception('Connection to LabRAD could not be established.')
+            raise Exception('Connection to the LabRAD manager could '+
+                    'not be established.')
         # This flag controls the standard output upon pressing [O]
         # during an experiment sweep.
         self._standard_output = True
@@ -128,7 +130,7 @@ class Experiment(object):
     def __del__(self):
         """Just in case..."""
         plt.close('all')
-        
+
     def __enter__(self):
         """
         Context entry. For now all it does is return a copy of 
@@ -168,6 +170,9 @@ class Experiment(object):
                 
         print('The instrument resources have been safely terminated! ' + 
               'Have a nice day.')
+              
+        plt.pause(300)
+        plt.close('all')
   
     ###SETUP METHODS####################################################
     def set_experiment(self, information, resources, variables):
@@ -2078,7 +2083,6 @@ class Experiment(object):
             values = np.array(range(idx + 1))
 
         plt.figure(1)
-        plt.ioff()
         
         # Set data.
         for var in plot_data_vars:
@@ -2102,5 +2106,4 @@ class Experiment(object):
         
         # Redraw.
         plt.draw()
-        plt.ion()
         plt.pause(0.05)

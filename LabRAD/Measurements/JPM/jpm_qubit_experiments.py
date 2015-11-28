@@ -44,8 +44,8 @@ class JPMExperiment(expt.Experiment):
             return
         data = np.array(data)
         plt.figure(3)
-        plt.get_current_fig_manager().window.wm_geometry("800x550+700+25")
         plt.ioff()
+        plt.get_current_fig_manager().window.wm_geometry("800x550+700+25")
         plt.clf()
         if number_of_devices == 1: 
             plt.hist(data[0,:], bins=preamp_timeout, range=(1, preamp_timeout-1),
@@ -61,9 +61,8 @@ class JPMExperiment(expt.Experiment):
             'devices is not implemented.')
         plt.xlabel('Timing Information [Preamp Time Counts]')
         plt.ylabel('Counts')
-        plt.xlim(0, preamp_timeout) 
+        plt.xlim(0, preamp_timeout)
         plt.draw()
-        plt.ion()
         plt.pause(0.05)
         
     def run_once(self):

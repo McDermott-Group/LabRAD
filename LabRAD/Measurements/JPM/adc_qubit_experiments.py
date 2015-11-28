@@ -78,9 +78,13 @@ class ADCQubitReadout(ADCExperiment):
         ###SET BOARDS PROPERLY##########################################
         self.boards.set_adc_setting('DemodFreq', -self.value('Readout SB Frequency'), adc)
 
-        self.boards.set_adc_setting('FilterStartAt', (offset +
-                RO_I.end + self.value('ADC Wait Time')['ns']) * units.ns, adc)
-        self.boards.set_adc_setting('ADCDelay', 0 * units.ns, adc)
+        # self.boards.set_adc_setting('FilterStartAt', (offset +
+                # RO_I.end + self.value('ADC Wait Time')['ns']) * units.ns, adc)
+        # self.boards.set_adc_setting('ADCDelay', 0 * units.ns, adc)
+        
+        self.boards.set_adc_setting('ADCDelay', (offset +
+        RO_I.end + self.value('ADC Wait Time')['ns']) * units.ns, adc)
+        self.boards.set_adc_setting('FilterStartAt', 0 * units.ns, adc)
 
         mems = [ms.simple_sequence(self.value('Init Time'), sram_length, 0)
                 for dac in self.boards.dacs]
@@ -139,9 +143,9 @@ class ADCRamsey(ADCExperiment):
         ###SET BOARDS PROPERLY##########################################
         self.boards.set_adc_setting('DemodFreq', -self.value('Readout SB Frequency'), adc)
 
-        self.boards.set_adc_setting('FilterStartAt', (offset +
-                RO_I.end + self.value('ADC Wait Time')['ns']) * units.ns, adc)
-        self.boards.set_adc_setting('ADCDelay', 0 * units.ns, adc)
+        self.boards.set_adc_setting('ADCDelay', (offset +
+        RO_I.end + self.value('ADC Wait Time')['ns']) * units.ns, adc)
+        self.boards.set_adc_setting('FilterStartAt', 0 * units.ns, adc)
 
         mems = [ms.simple_sequence(self.value('Init Time'), sram_length, 0)
                 for dac in self.boards.dacs]
@@ -242,12 +246,11 @@ class ADCCavityJPM(ADCExperiment):
         ###SET BOARDS PROPERLY##########################################
         self.boards.set_adc_setting('DemodFreq', -self.value('RF SB Frequency'), adc)
 
-        self.boards.set_adc_setting('FilterStartAt', (offset +
-                JPM.end + self.value('ADC Wait Time')['ns']) * units.ns, adc)
-        self.boards.set_adc_setting('ADCDelay', 0 * units.ns, adc)
+        self.boards.set_adc_setting('ADCDelay', (offset +
+        JPM.end + self.value('ADC Wait Time')['ns']) * units.ns, adc)
+        self.boards.set_adc_setting('FilterStartAt', 0 * units.ns, adc)
         
         ###MEMORY COMMAND LISTS#########################################
-        # The format is described in Servers.Instruments.GHzBoards.mem_sequences.
         mem_seqs = self.boards.init_mem_lists()
 
         mem_seqs[0].bias(1, voltage=0)

@@ -78,10 +78,10 @@ class _WavePulse():
         if end is None:
             self.end = self.start + self.duration - 1
         
-        if self.start > self.end:
+        if self.start > self.end + 1:
             raise ValueError("The pulse ends before it starts: " +
-                    "the pulse starts at " + str(self.start) + " ns, " +
-                    "and it ends at " + str(self.end) + " ns.")
+                    "the pulse starts at " + str(self.start) + " ns " +
+                    "and ends at " + str(self.end) + " ns.")
                     
         if self.end - self.start + 1 != self.duration:
             raise ValueError("Inconsistent time parameters: the pulse" +
@@ -421,7 +421,6 @@ def plot_wfs(waveforms, wf_labels, wf_colors=['r', 'g', 'm', 'b', 'k']):
     plt.xlabel('Time [ns]')
     plt.ylabel('Waveforms')
     plt.draw()
-    plt.ion()
     plt.pause(0.05)
 
 
@@ -489,7 +488,7 @@ if __name__ == "__main__":
     wfs, time_offset = wfs_dict(20, waveformA, waveformB, waveformC)
     print(wfs)
     print('Time offset = %d ns.' %time_offset)
-    
+
     # Create an in-phase and quadrature components of a harmonic pulse.
     I, Q = Harmonic(amplitude=0.25, frequency=0.05, start=0, duration=150)
     wfs, time_offset = wfs_dict(20, Waveform('I', I), Waveform('Q', Q))
@@ -497,3 +496,11 @@ if __name__ == "__main__":
     print('Time offset = %d ns.' %time_offset)
     # Plot the waveforms for inspection.
     plot_wfs(wfs, ['I', 'Q'], ['r', 'b'])
+    
+    # Some annimation.
+    for x in range(10):
+        # Create an in-phase and quadrature components of a harmonic pulse.
+        I, Q = Harmonic(amplitude=0.25, frequency=0.01 * x, start=0, duration=150)
+        wfs, time_offset = wfs_dict(20, Waveform('I', I), Waveform('Q', Q))
+        # Plot the waveforms for inspection.
+        plot_wfs(wfs, ['I', 'Q'], ['r', 'b'])
