@@ -29,8 +29,8 @@ if LABRAD_PATH not in sys.path:
 import numpy as np
 
 import LabRAD.Measurements.General.experiment as expt
-import LabRAD.Measurements.General.pulse_shapes as pulse
-import LabRAD.Servers.Instruments.GHzBoards.command_sequences as seq
+import LabRAD.Measurements.General.waveform as wf
+import LabRAD.Servers.Instruments.GHzBoards.mem_sequences as ms
 
 
 class FIM(expt.Experiment):
@@ -38,34 +38,36 @@ class FIM(expt.Experiment):
     Test experiment.
     """
     def run_once(self):
-        waveforms = {}
-        if 'None' in self.boards.requested_waveforms:
-            waveforms['None'] = np.hstack([pulse.DC(2 * self.boards.consts['DAC_ZERO_PAD_LEN']['ns'], 0)])
-        dac_srams, sram_length, sram_delay = self.boards.process_waveforms(waveforms)
+        ###WAVEFORMS####################################################        
+        waveforms, offset = wf.wfs_dict(self.boards.consts['DAC_ZERO_PAD_LEN'])
         
-        # Create a memory command list.
-        # The format is described in Servers.Instruments.GHzBoards.command_sequences.
-        mem_lists = self.boards.init_mem_lists()
-       
-        mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
-        mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0})
-        
-        mem_lists[0].append({'Type': 'Delay', 'Time': self.value('Init Time')['us']})
-        
-        mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': self.value('Bias Voltage 1')['V']})
-        mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': self.value('Bias Voltage 2')['V']})
+        dac_srams, sram_length = self.boards.process_waveforms(waveforms)
 
-        mem_lists[0].append({'Type': 'Delay', 'Time': self.value('Bias Time')['us']})
-         
-        mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
-        mem_lists[0].append({'Type': 'Bias', 'Channel': 2, 'Voltage': 0})
-        
-        mem_lists[0].append({'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay})
-        
-        mem_lists[0].append({'Type': 'Timer', 'Time': 0})
-        
-        mems = [seq.mem_from_list(mem_list) for mem_list in mem_lists]
+        # wf.plot_wfs(waveforms, waveforms.keys())
 
+        ###MEMORY COMMAND LISTS#########################################
+        # The format is described in Servers.Instruments.GHzBoards.mem_sequences.
+        mem_seqs = self.boards.init_mem_lists()
+
+        mem_seqs[0].bias(1, voltage=0, mode='Fast')
+        mem_seqs[0].bias(2, voltage=0, mode='Fast')
+
+        mem_seqs[0].delay(self.value('Init Time'))
+
+        mem_seqs[0].bias(1, voltage=self.value('Bias Voltage 1'))
+        mem_seqs[0].bias(2, voltage=self.value('Bias Voltage 2'))
+        
+        mem_seqs[0].delay(self.value('Bias Time'))
+        
+        mem_seqs[0].bias(1, voltage=0)
+        mem_seqs[0].bias(2, voltage=0)
+        
+        mem_seqs[0].sram(sram_length=sram_length, sram_start=0)
+        mem_seqs[0].timer(0)
+
+        mems = [mem_seq.sequence() for mem_seq in mem_seqs]
+
+        ###RUN##########################################################
         self.get('Temperature')
         P = self.boards.load_and_run(dac_srams, mems, self.value('Reps'))
         self.add_var('Actual Reps', len(P[0]))

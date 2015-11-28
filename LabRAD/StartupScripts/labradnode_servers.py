@@ -42,13 +42,16 @@ def parseArguments():
     parser.add_argument('--node-name', 
             default='node ' + os.environ['COMPUTERNAME'].lower(),
             help='LabRAD node name (default: "node %%COMPUTERNAME%%"')
+    parser.add_argument('--password',
+            default=None,
+            help='LabRAD password')
     return parser.parse_args()
 
 @inlineCallbacks    
 def startServers(args):
     print('Connecting to LabRAD...')
     try:
-        cxn = yield lr.connect()
+        cxn = yield lr.connect(password=args.password)
     except:
         raise Exception('Could not connect to LabRAD. The LabRAD ' +
                 'program does not appear to be running.')

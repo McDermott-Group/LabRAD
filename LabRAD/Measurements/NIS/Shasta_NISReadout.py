@@ -52,14 +52,14 @@ Resources = [ {
                              }
                 },
 
-                { # GPIB RF Generator, 'Address' field is required only
-                  # when more than one GPIB RF generator is present.
-                    'Interface': 'RF Generator',
-                    'Variables': {  
-                                    'RF Power': {'Setting': 'Power'}, 
-                                    'RF Frequency': {'Setting': 'Frequency'}
-                                 }
-                },
+                # { # GPIB RF Generator, 'Address' field is required only
+                  # # when more than one GPIB RF generator is present.
+                    # 'Interface': 'RF Generator',
+                    # 'Variables': {  
+                                    # 'RF Power': {'Setting': 'Power'}, 
+                                    # 'RF Frequency': {'Setting': 'Frequency'}
+                                 # }
+                # },
                 # { # Lab Brick Attenuator
                     # 'Interface': 'Lab Brick Attenuator',
                     # 'Serial Number': 7031,
@@ -71,10 +71,10 @@ Resources = [ {
                                 # ' GPIB Bus - GPIB0::26::INSTR::SIM900::3'),
                     # 'Variables': 'Qubit Flux Bias Voltage'
                 # },
-                { # ADR3
-                    'Interface': 'ADR3',
-                    'Variables': {'Temperature': {'Setting':'Temperatures', 'Stage': 'FAA'}}
-                },
+                # { # ADR3
+                    # 'Interface': 'ADR3',
+                    # 'Variables': {'Temperature': {'Setting':'Temperatures', 'Stage': 'FAA'}}
+                # },
                 { # Readings entered manually, software parameters.
                     'Interface': None,
                     'Variables': ['Reps', 'Runs'],

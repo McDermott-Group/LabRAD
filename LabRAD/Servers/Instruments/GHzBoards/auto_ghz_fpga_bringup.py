@@ -1,10 +1,19 @@
 # Calls to ghz_fpga server match v3.3.0 call signatures and outputs.
 
-from __future__ import with_statement
+import argparse
 
 import labrad
 
 NUM_TRIES = 3
+
+ 
+def _parse_arguments():
+    parser = argparse.ArgumentParser(description='Automatically ' +
+            'bring-up the FPGA GHz boards.')
+    parser.add_argument('--password',
+            default=None,
+            help='LabRAD password')
+    return parser.parse_args()
 
 def bringup_board(fpga, board, optimizeSD=False, sdVal=None):
     """Bringup a single board connected to the given FPGA Server.
@@ -83,14 +92,17 @@ def auto_bringup(fpga):
     return successes, failures, tries
 
 def main():
-    with labrad.connect() as cxn:
+    args = _parse_arguments()
+    with labrad.connect(password=args.password) as cxn:
         fpga = cxn['ghz_fpgas']
         no_success = True
         while no_success:
             successes, failures, tries = auto_bringup(fpga)
-            if successes.keys():
+            successes = [board for board in successes.keys()
+                      if board not in failures]
+            if successes:
                 print('The following boards have been succesfully ' +
-                        'brought-up:')
+                        'brought up:')
                 for key in successes:
                     print(key + ' (attempts: ' + str(tries[key]) + ')')
             if failures:

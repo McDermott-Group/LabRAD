@@ -33,6 +33,7 @@ Resources = [ {
                                         'RunMode': 'demodulate', #'average'
                                         'FilterType': 'square',
                                         'FilterWidth': 9500 * ns,
+                                        'FilterStartAt': 0 * ns,
                                         'FilterLength': 10000 * ns,
                                         'FilterStretchAt': 0 * ns,
                                         'FilterStretchLen': 0 * ns,
@@ -74,13 +75,13 @@ Resources = [ {
                                 # ' GPIB Bus - GPIB0::26::INSTR::SIM900::3'),
                     # 'Variables': 'Qubit Flux Bias Voltage'
                 # },
-                { # ADR3
-                    'Interface': 'ADR3',
-                    'Variables': {
-                                    'Temperature': {'Setting': 'Temperatures',
-                                                    'Stage': 'FAA'}
-                                 }
-                },
+                # { # ADR3
+                    # 'Interface': 'ADR3',
+                    # 'Variables': {
+                                    # 'Temperature': {'Setting': 'Temperatures',
+                                                    # 'Stage': 'FAA'}
+                                 # }
+                # },
                 { # Readings entered manually, software parameters.
                     'Interface': None,
                     'Variables': ['Reps',
@@ -129,4 +130,4 @@ with adc_qubit_experiments.ADCCavityJPM() as run:
     # run.avg_osc(save=False, plot_data=['I', 'Q'], runs=250)
 
     run.sweep('RF Frequency', np.linspace(4.50, 5.00, 1001) * GHz,
-              plot_data=['I', 'Q', 'Mean ADC Amplitude'], save=True, max_data_dim=1)
+              plot_data=['I', 'Q', 'Mean Absolute Amplitude'], save=True, max_data_dim=1)

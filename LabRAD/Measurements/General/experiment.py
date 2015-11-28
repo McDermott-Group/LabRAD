@@ -103,9 +103,22 @@ class Experiment(object):
             None.
         Output:
             None.
-        """ 
+        """
+        password = None
+        # Open the LabRAD initialization file.
+        script_path = os.path.dirname(__file__)
+        labrad_ini_file = os.path.join(script_path.rsplit('LabRAD', 1)[0],
+                'LabRAD', 'LabRAD.ini')
+        if os.path.isfile(labrad_ini_file):
+            with open(labrad_ini_file, 'r') as f:
+                lines = f.readlines()
+            for line in lines:
+                line = line.strip('\n')
+                if line.find('Password: ') != -1:
+                    password = line.split('Password: ')[-1]
+                    break
         try:
-            self.cxn = labrad.connect()
+            self.cxn = labrad.connect(password=password)
         except:
             raise Exception('Connection to LabRAD could not be established.')
         # This flag controls the standard output upon pressing [O]

@@ -325,6 +325,28 @@ class GHzFPGABoards(object):
         
         return dac_srams, waveforms[self.dac_settings[0]['DAC A']].size
     
+    def init_mem_lists(self):
+        """
+        Initialize memory command sequences. The output is a list
+        with the length that is equal to the number of the DAC boards.
+        Each list item is a MemSequence object. The MemSequence methods
+        are described in Servers.Instruments.GHzBoards.mem_sequences.
+        
+        Input:
+            None.
+        Output:
+            mem_seqs: list of memory command lists.
+        """
+        mem_seqs = [ms.MemSequence() for dac in self.dacs]
+        for idx, settings in enumerate(self.dac_settings):
+            if 'FO1 FastBias Firmware Version' in settings:
+                mem_seqs[idx].firmware(channel=1,
+                        version=settings['FO1 FastBias Firmware Version'])
+            if 'FO2 FastBias Firmware Version' in settings:
+                mem_seqs[idx].firmware(channel=2,
+                        version=settings['FO2 FastBias Firmware Version'])
+        return mem_seqs
+    
     def get_adc(self, adc=None):
         """
         If only a single ADC board is present, return its name. If more
@@ -586,28 +608,6 @@ class GHzFPGABoards(object):
         """
         self.load(dac_srams, dac_mems)
         return self.run(reps)
-        
-    def init_mem_lists(self):
-        """
-        Initialize memory command sequences. The output is a list
-        with the length that is equal to the number of the DAC boards.
-        Each list item is a MemSequence object. The MemSequence methods
-        are described in Servers.Instruments.GHzBoards.mem_sequences.
-        
-        Input:
-            None.
-        Output:
-            mem_seqs: list of memory command lists.
-        """
-        mem_seqs = [ms.MemSequence() for dac in self.dacs]
-        for idx, settings in enumerate(self.dac_settings):
-            if 'FO1 FastBias Firmware Version' in settings:
-                mem_seqs[idx].firmware(channel=1,
-                        version=settings['FO1 FastBias Firmware Version'])
-            if 'FO2 FastBias Firmware Version' in settings:
-                mem_seqs[idx].firmware(channel=2,
-                        version=settings['FO2 FastBias Firmware Version'])
-        return mem_seqs
 
 
 class BasicInterface(object):

@@ -368,9 +368,13 @@ def wfs_dict(wf_min_length=20, *args):
             wfs.append(arg)
     
     # Align the waveforms.
-    start_offset = min([wf.start for wf in wfs])
-    for wf in wfs:
-        wf.pulses = np.hstack([np.zeros(wf.start - start_offset), wf.pulses])
+    if wfs:
+        start_offset = min([wf.start for wf in wfs])
+        for wf in wfs:
+            wf.pulses = np.hstack([np.zeros(wf.start - start_offset),
+                    wf.pulses])
+    else:
+        start_offset = 0
    
     # Create an empty waveform 'None'.
     wfs.append(Waveform('None', DC(start=start_offset, duration=1)))

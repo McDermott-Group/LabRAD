@@ -41,22 +41,22 @@ class ADCQubitReadout(ADCExperiment):
     Read out a qubit connected to a resonator.
     """
     def load_once(self, adc=None):
-        #QUBIT VARIABLES###########################################################################
-        self.set('Qubit Attenuation')                                   # qubit attenuation
-        self.set('Qubit Power')                                         # qubit power
-        self.set('Qubit Frequency', self.value('Qubit Frequency') +     # qubit frequency
+        #QUBIT VARIABLES################################################
+        self.set('Qubit Attenuation')
+        self.set('Qubit Power')
+        self.set('Qubit Frequency', self.value('Qubit Frequency') +
                 self.value('Qubit SB Frequency'))
     
-        #RF DRIVE (READOUT) VARIABLES##############################################################
-        self.set('Readout Attenuation')                                 # readout attenuation
-        self.set('Readout Power')                                       # readout power
-        self.set('Readout Frequency', self.value('Readout Frequency') + # readout frequency
+        #RF DRIVE (READOUT) VARIABLES###################################
+        self.set('Readout Attenuation')
+        self.set('Readout Power')
+        self.set('Readout Frequency', self.value('Readout Frequency') +
                 self.value('Readout SB Frequency'))
 
-        #DC BIAS VARIABLES#########################################################################
+        #DC BIAS VARIABLES##############################################
         self.set('Qubit Flux Bias Voltage')
 
-        ###WAVEFORMS###############################################################################
+        ###WAVEFORMS####################################################
         QB_I, QB_Q = wf.Harmonic(amplitude = self.value('Qubit Amplitude'),
                                  frequency = self.value('Qubit SB Frequency'),
                                  start     = 0,
@@ -75,10 +75,9 @@ class ADCQubitReadout(ADCExperiment):
 
         # wf.plot_wfs(waveforms, waveforms.keys())
 
-        ###SET BOARDS PROPERLY#####################################################################
+        ###SET BOARDS PROPERLY##########################################
         self.boards.set_adc_setting('DemodFreq', -self.value('Readout SB Frequency'), adc)
 
-        # Delay between the end of the readout pulse to the start of the demodulation.
         self.boards.set_adc_setting('FilterStartAt', (offset +
                 RO_I.end + self.value('ADC Wait Time')['ns']) * units.ns, adc)
         self.boards.set_adc_setting('ADCDelay', 0 * units.ns, adc)
@@ -86,7 +85,7 @@ class ADCQubitReadout(ADCExperiment):
         mems = [ms.simple_sequence(self.value('Init Time'), sram_length, 0)
                 for dac in self.boards.dacs]
         
-        ###LOAD####################################################################################
+        ###LOAD#########################################################
         result = self.boards.load(dac_srams, mems)
         self.acknowledge_requests()
 
@@ -96,22 +95,22 @@ class ADCRamsey(ADCExperiment):
     Ramsey drive and readout of a qubit connected to a resonator.
     """
     def load_once(self, adc=None):
-        #QUBIT VARIABLES###########################################################################
-        self.set('Qubit Attenuation')                                   # qubit attenuation
-        self.set('Qubit Power')                                         # qubit power
-        self.set('Qubit Frequency', self.value('Qubit Frequency') +     # qubit frequency
+        #QUBIT VARIABLES################################################
+        self.set('Qubit Attenuation')
+        self.set('Qubit Power')
+        self.set('Qubit Frequency', self.value('Qubit Frequency') +
                 self.value('Qubit SB Frequency'))
     
-        #RF DRIVE (READOUT) VARIABLES##############################################################
-        self.set('Readout Attenuation')                                 # readout attenuation
-        self.set('Readout Power')                                       # readout power
-        self.set('Readout Frequency', self.value('Readout Frequency') + # readout frequency
+        #RF DRIVE (READOUT) VARIABLES###################################
+        self.set('Readout Attenuation')
+        self.set('Readout Power')
+        self.set('Readout Frequency', self.value('Readout Frequency') +
                 self.value('Readout SB Frequency'))
 
-        #DC BIAS VARIABLES#########################################################################
+        #DC BIAS VARIABLES##############################################
         self.set('Qubit Flux Bias Voltage')
       
-        ###WAVEFORMS###############################################################################
+        ###WAVEFORMS####################################################
         QB1_I, QB1_Q = wf.Harmonic(amplitude = self.value('Qubit Amplitude'),
                                    frequency = self.value('Qubit SB Frequency'),
                                    start     = 0,
@@ -137,10 +136,9 @@ class ADCRamsey(ADCExperiment):
 
         # wf.plot_wfs(waveforms, waveforms.keys())
 
-        ###SET BOARDS PROPERLY#####################################################################
+        ###SET BOARDS PROPERLY##########################################
         self.boards.set_adc_setting('DemodFreq', -self.value('Readout SB Frequency'), adc)
 
-        # Delay between the end of the readout pulse to the start of the demodulation.
         self.boards.set_adc_setting('FilterStartAt', (offset +
                 RO_I.end + self.value('ADC Wait Time')['ns']) * units.ns, adc)
         self.boards.set_adc_setting('ADCDelay', 0 * units.ns, adc)
@@ -148,7 +146,7 @@ class ADCRamsey(ADCExperiment):
         mems = [ms.simple_sequence(self.value('Init Time'), sram_length, 0)
                 for dac in self.boards.dacs]
         
-        ###LOAD####################################################################################
+        ###LOAD#########################################################
         result = self.boards.load(dac_srams, mems)
         self.acknowledge_requests()        
 
@@ -158,22 +156,22 @@ class ADCStarkShift(ADCExperiment):
     Read out a qubit connected to a resonator.
     """
     def load_once(self, adc=None):
-        #QUBIT VARIABLES###########################################################################
-        self.set('Qubit Attenuation')                                   # qubit attenuation
-        self.set('Qubit Power')                                         # qubit power
-        self.set('Qubit Frequency', self.value('Qubit Frequency') +     # qubit frequency
+        #QUBIT VARIABLES################################################
+        self.set('Qubit Attenuation')
+        self.set('Qubit Power')
+        self.set('Qubit Frequency', self.value('Qubit Frequency') +
                 self.value('Qubit SB Frequency'))
     
-        #RF DRIVE (READOUT) VARIABLES##############################################################
-        self.set('Readout Attenuation')                                 # readout attenuation
-        self.set('Readout Power')                                       # readout power
-        self.set('Readout Frequency', self.value('Readout Frequency') + # readout frequency
+        #RF DRIVE (READOUT) VARIABLES###################################
+        self.set('Readout Attenuation')
+        self.set('Readout Power')
+        self.set('Readout Frequency', self.value('Readout Frequency') +
                 self.value('Readout SB Frequency'))
 
-        #DC BIAS VARIABLES#########################################################################
+        #DC BIAS VARIABLES##############################################
         self.set('Qubit Flux Bias Voltage')
       
-        ###WAVEFORMS###############################################################################
+        ###WAVEFORMS####################################################
         Stark_I, Stark_Q = wf.Harmonic(amplitude = self.value('Stark Amplitude'),
                                        frequency = self.value('Readout SB Frequency'),
                                        start     = 0,
@@ -199,7 +197,7 @@ class ADCStarkShift(ADCExperiment):
 
         # wf.plot_wfs(waveforms, waveforms.keys())
 
-        ###SET BOARDS PROPERLY#####################################################################
+        ###SET BOARDS PROPERLY##########################################
         self.boards.set_adc_setting('DemodFreq', -self.value('Readout SB Frequency'), adc)
 
         # Delay between the end of the readout pulse to the start of the demodulation.
@@ -210,7 +208,7 @@ class ADCStarkShift(ADCExperiment):
         mems = [ms.simple_sequence(self.value('Init Time'), sram_length, 0)
                 for dac in self.boards.dacs]
         
-        ###LOAD####################################################################################
+        ###LOAD#########################################################
         result = self.boards.load(dac_srams, mems)
         self.acknowledge_requests()
 
@@ -220,16 +218,16 @@ class ADCCavityJPM(ADCExperiment):
     Probe a resonator that is driven by a switching JPM with a ADC.
     """
     def load_once(self, adc=None):
-        #RF VARIABLES##############################################################################
-        self.set('RF Attenuation')                                      # RF attenuation
-        self.set('RF Power')                                            # RF power
-        self.set('RF Frequency', self.value('RF Frequency') +           # RF frequency
+        #RF VARIABLES###################################################
+        self.set('RF Attenuation')
+        self.set('RF Power')
+        self.set('RF Frequency', self.value('RF Frequency') +
                 self.value('RF SB Frequency'))
 
-        #DC BIAS VARIABLES#########################################################################
+        #DC BIAS VARIABLES##############################################
         self.set('Qubit Flux Bias Voltage')
 
-        ###WAVEFORMS###############################################################################
+        ###WAVEFORMS####################################################
         JPM = wf.DC(amplitude = self.value('Fast Pulse Amplitude'),
                     start     = 0,
                     duration  = self.value('Fast Pulse Time'))
@@ -241,19 +239,17 @@ class ADCCavityJPM(ADCExperiment):
 
         # wf.plot_wfs(waveforms, waveforms.keys())
 
-        ###SET BOARDS PROPERLY#####################################################################
+        ###SET BOARDS PROPERLY##########################################
         self.boards.set_adc_setting('DemodFreq', -self.value('RF SB Frequency'), adc)
 
-        # Delay between the end of the readout pulse to the start of the demodulation.
         self.boards.set_adc_setting('FilterStartAt', (offset +
                 JPM.end + self.value('ADC Wait Time')['ns']) * units.ns, adc)
         self.boards.set_adc_setting('ADCDelay', 0 * units.ns, adc)
         
-        # Create a memory command list.
+        ###MEMORY COMMAND LISTS#########################################
         # The format is described in Servers.Instruments.GHzBoards.mem_sequences.
         mem_seqs = self.boards.init_mem_lists()
 
-        mem_seqs[0].firmware(1, version='1.0')
         mem_seqs[0].bias(1, voltage=0)
         mem_seqs[0].delay(self.value('Init Time'))
         mem_seqs[0].bias(1, voltage=self.value('Bias Voltage'))
@@ -268,6 +264,6 @@ class ADCCavityJPM(ADCExperiment):
             mem_seqs[k].timer(self.value('Measure Time'))
         mems = [mem_seq.sequence() for mem_seq in mem_seqs]
         
-        ###LOAD####################################################################################
+        ###LOAD#########################################################
         self.acknowledge_requests()
         self.boards.load(dac_srams, mems)

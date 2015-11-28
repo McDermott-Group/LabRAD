@@ -1,18 +1,29 @@
+import os
+import argparse
 import Tkinter
 from Tkinter import Tk, Frame, BOTH, OptionMenu, Spinbox, Canvas, Button, Checkbutton, Label, StringVar, IntVar, Entry
+
 import labrad
-import os
 
 #checking how git handles usernames
 # map from monitor bus name to allowed settings for that bus.
 # for each bus, the settings are given as a map from name to numeric code.
 
-with labrad.connect() as cxn:
+def _parse_arguments():
+    parser = argparse.ArgumentParser(description='Automatically ' +
+            'bring-up the FPGA GHz boards.')
+    parser.add_argument('--password',
+            default=None,
+            help='LabRAD password')
+    return parser.parse_args()
+
+args = _parse_arguments()
+with labrad.connect(password=args.password) as cxn:
     
     try:
        dc = cxn.dc_rack_server
     except:
-       print 'dc rack server inopperable'
+       print('Could not connect to DC Rack server.')
        
     class DCRackGui(Frame):
 
@@ -169,7 +180,6 @@ with labrad.connect() as cxn:
             self.PreampSettingsListDict["Low-Pass \n Time Constant [us]"] =['0','0.22','0.5','1.0','2.2','5','10','22']
             self.PreampSettingsListDict["Polarity"] =['positive', 'negative']
 
-
         def busSettingControls(self):
             configState = "normal"
 
@@ -280,8 +290,7 @@ with labrad.connect() as cxn:
             self.PreampLedStateData[card]["FOout"]=self.FOout.get()
             self.PreampLedStateData[card]["FOflash"]=self.FOflash.get()
             self.PreampLedStateData[card]["RegLoadFlash"]=self.RegLoadFlash.get()
-            dc.leds(bool(self.FOout.get()),bool(self.FOflash.get()),bool(self.RegLoadFlash.get()))
-
+            dc.leds(bool(self.FOout.get()),bool(self.FOflash.get()),bool(self.RegLoadFlash.get()))\
 
         def setPreampSetting(self, channel, settingName, settingVal):
             preampSetting = settingVal.get()
@@ -298,7 +307,6 @@ with labrad.connect() as cxn:
             else:
                print "Error: Unknown setting name encountered in setPreampSetting()"
             self.PreampSettingsData[card][channel][settingName]=settingVal.get()
-               
 
         def changeHighPassFilterSetting(self, cardID, channel, highPassSetting):
            
@@ -319,7 +327,6 @@ with labrad.connect() as cxn:
            
             dc.select_card(cardID)
             dc.change_polarity(channel, polaritySetting)
-           
 
         def setPreampOffsetReturn(self, channel, settingName, settingVal):
            
@@ -410,7 +417,6 @@ with labrad.connect() as cxn:
                if did ==int(self.availableCards[ii].split(",")[0].strip("(")):
                   return self.availableCards[ii]
       
-
         def setBusState(self, busName, busState):
             state = busState.get()
             channelSelection = self.BusOptionMenusData[busName]["Channel"].get()
@@ -434,7 +440,6 @@ with labrad.connect() as cxn:
                   channelSelection = channelSelection+'1'
                dc.change_monitor(busName,channelSelection)
 
-
         def setBusCardMapping(self, busName, cardSelection):
             card = cardSelection.get()
             if card != self.BusMostRecentSetting[busName]:
@@ -452,7 +457,6 @@ with labrad.connect() as cxn:
                dc.change_monitor(busName,defaultSetting)
             self.BusOptionMenus[busName]["Channel"].configure(state='normal')
 
-        
         def setBusChannelMapping(self, busName, cardSelection, channelSelection):
             selection = channelSelection.get()
             card = cardSelection.get()
@@ -475,9 +479,6 @@ with labrad.connect() as cxn:
                elif 'Abus1' in busName:
                   defaultSetting = defaultSetting+'1'
                dc.change_monitor(busName,defaultSetting)
-            
-            
-            
 
         def updateChannelOptionsList(self, optionMenuVar, optionMenuObject, newList):
             optionMenuVar.set('')
@@ -504,12 +505,12 @@ with labrad.connect() as cxn:
             else:
                 return ["Error"]
 
+
     def main():
-      
         root = Tk()
         app = DCRackGui(root)
         root.mainloop()  
 
 
     if __name__ == '__main__':
-        main()  
+        main()

@@ -37,8 +37,8 @@ import numpy as np
 
 import labrad.units as units
 
-import LabRAD.Servers.Instruments.GHzBoards.command_sequences as seq
-import LabRAD.Measurements.General.pulse_shapes as pulse
+import LabRAD.Servers.Instruments.GHzBoards.mem_sequences as ms
+import LabRAD.Measurements.General.waveform as wf
 import LabRAD.Measurements.General.data_processing as dp
 from   LabRAD.Measurements.General.adc_experiment import ADCExperiment
 
@@ -47,53 +47,44 @@ class NISReadout(ADCExperiment):
     """
     NIS experiment.
     """
-    def load_once(self, plot_waveforms=False):
+    def load_once(self, adc=None):
         #RF VARIABLES###################################################
         self.set('RF Power')
         self.set('RF Frequency')
-
-        ReadoutDelay = self.value('Bias to Readout Delay')['ns']
       
-        ###WAVEFORMS####################################################
-        DAC_ZERO_PAD_LEN = self.boards.consts['DAC_ZERO_PAD_LEN']['ns']
-
-        waveforms = {}
-        if 'None' in self.boards.requested_waveforms:
-            waveforms['None'] = np.hstack([pulse.DC(2 * DAC_ZERO_PAD_LEN, 0)])
- 
-        dac_srams, sram_length, sram_delay = self.boards.process_waveforms(waveforms)
-
-        if plot_waveforms:
-            self._plot_waveforms([waveforms[wf] for wf in self.boards.requested_waveforms],
-                    ['r', 'g', 'b', 'k'], self.boards.requested_waveforms)
+        ###WAVEFORMS####################################################        
+        waveforms, offset = wf.wfs_dict(self.boards.consts['DAC_ZERO_PAD_LEN'])
         
-        self.boards.set_adc_setting('ADCDelay', (DAC_ZERO_PAD_LEN +
-                self.value('ADC Wait Time')['ns']) * units.ns)
-                
-        b2ro_time = self.value('Bias to Readout Delay')['us']
-        bias_time = self.value('NIS Bias Time')['us']
-        if bias_time > b2ro_time:
-            bias_time = bias_time - b2ro_time
-        else:
-            bias_time = 0
+        dac_srams, sram_length = self.boards.process_waveforms(waveforms)
 
-        # Create a memory command list.
-        # The format is described in Servers.Instruments.GHzBoards.command_sequences.
-        mem_lists = self.boards.init_mem_lists()
+        # wf.plot_wfs(waveforms, waveforms.keys())
 
-        mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0, 'Mode': 'Fast'})
-        mem_lists[0].append({'Type': 'Delay', 'Time': self.value('Init Time')['us']})
-        mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': self.value('NIS Bias Voltage')['V']})
-        mem_lists[0].append({'Type': 'Delay', 'Time': b2ro_time})
-        mem_lists[0].append({'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay})        
-        mem_lists[0].append({'Type': 'Delay', 'Time': bias_time})
-        mem_lists[0].append({'Type': 'Bias', 'Channel': 1, 'Voltage': 0})
-        
-        mem_lists[1].append({'Type': 'Delay', 'Time': self.value('Init Time')['us']})
-        mem_lists[1].append({'Type': 'SRAM', 'Start': 0, 'Length': sram_length, 'Delay': sram_delay})
-        mem_lists[1].append({'Type': 'Delay', 'Time': self.value('NIS Bias Time')['us']})
+        ###SET BOARDS PROPERLY##########################################
+        # Delay between the end of the readout pulse to the start of the demodulation.
+        self.boards.set_adc_setting('FilterStartAt', (offset +
+                + self.value('ADC Wait Time')['ns']) * units.ns, adc)
+        self.boards.set_adc_setting('ADCDelay', 0 * units.ns, adc)
 
-        mems = [seq.mem_from_list(mem_list) for mem_list in mem_lists]    
+        ###MEMORY COMMAND LISTS#########################################
+        # The format is described in Servers.Instruments.GHzBoards.mem_sequences.
+        mem_seqs = self.boards.init_mem_lists()
+
+        mem_seqs[0].bias(1, voltage=0, mode='Fast')
+        mem_seqs[0].delay(self.value('Init Time'))
+        mem_seqs[0].bias(1, voltage=self.value('NIS Bias Voltage'))
+        mem_seqs[0].delay(self.value('Bias to Readout Delay'))
+        mem_seqs[0].sram(sram_length=sram_length, sram_start=0)
+        mem_seqs[0].delay(max(0, self.value('NIS Bias Time') -
+                                 self.value('Bias to Readout Delay')))
+        mem_seqs[0].bias(1, voltage=0)
+
+        for k in range(1, len(self.boards.dacs)):
+            mem_seqs[k].delay(self.value('Init Time') +
+                              self.value('Bias to Readout Delay'))
+            mem_seqs[k].sram(sram_length=sram_length, sram_start=0)
+            mem_seqs[k].delay(max(0, self.value('NIS Bias Time') -
+                         self.value('Bias to Readout Delay')))
+        mems = [mem_seq.sequence() for mem_seq in mem_seqs]  
 
         ###LOAD#########################################################
         result = self.boards.load(dac_srams, mems)
