@@ -397,16 +397,20 @@ class DcRackWrapper(DeviceWrapper):
         card = self.rackCards[self.activeCard]
         if isinstance(card, Preamp):
             yield reg.cd(['', 'Servers', 'DC Racks', 'Preamps'], True)
+            content = yield reg.dir()
             cardName = 'Preamp {}'.format(self.activeCard)
-            p = reg.packet()
-            p.get(cardName, key=cardName)
-            result = yield p.send()
-            ans = result[cardName]
-            def update(chan, state):
-                """Update channel state from a tuple stored in the registry"""
-                chan.highPass, chan.lowPass, chan.polarity, chan.offset = state
-            for i, chan in enumerate([card.A, card.B, card.C, card.D]):
-                update(chan, ans[i])
+            if cardName in content[1]:
+                p = reg.packet()
+                p.get(cardName, key=cardName)
+                result = yield p.send()
+                ans = result[cardName]
+                def update(chan, state):
+                    """Update channel state from a tuple stored in the registry"""
+                    chan.highPass, chan.lowPass, chan.polarity, chan.offset = state
+                for i, chan in enumerate([card.A, card.B, card.C, card.D]):
+                    update(chan, ans[i])
+            else:
+                returnValue(-1)
         else:
             print 'card is not a preamp'
 
