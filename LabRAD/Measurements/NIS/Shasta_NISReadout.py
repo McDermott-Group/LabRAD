@@ -92,7 +92,7 @@ ExptInfo = {
  
 # Experiment Variables
 ExptVars = {
-            'Reps': 10000, # should not exceed ~5,000, use argument "runs" in sweep parameters instead 
+            'Reps': 4000, # should not exceed ~5,000, use argument "runs" in sweep parameters instead 
 
             'Init Time': 100 * us,
 

@@ -379,7 +379,7 @@ class DcRackWrapper(DeviceWrapper):
             yield reg.cd(['', 'Servers', 'DC Racks', 'LEDs'], True)
             content = yield reg.dir()
             cardName = 'Preamp {}'.format(self.activeCard)
-            if [cardName] in content:
+            if cardName in content[1]:
                 p = reg.packet()
                 p.get(cardName, key=cardName)
                 result = yield p.send()
