@@ -39,14 +39,12 @@ class FIM(expt.Experiment):
     """
     def run_once(self):
         ###WAVEFORMS####################################################        
-        waveforms, offset = wf.wfs_dict(self.boards.consts['DAC_ZERO_PAD_LEN'])
-        
-        dac_srams, sram_length = self.boards.process_waveforms(waveforms)
+        wfs, offset = wf.wfs_dict(min_length=self.boards.consts['DAC_ZERO_PAD_LEN'])
+        dac_srams, sram_length = self.boards.process_waveforms(wfs)
 
-        # wf.plot_wfs(waveforms, waveforms.keys())
+        # wf.plot_wfs(wfs, wfs.keys())
 
         ###MEMORY COMMAND LISTS#########################################
-        # The format is described in Servers.Instruments.GHzBoards.mem_sequences.
         mem_seqs = self.boards.init_mem_lists()
 
         mem_seqs[0].bias(1, voltage=0, mode='Fast')

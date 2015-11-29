@@ -468,21 +468,21 @@ class GHzFPGABoards(object):
         # ADC collects at a 2 ns acquisition rate, but the 
         # filter function must have a 4 ns resolution.
         filter_func = settings['FilterType'].lower()
-        window_len = int(settings['FilterLength']['ns'] / 4)
+        filter_len = int(settings['FilterLength']['ns'])
+        window_len = filter_len / 4
         start_len = int(settings['FilterStartAt']['ns'] / 4)
         if filter_func == 'square':
-            env = np.full(window_len, 127.)
+            env = np.full(window_len, 128.)
         elif filter_func == 'gaussian':
-            env = np.linspace(-.5 * settings['FilterLength']['ns'],
-                               .5 * settings['FilterLength']['ns'],
-                               window_len)
-            env = np.floor(127 * np.exp(-(env / (2 * settings['FilterWidth']['ns']))**2))    
+            env = np.linspace(-.5 * filter_len, .5 * filter_len, window_len)
+            env = np.floor(128 *
+                np.exp(-(env / (2 * settings['FilterWidth']['ns']))**2))    
         elif filter_func == 'hann':
             env = np.linspace(0, window_len - 1, window_len)
-            env = np.floor(127 * np.sin(np.pi * env / (window_len - 1))**2)
+            env = np.floor(128 * np.sin(np.pi * env / (window_len - 1))**2)
         elif filter_func == 'exp':
             env = np.linspace(0, 4 * (window_len - 1), window_len)
-            env = np.floor(127 * np.exp(-env / settings['FilterWidth']['ns']))
+            env = np.floor(128 * np.exp(-env / settings['FilterWidth']['ns']))
         else:
             raise Exception('Filter function %s not recognized.'
                     %filter_func)

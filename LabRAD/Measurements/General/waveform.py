@@ -58,7 +58,7 @@ class _WavePulse():
         if [start, duration, end].count(None) > 1:
             raise ValueError("A pair of time parameters is required " +
                     "to define a pulse. These possible time " +
-                    "parameters are 'start', 'duraction', and 'end'.")
+                    "parameters are 'start', 'duration', and 'end'.")
                     
         if start is not None:
             self.start = self._ns(start)
@@ -131,7 +131,7 @@ class _WavePulse():
         
     def _check_pulse(self):
         """
-        Check wheather the pulse aplitudes are in -1.0 to 1.0 range.
+        Check whether the pulse amplitudes are in -1.0 to 1.0 range.
         
         Input:
             None.
@@ -192,7 +192,7 @@ class Sine(_WavePulse):
     Inputs:
         amplitude: amplitude of the sine pulse.
         frequency: frequency of the sine pulse.
-        phase: phase of the sine pusle.
+        phase: phase of the sine pulse.
         start: starting time of the sine pulse.
         duration: length of the sine pulse.
         end: ending time of the sine pulse.
@@ -217,7 +217,7 @@ class Cosine(_WavePulse):
     Inputs:
         amplitude: amplitude of the cosine pulse.
         frequency: frequency of the cosine pulse.
-        phase: phase of the cosine pusle.
+        phase: phase of the cosine pulse.
         start: starting time of the cosine pulse.
         duration: length of the cosine pulse.
         end: ending time of the cosine pulse.
@@ -237,7 +237,7 @@ class Cosine(_WavePulse):
 
 class Gaussian(_WavePulse):
     """
-    Gaussian window pulse. The pulse is trunctated at about 1 per 2^14
+    Gaussian window pulse. The pulse is truncated at about 1 per 2^14
     level since the DACs have 14-bit resolution.
 
     Inputs:
@@ -275,10 +275,7 @@ class Waveform():
             raise ValueError('Invalid waveform label.')
         self.label = label
 
-        pulses = []
-        for arg in args:
-            if isinstance(arg, _WavePulse):
-                pulses.append(arg)
+        pulses = [arg for arg in args if isinstance(arg, _WavePulse)]
 
         if len(pulses) > 0:
             # Sort based on the start times.
@@ -321,7 +318,7 @@ def Harmonic(amplitude=0, frequency=0, phase=0,
     Inputs:
         amplitude: amplitude of the pulses.
         frequency: frequency of the pulses.
-        phase: phase of the pusles.
+        phase: phase of the pulses.
         start: starting time of the pulses.
         duration: length of the cosine pulse.
         end: ending time of the cosine pulse.
@@ -334,18 +331,28 @@ def Harmonic(amplitude=0, frequency=0, phase=0,
             Sine(amplitude, frequency, phase, sine_offset,
             start, duration, end))
 
-def wfs_dict(wf_min_length=20, *args):
+def wfs_dict(*args, **kwargs):
     """
     Return a waveform dictionary with the waveform labels as the keys.
     
     Align the waveforms using the waveform starting time. Ensure that
-    the waveforms are of an equal length and that they are longer than
-    the minimum length.
+    the waveforms are of an equal length. The waveforms are zero-padded
+    at the start and the end to ensure that they are not shorter than
+    the minimum allowed length.
     
     Inputs:
-        wf_min_length: mininum allowed length of the final wavefrom.
-            Short waveforms are padded with zeros.
-        args: arbitrarily long set of Waveforms.
+        *args: arbitrarily long set of the Waveforms (instances of class
+            Waveforms).
+        *kwargs:
+            min_length: minimum allowed length of the final waveform.
+                Short waveforms are padded with zeros at the end 
+                to increase their length (default: 20).
+            start_zeros: number of zeros to add to the start of each
+                waveform (default: 4).
+            end_zeros: number of zeros to add to the end of each
+                waveform (default: 4). Actual number of zeros added may
+                be higher if the waveform length does not satisfy
+                the min_length requirement.
         
     Outputs:
         waveforms: dictionary with the processed waveforms.
@@ -355,41 +362,53 @@ def wfs_dict(wf_min_length=20, *args):
             offset = ndarray_index - assigned_time_value, i.e.
             ndarray_index = assigned_time_value + offset
     """
-    if isinstance(wf_min_length, units.Value):
-        wf_min_length = wf_min_length['ns']
-    try:
-        wf_min_length = int(np.round(wf_min_length))
-    except:
-        raise Exception('Invalid minimum waveform length.')
+    defaults = {'min_length': 20, 'start_zeros': 4, 'end_zeros': 4}
+    for key in kwargs:
+        if isinstance(kwargs[key], units.Value):
+            kwargs[key] = kwargs[key]['ns']
+        try:
+            kwargs[key] = int(np.round(kwargs[key]))
+        except:
+            raise Exception("Invalid parameter '%s' value." %key)
+    defaults.update(kwargs)
+    min_len = defaults['min_length']
+    start, end = defaults['start_zeros'], defaults['end_zeros']
 
-    wfs = []
-    for arg in args:
-        if isinstance(arg, Waveform):
-            wfs.append(arg)
-    
+    wfs = [arg for arg in args if isinstance(arg, Waveform)]
+
     # Align the waveforms.
     if wfs:
         start_offset = min([wf.start for wf in wfs])
         for wf in wfs:
             wf.pulses = np.hstack([np.zeros(wf.start - start_offset),
-                    wf.pulses])
+                                   wf.pulses])
     else:
         start_offset = 0
    
     # Create an empty waveform 'None'.
     wfs.append(Waveform('None', DC(start=start_offset, duration=1)))
      
-    # Ensure that the waveforms are long enough and are of an equal
-    # length.
-    # Add 2 to compensate for padding with at least one zero at the
-    # beginning and end of the waveform.
-    max_length = max([wf.pulses.size for wf in wfs]) + 2
-    start = max(1, (wf_min_length - max_length + 1) / 2)
+    # Ensure that the waveforms are long enough and of an equal length.
+    max_len = max([wf.pulses.size for wf in wfs]) + start + end
+    total_len = max(min_len, max_len)
     for wf in wfs:
-        end = max(1, max(wf_min_length, max_length) - start - wf.pulses.size)
-        wf.pulses = np.hstack([np.zeros(start), wf.pulses, np.zeros(end)])
+        fin = max(total_len - start - wf.pulses.size, end)
+        wf.pulses = np.hstack([np.zeros(start), wf.pulses, np.zeros(fin)])
 
     return {wf.label: wf.pulses for wf in wfs}, start - start_offset
+
+def check_wfs(waveforms):
+    """
+    Check that all waveforms have the same length.
+    
+    Input:
+        waveforms: dictionary with the processed waveforms.
+    Output:
+        None.
+    """
+    lengths = [waveforms[wf].size for wf in waveforms]
+    if lengths.count(lengths[0]) != len(lengths):
+        raise Exception('The waveform have different lengths.')
 
 def plot_wfs(waveforms, wf_labels, wf_colors=['r', 'g', 'm', 'b', 'k']):
     """
@@ -445,12 +464,12 @@ if __name__ == "__main__":
     # automatically puts the wave pulses in the correct order.
     waveformB = Waveform('B', pulseB1, pulseB2)
     
-    # Specifing the start, duration and end times at the same time will
+    # Specifying the start, duration and end times at the same time will
     # work only if these parameters are consistent, i.e. if the equation
     # self.duration = self.end - self.start + 1 is satisfied.
     pulseA2 = DC(start=pulseB2.start, duration=10, end=pulseB2.end)
     try:
-        # Incosistent specifications.
+        # Inconsistent specifications.
         pulseA2 = DC(start=pulseB2.after(-1), duration=12, end=pulseB2.end)
     except ValueError:
         print('The inconsistent time error has been correctly caught.')
@@ -476,8 +495,9 @@ if __name__ == "__main__":
     # The waveforms will be aligned based on their start times. They
     # will be zero-padded to ensure equal length that is longer than
     # a minimum length, which is 20 in this example.
-    wfs, time_offset = wfs_dict(20, waveformA, waveformB)
+    wfs, time_offset = wfs_dict(waveformA, waveformB, min_length=20)
     print(wfs)
+    check_wfs(wfs)
     print('Time offset = %d ns.' %time_offset)
 
     # Gaussian pulse with amplitude of 1 starting at t = 0 ns and
@@ -485,22 +505,25 @@ if __name__ == "__main__":
     pulseC = Gaussian(amplitude=1, start=0, duration=15, end=14)
     waveformC = Waveform('C', pulseC)
     
-    wfs, time_offset = wfs_dict(20, waveformA, waveformB, waveformC)
+    wfs, time_offset = wfs_dict(waveformA, waveformB, waveformC,
+                                min_length=100)
     print(wfs)
+    check_wfs(wfs)
     print('Time offset = %d ns.' %time_offset)
 
     # Create an in-phase and quadrature components of a harmonic pulse.
     I, Q = Harmonic(amplitude=0.25, frequency=0.05, start=0, duration=150)
-    wfs, time_offset = wfs_dict(20, Waveform('I', I), Waveform('Q', Q))
+    wfs, time_offset = wfs_dict(Waveform('I', I), Waveform('Q', Q))
     print(wfs)
+    check_wfs(wfs)
     print('Time offset = %d ns.' %time_offset)
     # Plot the waveforms for inspection.
     plot_wfs(wfs, ['I', 'Q'], ['r', 'b'])
     
-    # Some annimation.
+    # Some animation.
     for x in range(10):
         # Create an in-phase and quadrature components of a harmonic pulse.
         I, Q = Harmonic(amplitude=0.25, frequency=0.01 * x, start=0, duration=150)
-        wfs, time_offset = wfs_dict(20, Waveform('I', I), Waveform('Q', Q))
+        wfs, time_offset = wfs_dict(Waveform('I', I), Waveform('Q', Q))
         # Plot the waveforms for inspection.
         plot_wfs(wfs, ['I', 'Q'], ['r', 'b'])

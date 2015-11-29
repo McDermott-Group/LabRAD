@@ -7,11 +7,11 @@
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 import numpy as np
 
@@ -57,10 +57,10 @@ class MemSequence():
         self.mem = []
         self.mem = Mem.AppendMemNoOp(self.mem)
         
-        # FastBiasDACMode contains the current mode of the FastBias DACs:
-        # {Channel: mode,...}. 
-        # FastBiasFirmware contains the firmware versions of the FastBias
-        # DACs: {Channel: firmware_version,...}. 
+        # FastBiasDACMode contains the current mode of the FastBias
+        # DACs. FastBiasFirmware contains the firmware versions of
+        # the FastBias cards on the corresponding fiber optic channels.
+        # Recall that each GHz FPGA board has two fiber optic channels.
         self.FastBiasDACMode = {1: 'NotSelected', 2: 'NotSelected'}
         self.FastBiasFirmware = {1: '2.1', 2: '2.1'}
     
@@ -236,7 +236,7 @@ def serial2ECL(ECL0=[], ECL1=[], ECL2=[], ECL3=[]):
     length = max([len(x) for x in ECLlist])
     # Check that they are all the same length.
     if len([x for x in ECLlist if len(x) != length]) > 0:
-        raise Exception('ECL data definitons should be of an equal length.')
+        raise Exception('ECL data definitions should be of an equal length.')
     for idx, ecl in enumerate(ECLlist):
         if len(ecl) == 0:
             ECLlist[idx] = np.zeros((length,))
