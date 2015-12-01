@@ -17,27 +17,27 @@ Resources = [ {
                             'Shasta Board ADC 11'
                           ],
                 'Shasta Board DAC 9': {
-                                        'DAC A': 'None',    # DAC A: 0-1V (???)
-                                        'DAC B': 'None',    # DAC B: -2.5 to 2.5 V or 0 to 5 V (???)
+                                        'DAC A': 'RF I',    # DAC A: 0-1V (???)
+                                        'DAC B': 'RF Q',    # DAC B: -2.5 to 2.5 V or 0 to 5 V (???)
                                         'FO1 FastBias Firmware Version': '2.1',
                                         'FO2 FastBias Firmware Version': '2.1',
                                       },
                 'Shasta Board DAC 10': {
-                                        'DAC A': 'None',
-                                        'DAC B': 'None',
+                                        'DAC A': 'RF I',
+                                        'DAC B': 'RF Q',
                                       },
                 'Shasta Board ADC 11': {
                                         'RunMode': 'demodulate', #'average'
                                         'FilterType': 'square',
                                         'FilterStartAt': 0 * ns,
-                                        'FilterWidth': 16000 * ns,
-                                        'FilterLength': 16000 * ns,
+                                        'FilterWidth': 10000 * ns,
+                                        'FilterLength': 10000 * ns,
                                         'FilterStretchAt': 0 * ns,
                                         'FilterStretchLen': 0 * ns,
                                         'DemodPhase': 0 * rad,
                                         'DemodCosAmp': 255,
                                         'DemodSinAmp': 255,
-                                        'DemodFreq': 0 * MHz,
+                                        'DemodFreq': -32.5 * MHz,
                                         'ADCDelay': 0 * ns,
                                         'Data': True
                                       },
@@ -47,7 +47,10 @@ Resources = [ {
                                 'Init Time': {'Value': 100 * us},
                                 'NIS Bias Voltage': {'Value': 0 * V},
                                 'NIS Bias Time': {'Value': 10 * us},
-                                'Bias to Readout Delay': {'Value': 100 *ns},
+                                'RF Amplitude': {'Value': 0 * DACUnits},
+                                'RF Time': {'Value': 0 * ns},
+                                'RF SB Frequency': {'Value': 32.5 * MHz},
+                                'Bias to RF Delay': {'Value': 0 * us},
                                 'ADC Wait Time': {'Value': 0 * ns},
                              }
                 },
@@ -83,9 +86,9 @@ Resources = [ {
 # Experiment Information
 ExptInfo = {
             'Device Name': 'NIS1',
-            'User': 'Chris',
+            'User': 'Ivan Pechenezhskiy',
             'Base Path': 'Z:\mcdermott-group\Data\NIS Junctions',
-            'Experiment Name': 'IQ_Test',
+            'Experiment Name': 'Test',
             'Comments': 'Resonance should trace circle in IQ plane as freq is changed' 
            }
  
@@ -95,13 +98,16 @@ ExptVars = {
 
             'Init Time': 100 * us,
 
-            'RF Frequency': 4.9188 * GHz,
-            'RF Power': 13 * dBm,
+            'RF Frequency': 5 * GHz,
+            'RF Power': 13 * dBm, #17.6 * dBm,
+            'RF Time': 10000 * ns,
+            'RF SB Frequency': 32.5 * MHz,
+            'RF Amplitude': 0.5 * DACUnits,
             
-            'NIS Bias Voltage': 1.2 * V, # -2.5 to 2.5 V or 0 to 5 V
-            'NIS Bias Time': 10 * us,
+            'NIS Bias Voltage': 0.0 * V, # -2.5 to 2.5 V or 0 to 5 V
+            'NIS Bias Time': 200 * us,
             
-            'Bias to Readout Delay': 100 * us,
+            'Bias to RF Delay': 100 * us,
      
             'ADC Wait Time': 0 * ns,
            }
@@ -111,11 +117,18 @@ with nis_experiments.NISReadout() as run:
     
     run.set_experiment(ExptInfo, Resources, ExptVars)
     
-    run.value('NIS Bias Voltage', 0 * V)
+    # run.single_shot_osc(save=False, plot_data=['I', 'Q'])
+    run.avg_osc(save=True, plot_data=['I', 'Q'], runs=1000)
     
-    run.sweep('RF Frequency', np.linspace(4.58, 4.78, 101) * GHz,
-              print_data=['I', 'Q'], plot_data=['I', 'Q'], max_data_dim=1,
-              save=True, runs=3)
+    # run.value('NIS Bias Voltage', 0.0 * V)
+    
+    # run.sweep('RF Amplitude', np.linspace(0, 1, 11) * DACUnits,
+              # print_data=['I', 'Q'], plot_data=['I', 'Q'], max_data_dim=1,
+              # save=True, runs=5)
+    
+    # run.sweep('RF Frequency', np.linspace(4.67, 4.68, 2001) * GHz,
+              # print_data=['I', 'Q'], plot_data=['I', 'Q', 'Amplitude'], max_data_dim=1,
+              # save=True, runs=3)
     
     # run.sweep(['Bias to Readout Delay', 'RF Frequency'],
               # [np.linspace(0, 100, 101) * us, np.linspace(4.9, 5, 101) * GHz],

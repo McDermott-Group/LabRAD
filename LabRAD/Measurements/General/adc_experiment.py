@@ -127,7 +127,7 @@ class ADCExperiment(expt.Experiment):
                 run_data = self.run_once()
                 sys.stdout.write('Progress: %5.1f%%\r' %(100. * (r + 2) / runs))
                 for key in data:
-                    if data[key]['Type'] == 'Dependent':
+                    if self._is_dep(data[key]):
                         # Accumulate the data values.
                         # These values should be divided by the actual
                         # number of Reps to get the average values.
@@ -141,7 +141,7 @@ class ADCExperiment(expt.Experiment):
                             [[data['Time']['Value']]], data_to_plot,
                             plot_data, np.size(data['Time']['Value']) - 1)
             for key in data:
-                if 'Value' in data[key] and data[key]['Type'] == 'Dependent':
+                if self._is_dep(data[key]):
                     data[key]['Value'] = data[key]['Value'] / float(self.value('Runs'))
         
         if plot_data:        # Refresh the plot.
@@ -194,7 +194,7 @@ class ADCExperiment(expt.Experiment):
             I = np.mean(Is)
             Q = np.mean(Qs)
             As = np.hypot(Is, Qs)
-            return {
+            data = {
                     'Is': { 
                         'Value': Is * units.ADCUnits,
                         'Dependencies': 'Repetition Index',
@@ -236,15 +236,13 @@ class ADCExperiment(expt.Experiment):
                         'Value': np.std(As) * units.ADCUnits},
                     'Repetition Index': {
                         'Value': np.linspace(1, len(Is), len(Is)),
-                        'Type': 'Independent'},
-                    'Temperature': {
-                        'Value': self.acknowledge_request('Temperature')}
+                        'Type': 'Independent'}
                    }
         elif self.boards.get_adc_setting('RunMode', adc) == 'average':
             self.value('Reps', 1)
             time = np.linspace(0, 2 * (len(Is) - 1), len(Is))
             I, Q = dp.software_demod(time, self.boards.get_adc_setting('DemodFreq', adc), Is, Qs)
-            return {
+            data = {
                     'I': { 
                         'Value': Is * units.ADCUnits,
                         'Dependencies': 'Time',
@@ -267,10 +265,15 @@ class ADCExperiment(expt.Experiment):
                         'Preferences':  {'linestyle': 'k.'}},
                     'Time': {
                         'Value': time * units.ns,
-                        'Type': 'Independent'},
-                    'Temperature': {
-                        'Value': self.acknowledge_request('Temperature')}
+                        'Type': 'Independent'}
                    }
+
+        T = self.acknowledge_request('Temperature')
+        if T is None:
+            T = np.nan
+        data['Temperature'] = {'Value': T}
+        
+        return data
 
     def average_data(self):
         """
@@ -320,6 +323,6 @@ class ADCExperiment(expt.Experiment):
             avg['Software Demod Phase']['Value'] = np.arctan2(Qd, Id) * units.rad
 
         if 'Temperature' in data:
-            T = self.strip_units(data['Temperature']['Value'])
-            avg['Temperature']['Value'] = (np.mean(T) *
-                    self.unit_factor(data['Temperature']['Value']))
+            Ts = self.strip_units(data['Temperature']['Value'])
+            T_units = self.unit_factor(data['Temperature']['Value'])
+            avg['Temperature']['Value'] = np.nanmean(Ts) * T_units

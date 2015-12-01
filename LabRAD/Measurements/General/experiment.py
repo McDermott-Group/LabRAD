@@ -788,11 +788,11 @@ class Experiment(object):
                     # Convert single numbers (zero-dimensional numpy arrays) 
                     # to one-dimensional numpy arrays.
                     if np.size(data[key]['Value']) == 1:
-                        data[key]['Value'].reshape(1)
+                        data[key]['Value'] = data[key]['Value'].reshape(1)
             if 'Dependencies' in data[key]:
                 data[key]['Dependencies'] = [var for var 
                         in data[key]['Dependencies'] if var not in rm_vars]
-        
+
         # Remove 'Repetition Index', 'Run Iteration', and 'Long
         # Repetition Index' independent  variables if they are not
         # actually used. This may happen when the data dimensions are
@@ -885,6 +885,8 @@ class Experiment(object):
         Output:
             number: numerical value of the variable. 
         """
+        if v is None:
+            return None
         if isinstance(v, units.Value):
             return v[units.Unit(v)]
         if isinstance(v, (int, long, float, complex)):
@@ -1213,7 +1215,7 @@ class Experiment(object):
             
     def _is_dep(self, data_subdict):
         """
-        Check wheather a given data subdictionary corresponds to
+        Check whether a given data subdictionary corresponds to
         a dependent variable.
         
         Input:
