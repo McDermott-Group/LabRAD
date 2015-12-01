@@ -253,6 +253,24 @@ class Gaussian(_WavePulse):
         sigma = (float(self.duration) - 1) / np.sqrt(112 * np.log(2))
         self.pulse = amplitude * ss.gaussian(self.duration, sigma)
         self._check_pulse()
+        
+class FromArray(_WavePulse):
+    """
+    Generate a pulse from a numpy array. The start or end times can be
+    arbitary, and the duration is derived automatically from the length
+    of the array
+    
+    Inputs:
+        pulse_data: numpy array containing the pulse data in 1 ns chunks
+        start: starting time of the pulse
+        end: end time of the pulse
+    """
+    def __init__(self, pulse_data=[], start=None, end=None):
+        duration = len(pulse_data)
+        self._init_times(start, duration, end)
+        
+        self.pulse = pulse_data
+        self._check_pulse()
 
 
 class Waveform():
