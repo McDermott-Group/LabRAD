@@ -17,8 +17,8 @@ Resources = [ {
                             'Shasta Board ADC 11'
                           ],
                 'Shasta Board DAC 9': {
-                                        'DAC A': 'None',
-                                        'DAC B': 'None',
+                                        'DAC A': 'None',    # DAC A: 0-1V (???)
+                                        'DAC B': 'None',    # DAC B: -2.5 to 2.5 V or 0 to 5 V (???)
                                         'FO1 FastBias Firmware Version': '2.1',
                                         'FO2 FastBias Firmware Version': '2.1',
                                       },
@@ -30,14 +30,14 @@ Resources = [ {
                                         'RunMode': 'demodulate', #'average'
                                         'FilterType': 'square',
                                         'FilterStartAt': 0 * ns,
-                                        'FilterWidth': 4000 * ns,
-                                        'FilterLength': 4000 * ns,
+                                        'FilterWidth': 16000 * ns,
+                                        'FilterLength': 16000 * ns,
                                         'FilterStretchAt': 0 * ns,
                                         'FilterStretchLen': 0 * ns,
                                         'DemodPhase': 0 * rad,
                                         'DemodCosAmp': 255,
                                         'DemodSinAmp': 255,
-                                        'DemodFreq': -50 * MHz,
+                                        'DemodFreq': 0 * MHz,
                                         'ADCDelay': 0 * ns,
                                         'Data': True
                                       },
@@ -51,15 +51,14 @@ Resources = [ {
                                 'ADC Wait Time': {'Value': 0 * ns},
                              }
                 },
-
-                # { # GPIB RF Generator, 'Address' field is required only
-                  # # when more than one GPIB RF generator is present.
-                    # 'Interface': 'RF Generator',
-                    # 'Variables': {  
-                                    # 'RF Power': {'Setting': 'Power'}, 
-                                    # 'RF Frequency': {'Setting': 'Frequency'}
-                                 # }
-                # },
+                { # GPIB RF Generator, 'Address' field is required only
+                  # when more than one GPIB RF generator is present.
+                    'Interface': 'RF Generator',
+                    'Variables': {  
+                                    'RF Power': {'Setting': 'Power'}, 
+                                    'RF Frequency': {'Setting': 'Frequency'}
+                                 }
+                },
                 # { # Lab Brick Attenuator
                     # 'Interface': 'Lab Brick Attenuator',
                     # 'Serial Number': 7031,
@@ -86,8 +85,8 @@ ExptInfo = {
             'Device Name': 'NIS1',
             'User': 'Chris',
             'Base Path': 'Z:\mcdermott-group\Data\NIS Junctions',
-            'Experiment Name': 'Test',
-            'Comments': 'Test' 
+            'Experiment Name': 'IQ_Test',
+            'Comments': 'Resonance should trace circle in IQ plane as freq is changed' 
            }
  
 # Experiment Variables
@@ -97,7 +96,7 @@ ExptVars = {
             'Init Time': 100 * us,
 
             'RF Frequency': 4.9188 * GHz,
-            'RF Power': 10 * dBm,
+            'RF Power': 13 * dBm,
             
             'NIS Bias Voltage': 1.2 * V, # -2.5 to 2.5 V or 0 to 5 V
             'NIS Bias Time': 10 * us,
@@ -112,13 +111,13 @@ with nis_experiments.NISReadout() as run:
     
     run.set_experiment(ExptInfo, Resources, ExptVars)
     
-    run.value('NIS Bias Voltage', 1 * V)
+    run.value('NIS Bias Voltage', 0 * V)
     
-    run.sweep('Bias to Readout Delay', np.linspace(0, 100, 101) * us,
+    run.sweep('RF Frequency', np.linspace(4.58, 4.78, 101) * GHz,
               print_data=['I', 'Q'], plot_data=['I', 'Q'], max_data_dim=1,
               save=True, runs=3)
     
-    run.sweep(['Bias to Readout Delay', 'RF Frequency'],
-              [np.linspace(0, 100, 101) * ns, np.linspace(4.9, 5, 101) * GHz],
-               print_data=['I', 'Q'], plot_data=['I', 'Q'], 
-               save=True, runs=3) # runs does ex: 3X 3000 reps
+    # run.sweep(['Bias to Readout Delay', 'RF Frequency'],
+              # [np.linspace(0, 100, 101) * us, np.linspace(4.9, 5, 101) * GHz],
+               # print_data=['I', 'Q'], plot_data=['I', 'Q'], 
+               # save=True, runs=3) # runs does ex: 3X 4000 reps

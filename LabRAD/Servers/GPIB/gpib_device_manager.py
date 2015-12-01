@@ -59,7 +59,7 @@ def parseIDNResponse(s, idn_cmd='*IDN?'):
             if model == '08341B':
                 return 'HEWLETT-PACKARD 8341B'
             # HP8340B response string is expected to be similar to
-            # "08340BREV DD MON YY".
+            # "08340BREV07 APR 92".
             elif model == '08340B':
                 return 'HEWLETT-PACKARD 8340B'
             else:
