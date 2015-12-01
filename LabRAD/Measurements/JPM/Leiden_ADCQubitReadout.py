@@ -15,7 +15,7 @@ Resources = [ {
                 'Boards': [
                             'Leiden Board DAC 3', 
                             'Leiden Board DAC 4',
-                            'Leiden Board ADC 5'
+                            'Leiden Board ADC 7'
                           ],
                 'Leiden Board DAC 3': {
                                         'DAC A': 'None',
@@ -27,7 +27,7 @@ Resources = [ {
                                         'DAC A': 'Readout Q',
                                         'DAC B': 'Readout I',
                                       },
-                'Leiden Board ADC 5': {
+                'Leiden Board ADC 7': {
                                         'RunMode': 'demodulate', #'average'
                                         'FilterType': 'square',
                                         'FilterWidth': 1000 * ns,
@@ -112,8 +112,9 @@ Resources = [ {
 ExptInfo = {
             'Device Name': 'MH060',
             'User': 'Ivan Pechenezhskiy',
-            'Base Path': 'Z:\mcdermott-group\Data\Syracuse Qubits\Leiden DR 2015-10-22 - Qubits and JPMs',
-            'Experiment Name': 'CavityEvolutionPiPulse',
+            'Base Path': r'Z:\mcdermott-group\Data\Syracuse Qubits\Leiden DR 2015-10-22 - Qubits and JPMs',
+            #'Base Path': r'C:\Users\5107-1\Desktop\Data\Syracuse Qubits\Leiden DR 2015-10-22 - Qubits and JPMs',
+            'Experiment Name': 'ADCTest',
             'Comments': 'ADC band pass filters removed. DC blocks and filters on Lab Brick attenuators. Updated filter functions.' 
            }
  
@@ -126,12 +127,12 @@ ExptVars = {
             # 'Stark Amplitude': 0 * DACUnits,
             # 'Stark Time': 10000 * ns,
 
-            'Readout Frequency': 4.9142 * GHz,
+            'Readout Frequency': 4.9135 * GHz,
             'Readout Power': 10 * dBm,
-            'Readout Attenuation': 7 * dB, #42 * dB, # should be in (0, 63] range
+            'Readout Attenuation': 3 * dB, #42 * dB, # should be in (0, 63] range
             'Readout SB Frequency': 125 * MHz, # no filters on the IQ-mixer
             'Readout Amplitude': 1.0 * DACUnits,
-            'Readout Time': 50 * ns,
+            'Readout Time': 1000 * ns,
             
             'Qubit Drive to Readout Delay': 0 * ns,
             
@@ -140,7 +141,7 @@ ExptVars = {
             'Qubit Attenuation': 1 * dB, #11 * dB, # should be in (0, 63] range
             'Qubit SB Frequency': 62.5 * MHz,
             'Qubit Amplitude': 1.0 * DACUnits, #1.0 * DACUnits,
-            'Qubit Time': 32 * ns,
+            'Qubit Time': 0*ns, #32 * ns,
             # 'Qubit T2 Delay': 0 * ns,
 
             'Qubit Flux Bias Voltage': 0 * V,
@@ -156,7 +157,7 @@ with adc_qubit_experiments.ADCQubitReadout() as run:
     
     run.set_experiment(ExptInfo, Resources, ExptVars)
     
-    # run.single_shot_iqs(save=True, plot_data=True)
+    #run.single_shot_iqs(save=True, plot_data=True)
     # run.single_shot_osc(save=False, plot_data=['I', 'Q'])
     # run.avg_osc(save=True, plot_data=['I', 'Q'], runs=1000)
     
@@ -164,9 +165,9 @@ with adc_qubit_experiments.ADCQubitReadout() as run:
     # run.value('Readout Amplitude', 1 * DACUnits)
     # run.value('Readout Attenuation', 3 * dB)
     # run.value('Readout Frequency', 4.9138 * GHz)
-    # run.value('Readout Time', 1000 * ns)
-    # run.value('Qubit Time', 5000 * ns)
-    # run.avg_osc(save=False, plot_data=['I', 'Q'], runs=1000)
+    # run.value('Readout Time', 5000 * ns)
+    # run.value('Qubit Time', 1000 * ns)
+
 
     # run.sweep('Readout Attenuation', np.linspace(10, 40, 61) * dB,
         # print_data=['Amplitude','I','Q'], plot_data=['Amplitude','I','Q'],
@@ -208,10 +209,12 @@ with adc_qubit_experiments.ADCQubitReadout() as run:
         # run.value('Readout Amplitude', ampl)
     # for attn in np.linspace(25, 45, 21) * dB:
         # run.value('Readout Attenuation', attn)
-    run.sweep('Readout Time', np.linspace(0, 48, 13) * ns,
-        print_data = ['Amplitude', 'Temperature'],
-        plot_data = ['Amplitude', 'I', 'Q'],
-        save=True, runs=25, max_data_dim=1)
+    # for ampl in np.linspace(0, 1, 2) * DACUnits:
+        # run.value('Qubit Amplitude', ampl)    
+        # run.sweep('Readout Time', np.linspace(0, 20, 6) * ns,
+            # print_data = ['Amplitude', 'Temperature'],
+            # plot_data = ['Amplitude', 'I', 'Q'],
+            # save=True, runs=50, max_data_dim=1)
     
     # run.sweep('ADC Wait Time', np.linspace(-82, 318, 401) * ns,
         # print_data = ['Amplitude', 'Temperature'],
@@ -224,13 +227,13 @@ with adc_qubit_experiments.ADCQubitReadout() as run:
     
     # run.value('Qubit Amplitude', 1 * DACUnits)
     # run.sweep(['Readout Attenuation', 'Readout Frequency'], 
-      # [np.linspace(1, 51, 26) * dB, np.linspace(4.91, 4.925, 76) * GHz],
-      # save=True, print_data='Amplitude', runs=10)
+      # [np.linspace(1, 31, 16) * dB, np.linspace(4.91, 4.925, 76) * GHz],
+      # save=True, print_data='Amplitude', runs=20)
       
     # run.value('Qubit Amplitude', 0 * DACUnits)
     # run.sweep(['Readout Attenuation', 'Readout Frequency'], 
-      # [np.linspace(1, 51, 26) * dB, np.linspace(4.91, 4.925, 76) * GHz],
-      # save=True, print_data='Amplitude', runs=10)
+      # [np.linspace(1, 31, 16) * dB, np.linspace(4.91, 4.925, 76) * GHz],
+      # save=True, print_data='Amplitude', runs=20)
       
     # run.sweep(['Readout Time', 'Readout Frequency'], 
       # [np.linspace(0, 4000, 251) * ns, np.linspace(4.91, 4.925, 76) * GHz],
@@ -244,9 +247,9 @@ with adc_qubit_experiments.ADCQubitReadout() as run:
     # run.sweep('Readout Time', np.linspace(0, 800, 201) * ns,
         # save=True, print_data='Amplitude',plot_data=['I','Q','Amplitude'], runs=1, max_data_dim=2)
     
-    # run.sweep('Readout Frequency', np.linspace(4.910, 4.915, 51) * GHz,
-        # print_data=['Amplitude','I','Q'], plot_data=['Amplitude','I','Q'],
-        # save=True, runs=1, max_data_dim=1)
+    run.sweep('Readout Frequency', np.linspace(4.910, 4.92, 51) * GHz,
+        print_data=['Amplitude','I','Q'], plot_data=['Amplitude','I','Q'],
+        save=False, runs=1, max_data_dim=1)
     
     # run.sweep(['Readout Time', 'Readout Frequency'], 
       # [np.linspace(0, 200, 51) * ns, np.linspace(4.91, 4.925, 76) * GHz],

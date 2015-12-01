@@ -82,6 +82,7 @@ class ADCQubitReadout(ADCExperiment):
 
         self.boards.set_adc_setting('FilterStartAt', (offset +
                 RO_I.end + self.value('ADC Wait Time')['ns']) * units.ns, adc)
+        # self.boards.set_adc_setting('FilterStartAt', 0*units.ns, adc)
         self.boards.set_adc_setting('ADCDelay', 0 * units.ns, adc)
 
         # self.boards.set_adc_setting('ADCDelay', (offset +
