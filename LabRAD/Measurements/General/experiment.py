@@ -104,6 +104,7 @@ class Experiment(object):
         Output:
             None.
         """
+        print('Connecting to the LabRAD manager...')
         password = None
         # Open the LabRAD initialization file.
         script_path = os.path.dirname(__file__)
@@ -120,7 +121,8 @@ class Experiment(object):
         try:
             self.cxn = labrad.connect(password=password)
         except:
-            raise Exception('Connection to LabRAD could not be established.')
+            raise Exception('Connection to the LabRAD manager could '+
+                    'not be established.')
         # This flag controls the standard output upon pressing [O]
         # during an experiment sweep.
         self._standard_output = True
@@ -128,7 +130,7 @@ class Experiment(object):
     def __del__(self):
         """Just in case..."""
         plt.close('all')
-        
+
     def __enter__(self):
         """
         Context entry. For now all it does is return a copy of 
@@ -216,7 +218,7 @@ class Experiment(object):
                                         'DAC B': 'Readout I',
                                        },
                 'Shasta Board ADC 11':  {
-                                        'RunMode': 'demodulate', #'average'
+                                        'RunMode': 'demodulate',
                                         'FilterType': 'square',
                                         'FilterStartAt': 0 * ns,
                                         'FilterWidth': 9500 * ns,
@@ -1397,10 +1399,12 @@ class Experiment(object):
                                         np.shape(self._1d_data[key]['Value']))
                                 if len(entry_shape) <= max_data_dim:
                                     if self.get_units(self._1d_data[key]['Value']) != '':
-                                        self._1d_data[key]['Value'] = np.empty(entry_shape,
+                                        self._1d_data[key]['Value'] = \
+                                                np.empty(entry_shape,
                                                 dtype=units.Value)
                                     else:
-                                        self._1d_data[key]['Value'] = np.empty(entry_shape)
+                                        self._1d_data[key]['Value'] = \
+                                                np.empty(entry_shape)
                                     self._1d_data_deps.append(key)
                                 else:
                                     self._1d_data[key].pop('Value')
@@ -1410,9 +1414,11 @@ class Experiment(object):
                     for var in self._comb_strs(print_expt_vars):
                         if var not in self._vars:
                             print("Warning: variable '" + str(var) + 
-                            "' is not found among the experiment variables: " + 
+                            "' is not found among the experiment " +
+                            "variables: " +
                             str([var for var in self._vars]) + 
-                            ". The value of this variable will not be printed.")
+                            ". The value of this variable will not " +
+                            "be printed.")
                     print_expt_vars = [var for var in
                             self._comb_strs(print_expt_vars)
                                 if var in self._vars]
@@ -1441,7 +1447,8 @@ class Experiment(object):
                 for key in self._1d_data_deps:
                     self._1d_data[key]['Value'][idx] = run_data[key]['Value']
 
-                # Print experiment and data variables to the standard output.
+                # Print experiment and data variables to the standard
+                # output.
                 if self._standard_output and self._sweep_status!= 'abort':
                     for var in print_expt_vars:
                         print(var + ' = ' + 
@@ -1472,12 +1479,14 @@ class Experiment(object):
                     # Delete unfilled data points since the data 
                     # has been previously initialize with np.empty.
                     for key in self._1d_data_deps:
-                        self._1d_data[key]['Value'] = np.delete(self._1d_data[key]['Value'],
+                        self._1d_data[key]['Value'] = \
+                                np.delete(self._1d_data[key]['Value'],
                                 np.s_[idx+1:], 0)
                     break
 
             return self._1d_data, values
-        else:   # Recurrent implementation of the multidimensional sweeps.
+        else:
+            # Recurrent implementation of the multidimensional sweeps.
             run_names = []
             run_vals = []
             for p_idx in range(len(names)):
@@ -1593,8 +1602,8 @@ class Experiment(object):
                       plot_data=['Result 1', 'Result 2'])
         """
         if not hasattr(self, '_vars'):
-            raise Exception('Experiment resources and variables should' + 
-            ' be set prior attempting any sweep measurements.')
+            raise Exception('Experiment resources and variables ' +
+            'should be set prior attempting any sweep measurements.')
 
         excpt_msg = ('The first argument in sweep method should be'
         ' either a string (for a 1D simple scan), a list of strings'
@@ -1619,7 +1628,8 @@ class Experiment(object):
                     'repeated variable names. The data might be hard ' +
                     'to interpret.')
                 # If there are no independent parallel scans, convert 
-                # the list to a list of lists for internal code consistency.
+                # the list to a list of lists for internal code
+                # consistency.
                 names = [names]
             elif (len(names) > 0 and all([isinstance(ln, list)
                     for ln in names]) and len(names[0]) > 0):
@@ -1635,8 +1645,8 @@ class Experiment(object):
                         self._check_var(name, check_interface=False)
                     # Check that the variables are unique.
                     if len(name_list) > len(set(name_list)):
-                        raise SweepError('Sweep method was called with' + 
-                        ' repeated variable names.')
+                        raise SweepError('Sweep method was called ' +
+                        'with repeated variable names.')
                 # Check that there are no repeated variable names along
                 # different scan axes.
                 for list_idx1, name_list1 in enumerate(names):
@@ -1687,8 +1697,9 @@ class Experiment(object):
                 for value_list in values:
                     # Check that the nested lists have the same length.
                     if len(value_list) != len(values[0]):
-                        raise SweepError('The length of 1D numpy array' + 
-                        ' lists should be the same for each parrallel scan.')
+                        raise SweepError('The length of 1D numpy ' +
+                                'ndarray lists should be the same ' +
+                                'for each parrallel scan.')
                     # Check that all sub-nested elements are non-empty
                     # 1D numpy arrays.
                     for value in value_list:
@@ -1715,8 +1726,9 @@ class Experiment(object):
                 ' unambigiously matched to the specified values.')
         for list_idx, name_list in enumerate(names):
             if len(name_list) != len(values[list_idx]):
-                raise SweepError('The sweep variable names could not be' +
-                    ' unambigiously matched to the specified values.')
+                raise SweepError('The sweep variable names could ' +
+                        'not be unambigiously matched to the ' +
+                        'specified values.')
                     
         # Check the dimension of the scan.
         if len(names[0]) > max_data_dim:
@@ -1743,8 +1755,8 @@ class Experiment(object):
         
         excpt_msg = ('Optional parameter dependencies in sweep ' +
         'method should be either a string (for a 1D simple scan), '
-        'a list of strings (for a single multidimensional scan), or a list' +
-        ' of lists of strings (for parallel any-dimensional scans).')
+        'a list of strings (for a single multidimensional scan), or a '+
+        'list of string lists (for parallel any-dimensional scans).')
         # If any dependencies are specified, check the following.
         if dependencies is not None:
             # If there is only one dependency is specified, convert it
@@ -1782,8 +1794,8 @@ class Experiment(object):
             # Check that the sweep variables (names) and dependencies 
             # can be directly mapped to each other.
             if len(dependencies) != len(names):
-                raise SweepError('Dependency specifications could not be' +
-                ' unambigiously matched to sweep variables.')
+                raise SweepError('Dependency specifications could not' +
+                        'be unambigiously matched to sweep variables.')
 
         # Save the current sweep variables values. This allows running
         # several sweeps in a sequence without worrying about the sweep
@@ -1839,7 +1851,8 @@ class Experiment(object):
                     for list_idx, dep_list in enumerate(dependencies):
                         for dep in dep_list:
                             if dep in data:
-                                data[dep]['Dependencies'] = (names[list_idx] + 
+                                data[dep]['Dependencies'] = \
+                                        (names[list_idx] + 
                                         data[dep]['Dependencies'])
                             else:
                                 print("Warning: data variable '" + 
@@ -1870,7 +1883,8 @@ class Experiment(object):
         hrs = int(sec / 3600.)
         min = int((sec - float(hrs) * 3600.) / 60.)
         sec = sec - float(hrs) * 3600. - float(min) * 60.
-        print('The sweep execution time is %d:%02d:%06.3f.' %(hrs, min, sec))
+        print('The sweep execution time is %d:%02d:%06.3f.'
+                %(hrs, min, sec))
 
     ###KEYBOARD LISTENERS###############################################
     def _listen_to_keyboard(self, 
@@ -1902,13 +1916,17 @@ class Experiment(object):
                 elif ord(key) == 84 or ord(key) == 116:
                     # Either [T] or [t] is pressed.
                     if self._sweep_pts_acquired > 0:
-                        finish_time = time.localtime(self._sweep_start_time + 
-                                      self._sweep_number_of_pts * 
-                                      (time.time() - self._sweep_start_time) /
-                                      self._sweep_pts_acquired)
-                        self._sweep_msg = ('The estimated finish time is ' + 
-                        time.strftime("%H:%M:%S", finish_time) + ' on ' + 
-                        time.strftime("%m/%d/%Y", finish_time) + '.')
+                        finish_time = \
+                                time.localtime(self._sweep_start_time + 
+                                self._sweep_number_of_pts * 
+                                (time.time() - self._sweep_start_time) /
+                                self._sweep_pts_acquired)
+                        self._sweep_msg = ('The estimated finish ' +
+                                'time is ' + 
+                                time.strftime("%H:%M:%S", finish_time) +
+                                ' on ' + 
+                                time.strftime("%m/%d/%Y", finish_time) +
+                                '.')
                     else:
                         self._sweep_msg = ('Not enough data ' +
                         'acquired to allow the time estimation.')
@@ -1917,7 +1935,8 @@ class Experiment(object):
                      self._standard_output = not self._standard_output
                 elif ord(key) == 88 or ord(key) == 120:
                     # Either [X] or [x] is pressed.
-                     self._sweep_msg = 'Hey, stop wondering! Get back to work!'
+                     self._sweep_msg = ('Hey, stop wondering! ' +
+                                        'Get back to work!')
         
         # Clear the keyboard buffer if requested.
         if clear_buffer:
@@ -2078,8 +2097,7 @@ class Experiment(object):
             values = np.array(range(idx + 1))
 
         plt.figure(1)
-        plt.ioff()
-        
+
         # Set data.
         for var in plot_data_vars:
             self.plot_lines[var].set_ydata(data[var]['Value'])
@@ -2102,5 +2120,4 @@ class Experiment(object):
         
         # Redraw.
         plt.draw()
-        plt.ion()
         plt.pause(0.05)

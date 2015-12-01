@@ -67,9 +67,11 @@ class ADCQubitReadout(ADCExperiment):
                                  start     = QB_I.after(self.value('Qubit Drive to Readout Delay')),
                                  duration  = self.value('Readout Time'))
         
-        waveforms, offset = wf.wfs_dict(self.boards.consts['DAC_ZERO_PAD_LEN'],
-                wf.Waveform('Readout I', RO_I), wf.Waveform('Readout Q', RO_Q),
-                wf.Waveform('Qubit I',   QB_I), wf.Waveform('Qubit Q',   QB_Q))
+        waveforms, offset = wf.wfs_dict(wf.Waveform('Readout I', RO_I),
+                                        wf.Waveform('Readout Q', RO_Q),
+                                        wf.Waveform('Qubit I',   QB_I),
+                                        wf.Waveform('Qubit Q',   QB_Q),
+                      min_length=self.boards.consts['DAC_ZERO_PAD_LEN'])
 
         dac_srams, sram_length = self.boards.process_waveforms(waveforms)
 
@@ -81,6 +83,10 @@ class ADCQubitReadout(ADCExperiment):
         self.boards.set_adc_setting('FilterStartAt', (offset +
                 RO_I.end + self.value('ADC Wait Time')['ns']) * units.ns, adc)
         self.boards.set_adc_setting('ADCDelay', 0 * units.ns, adc)
+
+        # self.boards.set_adc_setting('ADCDelay', (offset +
+                 # RO_I.end + self.value('ADC Wait Time')['ns']) * units.ns, adc)
+        # self.boards.set_adc_setting('FilterStartAt', 0 * units.ns, adc)
 
         mems = [ms.simple_sequence(self.value('Init Time'), sram_length, 0)
                 for dac in self.boards.dacs]
@@ -126,11 +132,11 @@ class ADCRamsey(ADCExperiment):
                                  start     = QB2_I.after(self.value('Qubit Drive to Readout Delay')),
                                  duration  = self.value('Readout Time'))
         
-        waveforms, offset = wf.wfs_dict(self.boards.consts['DAC_ZERO_PAD_LEN'],
-                wf.Waveform('Readout I', RO_I),
-                wf.Waveform('Readout Q', RO_Q),
-                wf.Waveform('Qubit I', QB1_I, QB2_I),
-                wf.Waveform('Qubit Q', QB1_Q, QB2_Q))
+        waveforms, offset = wf.wfs_dict(wf.Waveform('Readout I', RO_I),
+                                        wf.Waveform('Readout Q', RO_Q),
+                                        wf.Waveform('Qubit I', QB1_I, QB2_I),
+                                        wf.Waveform('Qubit Q', QB1_Q, QB2_Q),
+                      min_length=self.boards.consts['DAC_ZERO_PAD_LEN'])
 
         dac_srams, sram_length = self.boards.process_waveforms(waveforms)
 
@@ -139,9 +145,9 @@ class ADCRamsey(ADCExperiment):
         ###SET BOARDS PROPERLY##########################################
         self.boards.set_adc_setting('DemodFreq', -self.value('Readout SB Frequency'), adc)
 
-        self.boards.set_adc_setting('FilterStartAt', (offset +
-                RO_I.end + self.value('ADC Wait Time')['ns']) * units.ns, adc)
-        self.boards.set_adc_setting('ADCDelay', 0 * units.ns, adc)
+        self.boards.set_adc_setting('ADCDelay', (offset +
+        RO_I.end + self.value('ADC Wait Time')['ns']) * units.ns, adc)
+        self.boards.set_adc_setting('FilterStartAt', 0 * units.ns, adc)
 
         mems = [ms.simple_sequence(self.value('Init Time'), sram_length, 0)
                 for dac in self.boards.dacs]
@@ -187,11 +193,11 @@ class ADCStarkShift(ADCExperiment):
                                  start     = QB_I.after(self.value('Qubit Drive to Readout Delay')),
                                  duration  = self.value('Readout Time'))
         
-        waveforms, offset = wf.wfs_dict(self.boards.consts['DAC_ZERO_PAD_LEN'],
-                wf.Waveform('Readout I', Stark_I, RO_I),
-                wf.Waveform('Readout Q', Stark_Q, RO_Q),
-                wf.Waveform('Qubit I', QB_I),
-                wf.Waveform('Qubit Q', QB_Q))
+        waveforms, offset = wf.wfs_dict(wf.Waveform('Readout I', Stark_I, RO_I),
+                                        wf.Waveform('Readout Q', Stark_Q, RO_Q),
+                                        wf.Waveform('Qubit I', QB_I),
+                                        wf.Waveform('Qubit Q', QB_Q),
+                      min_length=self.boards.consts['DAC_ZERO_PAD_LEN'])
 
         dac_srams, sram_length  = self.boards.process_waveforms(waveforms)
 
@@ -232,8 +238,8 @@ class ADCCavityJPM(ADCExperiment):
                     start     = 0,
                     duration  = self.value('Fast Pulse Time'))
         
-        waveforms, offset = wf.wfs_dict(self.boards.consts['DAC_ZERO_PAD_LEN'],
-                wf.Waveform('JPM Fast Pulse', JPM))
+        waveforms, offset = wf.wfs_dict(wf.Waveform('JPM Fast Pulse', JPM),
+                      min_length=self.boards.consts['DAC_ZERO_PAD_LEN'])
         
         dac_srams, sram_length = self.boards.process_waveforms(waveforms)
 
@@ -242,12 +248,11 @@ class ADCCavityJPM(ADCExperiment):
         ###SET BOARDS PROPERLY##########################################
         self.boards.set_adc_setting('DemodFreq', -self.value('RF SB Frequency'), adc)
 
-        self.boards.set_adc_setting('FilterStartAt', (offset +
-                JPM.end + self.value('ADC Wait Time')['ns']) * units.ns, adc)
-        self.boards.set_adc_setting('ADCDelay', 0 * units.ns, adc)
+        self.boards.set_adc_setting('ADCDelay', (offset +
+        JPM.end + self.value('ADC Wait Time')['ns']) * units.ns, adc)
+        self.boards.set_adc_setting('FilterStartAt', 0 * units.ns, adc)
         
         ###MEMORY COMMAND LISTS#########################################
-        # The format is described in Servers.Instruments.GHzBoards.mem_sequences.
         mem_seqs = self.boards.init_mem_lists()
 
         mem_seqs[0].bias(1, voltage=0)

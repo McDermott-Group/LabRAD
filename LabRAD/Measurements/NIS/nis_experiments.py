@@ -53,20 +53,17 @@ class NISReadout(ADCExperiment):
         self.set('RF Frequency')
       
         ###WAVEFORMS####################################################        
-        waveforms, offset = wf.wfs_dict(self.boards.consts['DAC_ZERO_PAD_LEN'])
-        
-        dac_srams, sram_length = self.boards.process_waveforms(waveforms)
+        wfs, offset = wf.wfs_dict(min_length=self.boards.consts['DAC_ZERO_PAD_LEN'])
+        dac_srams, sram_length = self.boards.process_waveforms(wfs)
 
-        # wf.plot_wfs(waveforms, waveforms.keys())
+        # wf.plot_wfs(wfs, wfs.keys())
 
         ###SET BOARDS PROPERLY##########################################
-        # Delay between the end of the readout pulse to the start of the demodulation.
-        self.boards.set_adc_setting('FilterStartAt', (offset +
-                + self.value('ADC Wait Time')['ns']) * units.ns, adc)
-        self.boards.set_adc_setting('ADCDelay', 0 * units.ns, adc)
+        self.boards.set_adc_setting('ADCDelay', (offset +
+                self.value('ADC Wait Time')['ns']) * units.ns, adc)
+        self.boards.set_adc_setting('FilterStartAt', 0 * units.ns, adc)
 
         ###MEMORY COMMAND LISTS#########################################
-        # The format is described in Servers.Instruments.GHzBoards.mem_sequences.
         mem_seqs = self.boards.init_mem_lists()
 
         mem_seqs[0].bias(1, voltage=0, mode='Fast')
