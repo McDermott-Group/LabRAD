@@ -27,8 +27,22 @@ import matplotlib.pyplot as plt
 import matplotlib.cbook
 warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
 
+import collections
+import itertools
+
 import labrad.units as units
 
+def _flatten(iterable):
+    """
+    De-nest a list of _WavePulses for convenience.
+    """
+    remainder = iter(iterable)
+    while True:
+        first = next(remainder)
+        if isinstance(first, collections.Iterable) and not isinstance(first, _WavePulse):
+            remainder = itertools.chain(first, remainder)
+        else:
+            yield first
 
 class _WavePulse():
     """
@@ -269,10 +283,12 @@ class FromArray(_WavePulse):
         duration = len(pulse_data)
         self._init_times(start, duration, end)
         
+        if isinstance(pulse_data, list):
+            pulse_data = np.array(pulse_data)
+        
         self.pulse = pulse_data
-        self._check_pulse()
-
-
+        self._check_pulse()        
+        
 class Waveform():
     """
     Create a waveform from pulses.
@@ -284,6 +300,7 @@ class Waveform():
     (A.end + 1), or simply assign A.after() to B.start.
     
     Input:
+        label: Waverform label string.
         args: arbitrarily long set of _WavePulses to create the waveform
             from. To create a _WavePulse use one of the "public"
             classes such as DC, Sine, Cosine, etc.
@@ -292,7 +309,8 @@ class Waveform():
         if not isinstance(label, str):
             raise ValueError('Invalid waveform label.')
         self.label = label
-
+        
+        args = list(_flatten(args))
         pulses = [arg for arg in args if isinstance(arg, _WavePulse)]
 
         if len(pulses) > 0:
@@ -321,11 +339,42 @@ class Waveform():
             self.pulses = np.hstack(pulses_filled)
         else:
             self.pulses = np.array([0])
-            
         self.start = pulses[0].start
         self.end = pulses[-1].end
         self.duration = self.end - self.start + 1
-
+        
+def ECLDuringPulses(*args, **kwargs):
+    """
+    Return _WavePulse to make ECL outputs go high during a set of 
+    specified _WavePulses
+    
+    Inputs: 
+        args: Set (or list) of _WavePulses during which an ECL pulse 
+        should be generated
+        pad_length: Time before and after the pulses. Default 4 ns
+    Outputs:
+        ECL: list of ECL _WavePulses
+    """
+    if 'pad_length' in kwargs:
+        if isinstance(kwargs['pad_length'], units.Value):
+            pad_length = kwargs['pad_length']['ns']
+        else:
+            pad_length = kwargs['pad_length']
+        try:
+            pad_length = int(np.round(pad_length))
+        except:
+            raise Exception("Invalid ECL pad length value.")
+    else:
+        pad_length = 4
+    args = list(_flatten(args))
+    pulses = [arg for arg in args if isinstance(arg, _WavePulse)]
+    ECL = []
+    for pulse in pulses:
+        ECL.append(DC(amplitude = 1,
+                        start = pulse.before(pad_length),
+                        end = pulse.after(pad_length)))
+    return ECL
+    
 
 def Harmonic(amplitude=0, frequency=0, phase=0,
             cosine_offset=0, sine_offset=0,
@@ -348,6 +397,7 @@ def Harmonic(amplitude=0, frequency=0, phase=0,
             start, duration, end),
             Sine(amplitude, frequency, phase, sine_offset,
             start, duration, end))
+            
 
 def wfs_dict(*args, **kwargs):
     """

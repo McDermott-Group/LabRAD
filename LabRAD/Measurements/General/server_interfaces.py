@@ -125,6 +125,14 @@ class GHzFPGABoards(object):
                                 board + "' '" + ch + "' setting" +
                                 " should be specified either as " + 
                                 " a string or be of a None type.")
+                for ecl in ['ECL0', 'ECL1', 'ECL2', 'ECL3']:
+                    if ecl not in settings or settings[ecl] is None:
+                        settings[ecl] = 'None'
+                    elif not isinstance(settings[ecl], str):
+                        raise ResourceDefinitionError("Board '" +
+                                board + "' '" + ch + "' setting" +
+                                " should be specified either as " + 
+                                " a string or be of a None type.")    
                 self.dac_settings.append(settings)
                 if 'Data' in settings and settings['Data']:
                     self._data_dacs.append(board)
@@ -310,6 +318,7 @@ class GHzFPGABoards(object):
             sram_length: SRAM length.
             sram_delay: SRAM delay.
         """
+        ECLdata = [[],[],[],[]]
         for idx, settings in enumerate(self.dac_settings):
             for channel in ['DAC A', 'DAC B']:
                 if self.dac_settings[idx][channel] not in waveforms:
@@ -318,9 +327,25 @@ class GHzFPGABoards(object):
                         "' '" + str(channel) + "' waveform setting: '" +
                         self.dac_settings[idx][channel] +
                         "' is not recognized.")
+            ecld = {}
+            for ecl in ['ECL0', 'ECL1', 'ECL2', 'ECL3']:
+                if ecl in self.dac_settings[idx]:
+                    if self.dac_settings[idx][ecl] not in waveforms:
+                        raise ResourceDefinitionError("'" + 
+                        str(self.dacs[idx]) +
+                        "' '" + str(ecl) + "' waveform setting: '" +
+                        self.dac_settings[idx][ecl] +
+                        "' is not recognized.")
+                    ecld[ecl] = waveforms[self.dac_settings[idx][ecl]]
+                else:
+                    ecld[ecl] = []
+            ECLdata[idx] = ms.waves2ECL(ecld)
+            
+        
         
         dac_srams = [ms.waves2sram(waveforms[self.dac_settings[k]['DAC A']], 
-                                   waveforms[self.dac_settings[k]['DAC B']])
+                                   waveforms[self.dac_settings[k]['DAC B']],
+                                   ECLdata[k])
                                    for k, dac in enumerate(self.dacs)]
         
         return dac_srams, waveforms[self.dac_settings[0]['DAC A']].size

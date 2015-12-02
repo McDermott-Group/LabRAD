@@ -53,9 +53,11 @@ class ADCTestDemodulation(ADCExperiment):
                                  phase     = self.value('RF Phase'),
                                  start     = 0,
                                  duration  = self.value('RF Time'))
+        SW = wf.ECLDuringPulses(RF_Q)
         
         waveforms, offset = wf.wfs_dict(wf.Waveform('RF I', RF_I),
                                         wf.Waveform('RF Q', RF_Q),
+                                        wf.Waveform('Switch', SW),
                       min_length=self.boards.consts['DAC_ZERO_PAD_LEN'])
 
         dac_srams, sram_length = self.boards.process_waveforms(waveforms)
@@ -98,13 +100,13 @@ class ADCTestLogSpiral(ADCExperiment):
         Qamp = a * np.exp(b * t)  * np.cos(t) / np.exp(20. * b)
         Iamp = a * np.exp(b * t)  * np.sin(t) / np.exp(20. * b)
 
-        RF_Q = wf.Cosine(amplitude = Qamp,
+        RF_I = wf.Cosine(amplitude = Qamp,
                          frequency = self.value('RF SB Frequency'),
                          phase = self.value('RF Phase'),
                          start = 0,
                          duration = self.value('RF Time'))
                          
-        RF_I = wf.Sine(amplitude = Iamp,
+        RF_Q = wf.Cosine(amplitude = Iamp,
                          frequency = self.value('RF SB Frequency'),
                          phase = self.value('RF Phase'),
                          start = 0,
