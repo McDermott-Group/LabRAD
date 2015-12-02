@@ -29,11 +29,11 @@ if LABRAD_PATH not in sys.path:
 import numpy as np
 
 import labrad.units as units
-
 import LabRAD.Servers.Instruments.GHzBoards.mem_sequences as ms
 import LabRAD.Measurements.General.waveform as wf
 import LabRAD.Measurements.General.data_processing as dp
 from LabRAD.Measurements.General.adc_experiment import ADCExperiment
+
 
 class ADCTestDemodulation(ADCExperiment):
     """

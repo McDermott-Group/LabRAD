@@ -1,5 +1,7 @@
 # HEMT read out of a qubit connected to a resonator.
 
+import matplotlib
+matplotlib.use('GTKAgg')
 import os
 import numpy as np
 
@@ -7,15 +9,6 @@ from labrad.units import (us, ns, V, GHz, MHz, rad, dB, dBm,
                           DACUnits, PreAmpTimeCounts)
 
 import adc_test_experiment
-
-from pycallgraph import PyCallGraph
-from pycallgraph import Config
-from pycallgraph import GlobbingFilter
-from pycallgraph.output import GraphvizOutput
-
-config = Config(max_depth=8)
-config.trace_filter = GlobbingFilter(exclude=['np.*', 'numpy.*'])
-graphviz = GraphvizOutput(output_file=r'C:\Users\5107-1\Desktop\experiment_trace.png')
 
 comp_name = os.environ['COMPUTERNAME'].lower()
 Resources = [ {
@@ -108,38 +101,37 @@ ExptVars = {
             'ADC Demod Frequency': 125 * MHz
            }
 
-with PyCallGraph(output=graphviz, config=config):
-    with adc_test_experiment.ADCTestDemodulation() as run:
-        
-        run.set_experiment(ExptInfo, Resources, ExptVars)
-        
-        #run.single_shot_iqs(save=True, plot_data=True)
-        # run.single_shot_osc(save=False, plot_data=['I', 'Q'])
-        # run.avg_osc(save=True, plot_data=['I', 'Q'], runs=1000)
-       
-        # run.sweep('RF Amplitude', np.linspace(0, 1, 101) * DACUnits, 
-                  # print_data=['I','Q'],plot_data=['I','Q'],
-                  # save=True, runs=1, max_data_dim=2)
-        # for i in xrange(100):
-        run.sweep('RF Phase', np.linspace(0, 2*np.pi, 73) * rad, 
-                  print_data=['I','Q'],plot_data=['I','Q'],
-                  save=True, runs=1, max_data_dim=2)
-                  
-        # run.sweep('RF SB Frequency', np.linspace(0, 200, 201) * MHz, 
-                    # print_data=['I', 'Q'], plot_data=['I','Q','Amplitdue'],
-                    # save=True, runs=1, max_data_dim=1)
-                    
-        # run.sweep('RF Time', np.linspace(0, 4000, 251) * ns, 
-                    # print_data=['I','Q'], plot_data = ['I', 'Q', 'Amplitude'],
-                    # save=True, runs=1, max_data_dim=1)
-                    
-        # run.sweep('RF Attenuation', np.linspace(3, 60, 58) * dB, 
-                    # print_data=['I', 'Q'], plot_data=['Amplitude'],
-                    # save=True, runs=1, max_data_dim=1)
-    # with adc_test_experiment.ADCTestLogSpiral() as run:
-        
-        # run.set_experiment(ExptInfo, Resources, ExptVars)  
-        
-        # run.sweep('Spiral', np.linspace(0, 20, 101), print_data=['I', 'Q'],
-                    # plot_data=['I', 'Q'], save=True, runs = 1,
-                    # max_data_dim=2)
+with adc_test_experiment.ADCTestDemodulation() as run:
+    
+    run.set_experiment(ExptInfo, Resources, ExptVars)
+    
+    #run.single_shot_iqs(save=True, plot_data=True)
+    # run.single_shot_osc(save=False, plot_data=['I', 'Q'])
+    # run.avg_osc(save=True, plot_data=['I', 'Q'], runs=1000)
+   
+    # run.sweep('RF Amplitude', np.linspace(0, 1, 101) * DACUnits, 
+              # print_data=['I','Q'],plot_data=['I','Q'],
+              # save=True, runs=1, max_data_dim=2)
+    # for i in xrange(100):
+    run.sweep('RF Phase', np.linspace(0, 2*np.pi, 73) * rad, 
+              print_data=['I','Q'],plot_data=['I','Q'],
+              save=True, runs=1, max_data_dim=2)
+              
+    # run.sweep('RF SB Frequency', np.linspace(0, 200, 201) * MHz, 
+                # print_data=['I', 'Q'], plot_data=['I','Q','Amplitdue'],
+                # save=True, runs=1, max_data_dim=1)
+                
+    # run.sweep('RF Time', np.linspace(0, 4000, 251) * ns, 
+                # print_data=['I','Q'], plot_data = ['I', 'Q', 'Amplitude'],
+                # save=True, runs=1, max_data_dim=1)
+                
+    # run.sweep('RF Attenuation', np.linspace(3, 60, 58) * dB, 
+                # print_data=['I', 'Q'], plot_data=['Amplitude'],
+                # save=True, runs=1, max_data_dim=1)
+# with adc_test_experiment.ADCTestLogSpiral() as run:
+    
+    # run.set_experiment(ExptInfo, Resources, ExptVars)  
+    
+    # run.sweep('Spiral', np.linspace(0, 20, 101), print_data=['I', 'Q'],
+                # plot_data=['I', 'Q'], save=True, runs = 1,
+                # max_data_dim=2)

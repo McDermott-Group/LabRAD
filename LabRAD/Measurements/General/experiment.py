@@ -57,12 +57,19 @@ with some_experiment.SomeExperiment() as expt:
     freq = np.linspace(2, 5, 101) * GHz
     expt.sweep('RF Frequency', freq, save=True)
 """
-
 import os
 import sys
 import time
 import warnings
 from msvcrt import kbhit, getch
+
+import matplotlib
+try:
+    matplotlib.use('GTKApp')
+except:
+    pass
+
+    
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -167,7 +174,7 @@ class Experiment(object):
                         os.rmdir(subpath)
                     except WindowsError:
                         pass
-                
+                        
         print('The instrument resources have been safely terminated! ' + 
               'Have a nice day.')
   
