@@ -228,7 +228,7 @@ def waves2sram(waveA, waveB, ECLdata=None):
 def _truncate(a):
         return int(a>0)
     
-def waves2ECL(ECL_dict, trig=None):
+def waves2ECL(ECL_dict, trigs=[]):
     """Convert lists defining ECL output to a single 4-bit word for
     the ECL serializer."""
     
@@ -241,11 +241,12 @@ def waves2ECL(ECL_dict, trig=None):
         raise Exception('Unknown key in ECL data dictionary')
     length = max([len(x) for x in ECL_dict.values()])
     # Check that they are all the same length.
-    if len([x for x in ECL_dict.values() if len(x) != length]) > 0:
-        raise Exception('ECL data definitions should be of an equal length.')
     for ecl in ECL_dict.iterkeys():
         if len(ECL_dict[ecl]) == 0:
             ECL_dict[ecl] = np.zeros((length,))
+    if len([x for x in ECL_dict.values() if len(x) != length]) > 0:
+        raise Exception('ECL data definitions should be of an equal length.')
+    
     #convert to 1 or 0
     vtrunc = np.vectorize(_truncate)
     D0 = vtrunc(ECL_dict['ECL0'])
@@ -254,18 +255,19 @@ def waves2ECL(ECL_dict, trig=None):
     D3 = vtrunc(ECL_dict['ECL3'])
     ECLdata = [(D0[i] << 28) | (D1[i] << 29) | (D2[i] << 30) | (D3[i] << 31) for i in xrange(length)]
     #Add a trigger pulse if it is needed.  Explanation of the code below:
-    #trig is of the form 'ECLn' where n is the ECL output we want the
-    #trigger to appear on. The ECL bits are sram[31..28], so we or in a 
+    #trig is of the form '[ECLn, ]' where n is the ECL output we want the
+    #triggers to appear on. The ECL bits are sram[31..28], so we or in a 
     #bit shifted by 28+n to the ECL data pulse
-    if trig is not None:
-            if int(trig[-1]) not in [0, 1, 2, 3]:
+    if len(trigs) > 0:        
+        for t in trigs:
+            if int(t[-1]) not in [0, 1, 2, 3]:
                 raise Exception("Invalid trigger definition: " + 
                                 str(trig)) #safety first!
-            ECLdata[4] |= (1 << (28+int(trig[-1])))                     
-            ECLdata[5] |= (1 << (28+int(trig[-1])))
-            ECLdata[6] |= (1 << (28+int(trig[-1])))
-            ECLdata[7] |= (1 << (28+int(trig[-1])))
-            ECLdata[8] |= (1 << (28+int(trig[-1])))
+            ECLdata[4] |= (1 << (28+int(t[-1])))                     
+            ECLdata[5] |= (1 << (28+int(t[-1])))
+            ECLdata[6] |= (1 << (28+int(t[-1])))
+            ECLdata[7] |= (1 << (28+int(t[-1])))
+            ECLdata[8] |= (1 << (28+int(t[-1])))
 
     return ECLdata
     

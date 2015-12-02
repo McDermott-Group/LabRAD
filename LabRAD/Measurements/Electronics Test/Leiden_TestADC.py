@@ -21,7 +21,7 @@ Resources = [ {
                                         'DAC A': 'RF Q',
                                         'DAC B': 'RF I',
                                         'ECL2': 'Switch',
-                                        'Trigger': 'ECL0'
+                                        'ECL0': 'Trigger'
                                       },
                 'Leiden Board ADC 7': {
                                         'RunMode': 'demodulate', #'average'
