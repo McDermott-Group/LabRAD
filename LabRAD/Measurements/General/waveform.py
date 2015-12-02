@@ -351,7 +351,7 @@ def ECLDuringPulses(*args, **kwargs):
     Inputs: 
         args: Set (or list) of _WavePulses during which an ECL pulse 
         should be generated
-        pad_length: Time before and after the pulses. Default 4 ns
+        pad_length: Time before and after the pulses. Default 8 ns
     Outputs:
         ECL: list of ECL _WavePulses
     """
@@ -365,7 +365,7 @@ def ECLDuringPulses(*args, **kwargs):
         except:
             raise Exception("Invalid ECL pad length value.")
     else:
-        pad_length = 4
+        pad_length = 8
     args = list(_flatten(args))
     pulses = [arg for arg in args if isinstance(arg, _WavePulse)]
     ECL = []

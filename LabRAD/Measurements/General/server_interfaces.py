@@ -109,6 +109,7 @@ class GHzFPGABoards(object):
         
         self._data_dacs = []
         self._data_adcs = []
+        ECL_name_list = ['ECL0', 'ECL1', 'ECL2', 'ECL3']
         for board in boards:
             if board not in resource:
                 raise ResourceDefinitionError("Settings for board '" + 
@@ -125,14 +126,24 @@ class GHzFPGABoards(object):
                                 board + "' '" + ch + "' setting" +
                                 " should be specified either as " + 
                                 " a string or be of a None type.")
-                for ecl in ['ECL0', 'ECL1', 'ECL2', 'ECL3']:
+                if 'Trigger' in settings:
+                    if settings['Trigger'] not in ECL_name_list:
+                        raise ResourceDefinitionError("Board '" + 
+                                board + " ' trigger should be " +
+                                "specified as 'ECL0' thru 'ECL3'.")
+                for ecl in ECL_name_list:
+                    if ecl == settings['Trigger'] and ecl in settings:
+                        raise ResourceDefinitionError("ECL conflict: " +
+                                settings['Trigger'] + " is both the" +
+                                " trigger output and an ECL data " +
+                                "output.")
                     if ecl not in settings or settings[ecl] is None:
                         settings[ecl] = 'None'
                     elif not isinstance(settings[ecl], str):
                         raise ResourceDefinitionError("Board '" +
                                 board + "' '" + ch + "' setting" +
                                 " should be specified either as " + 
-                                " a string or be of a None type.")    
+                                " a string or be of a None type.")  
                 self.dac_settings.append(settings)
                 if 'Data' in settings and settings['Data']:
                     self._data_dacs.append(board)
@@ -328,6 +339,7 @@ class GHzFPGABoards(object):
                         self.dac_settings[idx][channel] +
                         "' is not recognized.")
             ecld = {}
+            trig = None
             for ecl in ['ECL0', 'ECL1', 'ECL2', 'ECL3']:
                 if ecl in self.dac_settings[idx]:
                     if self.dac_settings[idx][ecl] not in waveforms:
@@ -339,7 +351,9 @@ class GHzFPGABoards(object):
                     ecld[ecl] = waveforms[self.dac_settings[idx][ecl]]
                 else:
                     ecld[ecl] = []
-            ECLdata[idx] = ms.waves2ECL(ecld)
+            if 'Trigger' in self.dac_settings[idx]:
+                trig = self.dac_settings[idx]['Trigger']
+            ECLdata[idx] = ms.waves2ECL(ecld, trig)
             
         
         

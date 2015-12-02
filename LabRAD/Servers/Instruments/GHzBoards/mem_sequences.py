@@ -205,7 +205,7 @@ def simple_sequence(init_time, sram_length, sram_start=0):
     memory = Mem.AppendMemEnd(memory)
     return memory
 
-def waves2sram(waveA, waveB, ECLdata=None, Trig=True):
+def waves2sram(waveA, waveB, ECLdata=None):
     """Construct SRAM sequence for a list of waveforms."""
     if not len(waveA) == len(waveB):
         raise Exception('DAC A and DAC B waveforms must be of an equal length.')
@@ -217,12 +217,6 @@ def waves2sram(waveA, waveB, ECLdata=None, Trig=True):
     dataB = [y & 0x3FFF for y in dataB]
     dataB = [y << 14 for y in dataB]                      # Shift DAC B data by 14 bits.
     sram=[dataA[i] | dataB[i] for i in range(len(dataA))] # Combine DAC A and DAC B.
-    if Trig:
-        sram[4] |= 0xF0000000                             # Add trigger pulse near beginning of sequence.
-        sram[5] |= 0xF0000000
-        sram[6] |= 0xF0000000
-        sram[7] |= 0xF0000000
-        sram[8] |= 0xF0000000  
 
     if ECLdata is not None:
         if not len(waveA) == len(ECLdata):
@@ -234,13 +228,14 @@ def waves2sram(waveA, waveB, ECLdata=None, Trig=True):
 def _truncate(a):
         return int(a>0)
     
-def waves2ECL(ECL_dict):
+def waves2ECL(ECL_dict, trig=None):
     """Convert lists defining ECL output to a single 4-bit word for
     the ECL serializer."""
     
     # Check if all lists are empty.
     if all(len(x) == 0 for x in ECL_dict.values()):
         return None
+    #add trigger output if needed        
     #Check if there is an unknown keyvalue in ECL dictionary
     if len([k for k in ECL_dict.keys() if k not in ['ECL0', 'ECL1', 'ECL2', 'ECL3']]) > 0:
         raise Exception('Unknown key in ECL data dictionary')
@@ -257,8 +252,20 @@ def waves2ECL(ECL_dict):
     D1 = vtrunc(ECL_dict['ECL1'])
     D2 = vtrunc(ECL_dict['ECL2'])
     D3 = vtrunc(ECL_dict['ECL3'])
-    
     ECLdata = [(D0[i] << 28) | (D1[i] << 29) | (D2[i] << 30) | (D3[i] << 31) for i in xrange(length)]
+    #Add a trigger pulse if it is needed.  Explanation of the code below:
+    #trig is of the form 'ECLn' where n is the ECL output we want the
+    #trigger to appear on. The ECL bits are sram[31..28], so we or in a 
+    #bit shifted by 28+n to the ECL data pulse
+    if trig is not None:
+            if int(trig[-1]) not in [0, 1, 2, 3]:
+                raise Exception("Invalid trigger definition: " + 
+                                str(trig)) #safety first!
+            ECLdata[4] |= (1 << (28+int(trig[-1])))                     
+            ECLdata[5] |= (1 << (28+int(trig[-1])))
+            ECLdata[6] |= (1 << (28+int(trig[-1])))
+            ECLdata[7] |= (1 << (28+int(trig[-1])))
+            ECLdata[8] |= (1 << (28+int(trig[-1])))
 
     return ECLdata
     
