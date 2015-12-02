@@ -257,6 +257,17 @@ class Agilent8720ETServer(GPIBManagedServer):
         yield dev.write('CHAN1;AUXCOFF;S21;LOGM;AUTO')
         yield self.sweep_points(c, 801)
         print('Initialized...')
+        
+    @setting(348, 'Get Maximum')
+    def get_max_point(self, c):
+        """Return the maximum point on a trace"""
+        dev = self.selectedDevice(c)
+        yield dev.write('SING')
+        yield dev.write('SEAMAX')
+        result = yield dev.query('OUTPMARK')
+        result = result.split(',')
+        data = [float(result[0]), float(result[2])]
+        returnValue(data)
 
 
 __server__ = Agilent8720ETServer()
