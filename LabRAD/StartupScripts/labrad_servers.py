@@ -37,14 +37,18 @@ LABRAD_PATH = os.path.join(os.environ['HOME'],
 # LABRAD_PATH = os.path.join(SCRIPT_PATH.rsplit('LabRAD', 1)[0], 'LabRAD')
 
 LABRAD_INI = 'LabRAD.ini'
-        
+
+# Python pythonw.exe executable that can be used to start python
+# GUIs without the associated terminal window.
+PYTHONW = sys.executable.replace('python.exe', 'pythonw.exe')
+
 # Relative paths with respect to LABRAD_PATH.
 DIRECT_ETHERNET_SERVER_PATH = r'Servers\DirectEthernet'
 LABRAD_NODE_PATH = r'StartupScripts'
 LABRAD_NODE_SERVERS_PATH = r'StartupScripts'
 GHZ_FPGA_BRING_UP_PATH = r'Servers\Instruments\GHzBoards'
-DC_RACK_LABVIEW_VI_PATH = r'Servers\Instruments\DCRack'
 DC_RACK_GUI_PATH = r'Servers\Instruments\DCRack'
+ADR_PATH = r'Servers\ADR'
 
 # Corresponding file names with the extensions.
 LABRAD_FILENAME = 'LabRAD-v1.1.4.exe'
@@ -52,8 +56,8 @@ LABRAD_NODE_FILENAME = 'labradnode.py'
 LABRAD_NODE_SERVERS_FILENAME = 'labradnode_servers.py'
 DIRECT_ETHERNET_SERVER_FILENAME = 'DirectEthernet.exe'
 GHZ_FPGA_BRING_UP_FILENAME = 'auto_ghz_fpga_bringup.py'
-DC_RACK_LABVIEW_VI_FILENAME = 'dc_rack_control.vi'
 DC_RACK_GUI_FILENAME = 'DCRackGUI.pyw'
+ADR_CLIENT_FILENAME = 'ADRClient.py'
 
 class QuitException(Exception): pass
 
@@ -96,10 +100,6 @@ class StartAndBringUp:
                 default='Start Program List',
                 help='Registry key containing the list of programs ' +
                 'to run (default: "Start Program List")')
-        parser.add_argument('--registry-labview-path-key', 
-                default='LabVIEW Path',
-                help='Registry key that specifies the LabVIEW path ' +
-                '(default: "LabVIEW Path")')
         parser.add_argument('--registry-labrad-host-key',
                 default='LabRAD Host',
                 help='Regitry key with the value of %LabRADHost% ' +
@@ -115,6 +115,9 @@ class StartAndBringUp:
         parser.add_argument('--password',
                 default=None,
                 help='LabRAD password')
+        parser.add_argument('--adr',
+                default='ADR3',
+                help='ADR to control')
         return parser.parse_args()  
     
     def _LabRADConnect(self):
@@ -152,7 +155,7 @@ class StartAndBringUp:
                 raise QuitException('The user chose to quit.')
     
     def startLabRAD(self):
-        # Open the LabRAD initialization file.
+        # Open the LabRAD initialization file to read the password.
         labrad_ini_file = os.path.join(LABRAD_PATH, LABRAD_INI)
         if os.path.isfile(labrad_ini_file):
             with open(labrad_ini_file, 'r') as f:
@@ -180,7 +183,7 @@ class StartAndBringUp:
             if self._password is None:
                 self._waitTillEnterKeyIsPressed()
             else:
-                time.sleep(2)
+                time.sleep(3)
 
         try:
             os.environ['LabRADPassword'] = self._password
@@ -251,8 +254,8 @@ class StartAndBringUp:
             if self._password is None or self._password == '':
                 self._waitTillEnterKeyIsPressed()
             else:
-                time.sleep(1)
-                print('\n')
+                time.sleep(2)
+                print('The LabRAD node has been started.\n')
         
     def startLabRADNodeServers(self):
         print('Starting the servers with the LabRAD node...')
@@ -273,10 +276,12 @@ class StartAndBringUp:
         if server_name not in running_servers:
             print('Starting Direct Ethernet server...')
             direct_ethernet = os.path.join(LABRAD_PATH,
-                    DIRECT_ETHERNET_SERVER_PATH, DIRECT_ETHERNET_SERVER_FILENAME)
+                    DIRECT_ETHERNET_SERVER_PATH,
+                    DIRECT_ETHERNET_SERVER_FILENAME)
             if not os.path.isfile(direct_ethernet):
-                raise Exception('Could not locate the Direct Ethernet Server' +
-                ' sys.executable file ' + direct_ethernet + '.')
+                raise Exception('Could not locate the Direct Ethernet' +
+                        ' Server sys.executable file ' +
+                        direct_ethernet + '.')
             try:
                 self.processes['Direct Ethernet Server'] = sp.Popen(direct_ethernet)
             except OSError:
@@ -288,7 +293,7 @@ class StartAndBringUp:
                 self._waitTillEnterKeyIsPressed()
             else:
                 time.sleep(1)
-                print('\n')
+                print('The Direct Ethernet Server has been started.\n')
         
     def bringUpGHzFPGAs(self):
         print('Bringing up the GHz FPGA boards...')
@@ -313,36 +318,28 @@ class StartAndBringUp:
             raise Exception('Could not locate the DC Rack GUI script ' +
                     gui_file + '.')
         try:
-            self.processes['DC Rack GUI'] = sp.Popen([sys.executable,
+            self.processes['DC Rack GUI'] = sp.Popen([PYTHONW,
                     gui_file, '--password', self._password],
                     creationflags=sp.CREATE_NEW_CONSOLE, cwd=gui_path)
         except OSError:
             raise Exception('Failed to start the DC Rack GUI.')
-        print('The DC Rack GUI has been opened.\n')
+        print('The DC Rack GUI has been opened.')
         self._waitTillEnterKeyIsPressed()
-
-    def startDCRackLabVIEWVI(self):
-        print('Getting the path to the LabVIEW.exe from the LabRAD Registry...')
-        self._changeResitryPath()
+        
+    def startADRClient(self):
+        print('Openning the ADR client GUI...')
+        gui_path = os.path.join(LABRAD_PATH, ADR_PATH)
+        gui_file = os.path.join(gui_path, ADR_CLIENT_FILENAME)
+        if not os.path.isfile(gui_file):
+            raise Exception('Could not locate the ADR client GUI script ' +
+                    gui_file + '.')
         try:
-            labview_path_filename = \
-                self._cxn.registry.get(self.args.registry_labview_path_key)
-        except:
-            raise Exception('Could not read the LabRAD Registry. ' +
-                    'Please check that the key name ' + 
-                    self.args.registry_labview_path_key + ' is correct.')
-        print('Starting the DC Rack LabVIEW VI...')
-        dc_rack_vi = os.path.join(LABRAD_PATH, DC_RACK_LABVIEW_VI_PATH,
-                DC_RACK_LABVIEW_VI_FILENAME)
-        if not os.path.isfile(dc_rack_vi):
-            raise Exception('Could not locate the DC Rack LabVIEW VI ' +
-                    dc_rack_vi  + '.')
-        try:
-            self.processes['DC Rack LabVIEW VI'] = \
-                    sp.Popen([labview_path_filename, dc_rack_vi])
+            self.processes['ADR client GUI'] = sp.Popen([sys.executable,
+                    gui_file, '-w', self._password],
+                    creationflags=sp.CREATE_NEW_CONSOLE, cwd=gui_path)
         except OSError:
-            raise Exception('Failed to start the DC Rack LabVIEW VI.')
-        print('Please press [Run] button in the LabVIEW VI window.')
+            raise Exception('Failed to start the ADR client GUI.')
+        print('The ADR client GUI has been opened.')
         self._waitTillEnterKeyIsPressed()
 
 def main():
@@ -355,17 +352,18 @@ def main():
         for prog in progs:
             if prog == 'directethernet':
                 inst.startDirectEthernetServer()
+                break
         for prog in progs:
             if prog =='labradnode':
                 inst.startLabRADNode()
             elif prog == 'labradnodeservers':
                 inst.startLabRADNodeServers()
+            elif prog == 'adrclient':
+                inst.startADRClient()
             elif prog == 'ghzfpgabringup':
                 inst.bringUpGHzFPGAs()
             elif prog == 'dcrackgui': 
                 inst.startDCRackGUI()
-            elif prog == 'dcracklabviewvi': 
-                inst.startDCRackLabVIEWVI()
 
 
 # This is the standard boilerplate that calls the main() function.

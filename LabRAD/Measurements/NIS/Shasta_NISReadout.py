@@ -118,7 +118,7 @@ with nis_experiments.NISReadout() as run:
     run.set_experiment(ExptInfo, Resources, ExptVars)
     
     # run.single_shot_osc(save=False, plot_data=['I', 'Q'])
-    run.avg_osc(save=True, plot_data=['I', 'Q'], runs=1000)
+    # run.avg_osc(save=True, plot_data=['I', 'Q'], runs=1000)
     
     # run.value('NIS Bias Voltage', 0.0 * V)
     
@@ -126,9 +126,9 @@ with nis_experiments.NISReadout() as run:
               # print_data=['I', 'Q'], plot_data=['I', 'Q'], max_data_dim=1,
               # save=True, runs=5)
     
-    # run.sweep('RF Frequency', np.linspace(4.67, 4.68, 2001) * GHz,
-              # print_data=['I', 'Q'], plot_data=['I', 'Q', 'Amplitude'], max_data_dim=1,
-              # save=True, runs=3)
+    run.sweep('RF Frequency', np.linspace(4.673, 4.68, 101) * GHz,
+              plot_data=['I', 'Q', 'Amplitude'], max_data_dim=2,
+              save=True, runs=1)
     
     # run.sweep(['Bias to Readout Delay', 'RF Frequency'],
               # [np.linspace(0, 100, 101) * us, np.linspace(4.9, 5, 101) * GHz],

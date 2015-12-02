@@ -10,8 +10,7 @@ import labrad
 # for each bus, the settings are given as a map from name to numeric code.
 
 def _parse_arguments():
-    parser = argparse.ArgumentParser(description='Automatically ' +
-            'bring-up the FPGA GHz boards.')
+    parser = argparse.ArgumentParser(description='DC Rack GUI')
     parser.add_argument('--password',
             default=None,
             help='LabRAD password')

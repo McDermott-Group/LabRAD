@@ -54,7 +54,7 @@ class MeasureIV(tk.Tk):
         self.portOut.set(0)
         self.amp.set(1)
         self.ACFreq.set(1)
-        self.ACAmp.set(0.05)
+        self.ACAmp.set(0.0)
         self.DCAmp.set(0.0)
         self.sampRate.set(10000)
         self.nSamples.set(10000)
@@ -289,7 +289,8 @@ class MeasureIV(tk.Tk):
             try:
                 currents = currents/self.RACIn.get()/1000
                 voltages = voltages/self.amp.get()
-                self.ax.set_xlabel('$\Phi$ [A/$\Phi_0$]')
+                #currents, voltages = voltages, currents
+                self.ax.set_xlabel('$\Phi/L$ [A]')
                 self.ax.set_ylabel('Voltage [V]')
             except ValueError: pass
         
@@ -366,6 +367,8 @@ class MeasureIV(tk.Tk):
 
     def _quit(self):
         """ called when the window is closed."""
+        self.ACAmp.set(0)
+        self.DCAmp.set(0)
         self.running = False
         self.quit()     # stops mainloop
         self.destroy()  # this is necessary on Windows to prevent
