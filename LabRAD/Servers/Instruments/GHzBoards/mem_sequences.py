@@ -224,9 +224,6 @@ def waves2sram(waveA, waveB, ECLdata=None):
         sram = [sram[i] | ECLdata[i] for i in range(len(dataA))]
     
     return sram
-
-def _truncate(a):
-        return int(a>0)
     
 def waves2ECL(ECL_dict, trigs=[]):
     """Convert lists defining ECL output to a single 4-bit word for
@@ -248,11 +245,10 @@ def waves2ECL(ECL_dict, trigs=[]):
         raise Exception('ECL data definitions should be of an equal length.')
     
     #convert to 1 or 0
-    vtrunc = np.vectorize(_truncate)
-    D0 = vtrunc(ECL_dict['ECL0'])
-    D1 = vtrunc(ECL_dict['ECL1'])
-    D2 = vtrunc(ECL_dict['ECL2'])
-    D3 = vtrunc(ECL_dict['ECL3'])
+    D0 = ECL_dict['ECL0']>0
+    D1 = ECL_dict['ECL1']>0
+    D2 = ECL_dict['ECL2']>0
+    D3 = ECL_dict['ECL3']>0
     ECLdata = [(D0[i] << 28) | (D1[i] << 29) | (D2[i] << 30) | (D3[i] << 31) for i in xrange(length)]
     #Add a trigger pulse if it is needed.  Explanation of the code below:
     #trig is of the form '[ECLn, ]' where n is the ECL output we want the
