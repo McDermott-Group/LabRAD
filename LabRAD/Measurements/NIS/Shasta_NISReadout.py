@@ -94,9 +94,9 @@ ExptInfo = {
  
 # Experiment Variables
 ExptVars = {
-            'Reps': 4000, # should not exceed ~5,000, use argument "runs" in sweep parameters instead 
+            'Reps': 1000, # should not exceed ~5,000, use argument "runs" in sweep parameters instead 
 
-            'Init Time': 100 * us,
+            'Init Time': 3000 * us,
 
             'RF Frequency': 4.6736 * GHz,
             'RF Power': 17 * dBm, #17.6 * dBm,
@@ -104,7 +104,7 @@ ExptVars = {
             'RF SB Frequency': 30 * MHz,
             'RF Amplitude': 0.5 * DACUnits, # [-1, 1] * DACUnits, 1 DACUnits ~ 0.1-2.0 V
             
-            'NIS Bias Voltage': 0.0 * V, # -2.5 to 2.5 V or 0 to 5 V
+            'NIS Bias Voltage': 0.3 * V, # -2.5 to 2.5 V or 0 to 5 V
             'NIS Bias Time': 200 * us,
             
             'Bias to RF Delay': 100 * us,
@@ -128,11 +128,30 @@ with nis_experiments.NISReadout() as run:
               # print_data=['I', 'Q'], plot_data=['I', 'Q'], max_data_dim=1,
               # save=False, runs=1)
     
-    run.sweep('RF Frequency', np.linspace(4.673, 4.6744, 101) * GHz,
-              plot_data=['I', 'Q', 'Amplitude'], max_data_dim=1,
-              save=True, runs=1)
+    # run.sweep('RF Frequency', np.linspace(4.673, 4.6744, 101) * GHz,
+              # plot_data=['I', 'Q', 'Amplitude'], max_data_dim=1,
+              # save=True, runs=1)
     
     # run.sweep(['Bias to Readout Delay', 'RF Frequency'],
               # [np.linspace(0, 100, 101) * us, np.linspace(4.9, 5, 101) * GHz],
                # print_data=['I', 'Q'], plot_data=['I', 'Q'], 
                # save=True, runs=3) # runs does ex: 3X 4000 reps
+               
+   
+    run.sweep(['Bias to RF Delay', 'RF Frequency'], 
+          [np.linspace(10, 10000, 11) * us, np.linspace(4.673, 4.6744, 51) * GHz],plot_data=['I', 'Q', 'Amplitude'],
+          save=True, runs=1)
+   
+    # bias_range = np.linspace(0, 1, 11) * V
+    # for voltage in bias_range:
+        # run.value('NIS Bias Voltage', voltage)
+        # run.sweep(['Bias to RF Delay', 'RF Frequency'], 
+                  # [np.linspace(0, 100, 11) * us, np.linspace(4.673, 4.6744, 51) * GHz],
+                  # save=True, runs=1)
+                  
+    # bias_range = np.linspace(0, 1, 11) * V
+    # for voltage in bias_range:
+        # run.value('NIS Bias Voltage', voltage)
+        # run.sweep('RF Frequency', np.linspace(4.673, 4.6744, 101) * GHz,
+          # plot_data=['I', 'Q', 'Amplitude'], max_data_dim=1,
+          # save=True, runs=1)

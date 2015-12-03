@@ -105,8 +105,8 @@ class ADCExperiment(expt.Experiment):
             plot_data = [var for var in
                     self._comb_strs(plot_data) if var in data]
         if plot_data:
-            self._init_1d_plot([['Time']], [[data['Time']['Value']]],
-                    data, plot_data)
+            plot_data = self._init_1d_plot([['Time']],
+                    [[data['Time']['Value']]], data, plot_data)
  
         if runs > 1:        # Run multiple measurements (shots).
             print('\n\t[ESC]:\tAbort the run.' + 

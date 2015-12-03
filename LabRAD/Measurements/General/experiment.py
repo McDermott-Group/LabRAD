@@ -57,21 +57,19 @@ with some_experiment.SomeExperiment() as expt:
     freq = np.linspace(2, 5, 101) * GHz
     expt.sweep('RF Frequency', freq, save=True)
 """
+
 import os
 import sys
 import time
 import warnings
 from msvcrt import kbhit, getch
 
+import numpy as np
 import matplotlib
 try:
     matplotlib.use('GTKApp')
 except:
     pass
-
-    
-
-import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cbook
 warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
@@ -174,7 +172,7 @@ class Experiment(object):
                         os.rmdir(subpath)
                     except WindowsError:
                         pass
-                        
+
         print('The instrument resources have been safely terminated! ' + 
               'Have a nice day.')
   
@@ -672,7 +670,8 @@ class Experiment(object):
             None.
         """
         if array.ndim == 1 or array.ndim == 2:
-            if (array == array.astype(int)).all():
+            if (array[np.isfinite(array)].size and
+                    (array == array.astype(int)).all()):
                 format = '%d'
             else:
                 format = '%-7.6f'
@@ -1448,14 +1447,14 @@ class Experiment(object):
                                 in self._comb_strs(print_data_vars)
                                 if var in run_data and
                                 np.size(run_data[var]) == 1]
-                        
-                    plot_data_vars = self._init_1d_plot(names, values, 
-                            self._1d_data, plot_data_vars)
 
                 # Add the newly acquired data to the data set.
                 for key in self._1d_data_deps:
                     self._1d_data[key]['Value'][idx] = run_data[key]['Value']
 
+                if idx == 0:
+                    plot_data_vars = self._init_1d_plot(names, values, 
+                            self._1d_data, plot_data_vars)
                 # Print experiment and data variables to the standard
                 # output.
                 if self._standard_output and self._sweep_status!= 'abort':
@@ -2036,10 +2035,11 @@ class Experiment(object):
                 ylabel = (ylabel + name + ', ')
             else:
                 ylabel = (ylabel + name + 
-                        self._in_brackets(data[var]['Value']) + ', ')  
+                        self._in_brackets(data[var]['Value']) + ', ')
         ylabel = ylabel[:-2]
         if same_y_units:
-            ylabel = ylabel + self._in_brackets(data[var]['Value'])
+            ylabel = ylabel + \
+                    self._in_brackets(data[plot_data_vars[0]]['Value'][0])
  
         # Initialize the plot.
         plt.figure(1)

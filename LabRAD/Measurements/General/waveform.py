@@ -19,16 +19,20 @@ populate the DAC boars. See the __main__ section of this file for
 examples.
 """
 
+import collections
+import itertools
+import warnings
 import numpy as np
 import scipy.signal as ss
 
-import warnings
+import matplotlib
+try:
+    matplotlib.use('GTKApp')
+except:
+    pass
 import matplotlib.pyplot as plt
 import matplotlib.cbook
 warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
-
-import collections
-import itertools
 
 import labrad.units as units
 
@@ -39,7 +43,8 @@ def _flatten(iterable):
     remainder = iter(iterable)
     while True:
         first = next(remainder)
-        if isinstance(first, collections.Iterable) and not isinstance(first, _WavePulse):
+        if (isinstance(first, collections.Iterable) and
+                not isinstance(first, _WavePulse)):
             remainder = itertools.chain(first, remainder)
         else:
             yield first
@@ -267,17 +272,19 @@ class Gaussian(_WavePulse):
         sigma = (float(self.duration) - 1) / np.sqrt(112 * np.log(2))
         self.pulse = amplitude * ss.gaussian(self.duration, sigma)
         self._check_pulse()
-        
+
+
 class FromArray(_WavePulse):
     """
     Generate a pulse from a numpy array. The start or end times can be
-    arbitary, and the duration is derived automatically from the length
+    arbitrary, and the duration is derived automatically from the length
     of the array
     
     Inputs:
-        pulse_data: numpy array containing the pulse data in 1 ns chunks
-        start: starting time of the pulse
-        end: end time of the pulse
+        pulse_data: numpy array containing the pulse data in 1 ns
+                chunks.
+        start: starting time of the pulse.
+        end: ending time of the pulse.
     """
     def __init__(self, pulse_data=[], start=None, end=None):
         duration = len(pulse_data)
@@ -288,7 +295,8 @@ class FromArray(_WavePulse):
         
         self.pulse = pulse_data
         self._check_pulse()        
-        
+
+
 class Waveform():
     """
     Create a waveform from pulses.
@@ -300,7 +308,7 @@ class Waveform():
     (A.end + 1), or simply assign A.after() to B.start.
     
     Input:
-        label: Waverform label string.
+        label: waveform label string.
         args: arbitrarily long set of _WavePulses to create the waveform
             from. To create a _WavePulse use one of the "public"
             classes such as DC, Sine, Cosine, etc.
@@ -342,18 +350,19 @@ class Waveform():
         self.start = pulses[0].start
         self.end = pulses[-1].end
         self.duration = self.end - self.start + 1
-        
+
+
 def ECLDuringPulses(*args, **kwargs):
     """
     Return _WavePulse to make ECL outputs go high during a set of 
     specified _WavePulses
     
     Inputs: 
-        args: Set (or list) of _WavePulses during which an ECL pulse 
-        should be generated
-        pad_length: Time before and after the pulses. Default 8 ns
-    Outputs:
-        ECL: list of ECL _WavePulses
+        args: set (or list) of _WavePulses during which an ECL pulse 
+                should be generated.
+        pad_length: time before and after the pulses (default: 8 ns).
+    Output:
+        ECL: list of ECL _WavePulses.
     """
     if 'pad_length' in kwargs:
         if isinstance(kwargs['pad_length'], units.Value):
@@ -371,10 +380,9 @@ def ECLDuringPulses(*args, **kwargs):
     ECL = []
     for pulse in pulses:
         ECL.append(DC(amplitude = 1,
-                        start = pulse.before(pad_length),
-                        end = pulse.after(pad_length)))
+                      start = pulse.before(pad_length),
+                      end = pulse.after(pad_length)))
     return ECL
-    
 
 def Harmonic(amplitude=0, frequency=0, phase=0,
             cosine_offset=0, sine_offset=0,
@@ -397,7 +405,6 @@ def Harmonic(amplitude=0, frequency=0, phase=0,
             start, duration, end),
             Sine(amplitude, frequency, phase, sine_offset,
             start, duration, end))
-            
 
 def wfs_dict(*args, **kwargs):
     """
@@ -428,7 +435,7 @@ def wfs_dict(*args, **kwargs):
             of the waveform numpy ndarrays and the time values that
             specify the start and end times for the waveforms:
             offset = ndarray_index - assigned_time_value, i.e.
-            ndarray_index = assigned_time_value + offset
+            ndarray_index = assigned_time_value + offset.
     """
     defaults = {'min_length': 20, 'start_zeros': 4, 'end_zeros': 4}
     for key in kwargs:
@@ -513,7 +520,7 @@ def plot_wfs(waveforms, wf_labels, wf_colors=['r', 'g', 'm', 'b', 'k']):
 
 if __name__ == "__main__":
     """
-    Tests and examples. Feel free to add your test/example.
+    Tests and examples. Add your test/example!
     """
     # Cosine pulse with amplitude of 1 and frequency of 0.25 GHz
     # starting at t = 2 ns and ending at t = 8 ns.
