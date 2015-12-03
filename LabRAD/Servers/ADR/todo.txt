@@ -3,7 +3,7 @@ TODO LIST
 - figure out fridge settings
 - GGG temp monitoring
 - do we want to have a recording checkbox with a time interval?
-- try running some of this from dif computers
++ try running some of this from dif computers
 + mag up buttons should be updated with the updateState cycle so they get updated if client is opened later
 - make the startup scripts check what is already open before opening again
 - make the startup scripts fully automated
