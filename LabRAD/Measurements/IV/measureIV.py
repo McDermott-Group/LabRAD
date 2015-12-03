@@ -6,16 +6,15 @@ import ttk
 import tkFileDialog
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
 import os, sys
-import niPCI6221 as ni
+#import niPCI6221 as ni
 import threading
 
 # Check out:
 # https://pythonhosted.org/PyDAQmx/callback.html
 
 # TODO:
-# fix two-wire so its how Joey actually does it: change units to ohms, not kohms, make amp on just middle
 # DC sweep?
-# diff extensions for diff measurements?
+# change extension to .pyw to prevent window from opening
 # record all parameters used in notes
 
 class MeasureIV(tk.Tk):   
@@ -73,6 +72,7 @@ class MeasureIV(tk.Tk):
         self.averaging = False
         self.VAverages = 0
         self.IAverages = 0
+        self.savePath.set('.')
         
     def initializeWindow(self):
         """Creates the GUI."""
@@ -110,12 +110,13 @@ class MeasureIV(tk.Tk):
         fileFrame.pack(side=tk.TOP)
         tk.Button(master=fileFrame,text='Select Path',command=self.chooseSaveDirectory).pack(side=tk.LEFT)
         tk.Label(fileFrame,textvariable=self.savePath).pack(side=tk.LEFT)
+        tk.Label(fileFrame,text='/').pack(side=tk.LEFT)
         tk.Entry(fileFrame, width=10, textvariable=self.fileName).pack(side=tk.LEFT)
         tk.Label(fileFrame,text="_#.iv").pack(side=tk.LEFT)
         # (Average and Save||Cancel Averaging) Averages: 0/[#]
         averageFrame = tk.Frame(leftFrame)
         averageFrame.pack(side=tk.TOP)
-        self.avgButton = tk.Button(master=averageFrame,text='Average and Save',command=self.averageAndSave)
+        self.avgButton = tk.Button(master=averageFrame,text='Average',command=self.averageAndSave)
         self.avgButton.pack(side=tk.LEFT)
         tk.Label(averageFrame,text="Averages: ").pack(side=tk.LEFT)
         tk.Label(averageFrame,textvariable=self.averages).pack(side=tk.LEFT)
@@ -152,32 +153,32 @@ class MeasureIV(tk.Tk):
         bglabelVPhi.image = bgimg
         bglabelVPhi.pack()
         
-        tk.OptionMenu(frame2wire, self.portACIn, 0,1).place(relx=90/597., rely=261/578., anchor=tk.CENTER)
-        tk.Entry(frame2wire, width=8, textvariable=self.ACFreq).place(relx=90/597., rely=285/578., anchor=tk.CENTER)
-        tk.Entry(frame2wire, width=8, textvariable=self.ACAmp).place(relx=90/597., rely=308/578., anchor=tk.CENTER)
-        tk.Entry(frame2wire, width=8, textvariable=self.RACIn).place(relx=305/597., rely=175/578., anchor=tk.CENTER)
-        tk.Entry(frame2wire, width=8, textvariable=self.amp).place(relx=450/597., rely=135/578., anchor=tk.CENTER)
-        tk.OptionMenu(frame2wire, self.portOut, 0,1,2,3,4,5,6,7).place(relx=531/597., rely=210/578., anchor=tk.CENTER)
+        tk.OptionMenu(frame2wire, self.portACIn, 0,1).place(relx=70/597., rely=261/578., anchor=tk.CENTER)
+        tk.Entry(frame2wire, width=8, textvariable=self.ACFreq).place(relx=70/597., rely=285/578., anchor=tk.CENTER)
+        tk.Entry(frame2wire, width=8, textvariable=self.ACAmp).place(relx=70/597., rely=308/578., anchor=tk.CENTER)
+        tk.Entry(frame2wire, width=8, textvariable=self.RACIn).place(relx=305/597., rely=176/578., anchor=tk.CENTER)
+        tk.Entry(frame2wire, width=8, textvariable=self.amp).place(relx=450/597., rely=335/578., anchor=tk.CENTER)
+        tk.OptionMenu(frame2wire, self.portOut, 0,1,2,3,4,5,6,7).place(relx=531/597., rely=410/578., anchor=tk.CENTER)
         
-        tk.OptionMenu(frame3wire, self.portACIn, 0,1).place(relx=93/597., rely=58/578., anchor=tk.CENTER)
-        tk.Entry(frame3wire, width=8, textvariable=self.ACFreq).place(relx=93/597., rely=81/578., anchor=tk.CENTER)
-        tk.Entry(frame3wire, width=8, textvariable=self.ACAmp).place(relx=93/597., rely=105/578., anchor=tk.CENTER)
+        tk.OptionMenu(frame3wire, self.portACIn, 0,1).place(relx=86/597., rely=58/578., anchor=tk.CENTER)
+        tk.Entry(frame3wire, width=8, textvariable=self.ACFreq).place(relx=86/597., rely=81/578., anchor=tk.CENTER)
+        tk.Entry(frame3wire, width=8, textvariable=self.ACAmp).place(relx=86/597., rely=105/578., anchor=tk.CENTER)
         tk.Entry(frame3wire, width=8, textvariable=self.RACIn).place(relx=144/597., rely=176/578., anchor=tk.CENTER)
         tk.Entry(frame3wire, width=8, textvariable=self.ROut).place(relx=405/597., rely=176/578., anchor=tk.CENTER)
         tk.Entry(frame3wire, width=8, textvariable=self.amp).place(relx=411/597., rely=35/578., anchor=tk.CENTER)
         tk.OptionMenu(frame3wire, self.portOut, 0,1,2,3,4,5,6,7).place(relx=545/597., rely=80/578., anchor=tk.CENTER)
         
-        tk.OptionMenu(frame4wire, self.portACIn, 0,1).place(relx=58/597., rely=158/578., anchor=tk.CENTER)
-        tk.Entry(frame4wire, width=8, textvariable=self.ACFreq).place(relx=58/597., rely=182/578., anchor=tk.CENTER)
-        tk.Entry(frame4wire, width=8, textvariable=self.ACAmp).place(relx=58/597., rely=205/578., anchor=tk.CENTER)
+        tk.OptionMenu(frame4wire, self.portACIn, 0,1).place(relx=41/597., rely=158/578., anchor=tk.CENTER)
+        tk.Entry(frame4wire, width=8, textvariable=self.ACFreq).place(relx=41/597., rely=182/578., anchor=tk.CENTER)
+        tk.Entry(frame4wire, width=8, textvariable=self.ACAmp).place(relx=41/597., rely=205/578., anchor=tk.CENTER)
         tk.Entry(frame4wire, width=8, textvariable=self.RACIn).place(relx=38/597., rely=268/578., anchor=tk.CENTER)
         tk.Entry(frame4wire, width=8, textvariable=self.ROut).place(relx=220/597., rely=268/578., anchor=tk.CENTER)
         tk.OptionMenu(frame4wire, self.portOut, 0,1,2,3,4,5,6,7).place(relx=551/597., rely=94/578., anchor=tk.CENTER)
         
         tk.OptionMenu(frameVPhi, self.portDCIn, 0,1).place(relx=94/597., rely=80/578., anchor=tk.CENTER)
-        tk.OptionMenu(frameVPhi, self.portACIn, 0,1).place(relx=44/597., rely=192/578., anchor=tk.CENTER)
-        tk.Entry(frameVPhi, width=8, textvariable=self.ACFreq).place(relx=44/597., rely=216/578., anchor=tk.CENTER)
-        tk.Entry(frameVPhi, width=8, textvariable=self.ACAmp).place(relx=44/597., rely=239/578., anchor=tk.CENTER)
+        tk.OptionMenu(frameVPhi, self.portACIn, 0,1).place(relx=34/597., rely=194/578., anchor=tk.CENTER)
+        tk.Entry(frameVPhi, width=8, textvariable=self.ACFreq).place(relx=34/597., rely=218/578., anchor=tk.CENTER)
+        tk.Entry(frameVPhi, width=8, textvariable=self.ACAmp).place(relx=34/597., rely=241/578., anchor=tk.CENTER)
         tk.Entry(frameVPhi, width=8, textvariable=self.DCAmp).place(relx=94/597., rely=105/578., anchor=tk.CENTER)
         tk.Entry(frameVPhi, width=8, textvariable=self.RDCIn).place(relx=144/597., rely=156/578., anchor=tk.CENTER)
         tk.Entry(frameVPhi, width=8, textvariable=self.RACIn).place(relx=94/597., rely=306/578., anchor=tk.CENTER)
@@ -323,19 +324,22 @@ class MeasureIV(tk.Tk):
     def cancelAveraging(self):
         self.averaging = False
         self.averages.set( 0 )
-        self.avgButton.config(text='Average and Save',command=self.averageAndSave)
+        if self.savePath.get() != '.': btntext = 'Average and Save'
+        else: btntext = 'Average'
+        self.avgButton.config(text=btntext,command=self.averageAndSave)
     
     def saveAveragedData(self):
         # &&& add data about n averages, type of measurement, all the resistors and other params
-        i = 1
-        while True:
-        	fullSavePath = os.path.join(self.savePath.get(),(self.fileName.get()+'_%03d.iv'%i))
-        	if not os.path.exists(fullSavePath): break
-        	i += 1
-        with open(fullSavePath,'a') as f:
-            dataToSave = np.transpose(np.asarray([self.IAverages,self.VAverages]))
-            f.write(self.comments.get(1.0, tk.END))
-            np.savetxt(f,dataToSave)
+        if self.savePath.get() != '.':
+            i = 1
+            while True:
+                fullSavePath = os.path.join(self.savePath.get(),(self.fileName.get()+'_%03d.iv'%i))
+                if not os.path.exists(fullSavePath): break
+                i += 1
+            with open(fullSavePath,'a') as f:
+                dataToSave = np.transpose(np.asarray([self.IAverages,self.VAverages]))
+                f.write(self.comments.get(1.0, tk.END))
+                np.savetxt(f,dataToSave)
     
     def chooseSaveDirectory(self):
     	chooseDirOpts = {}
@@ -343,9 +347,13 @@ class MeasureIV(tk.Tk):
         chooseDirOpts['mustexist'] = True
         chooseDirOpts['title'] = 'Choose base data directory...'
     	self.savePath.set( tkFileDialog.askdirectory(**chooseDirOpts) )
+        self.avgButton.config(text="Average and Save")
     
     def changeACWaves(self,*args):
         """This should be called (by a listener) every time any of the BNC output port variables change."""
+        # if port is changed, we should automatically switch AC and DC ports
+        if self.portACIn.get() == self.portDCIn.get():
+            self.portDCIn.set((self.portACIn.get()+1)%2)
         try: 
             self.ACAmp.get(), self.ACFreq.get() #raise error if cell is not valid float
             self.waveOutput.StopTask()
@@ -357,6 +365,9 @@ class MeasureIV(tk.Tk):
         except Exception as e: print 'failed to end wave', str(e)
     
     def changeDCOutput(self,*args):
+        # if port is changed, we should automatically switch AC and DC ports
+        if self.portACIn.get() == self.portDCIn.get():
+            self.portACIn.set((self.portDCIn.get()+1)%2)
         try: 
             self.DCAmp.get()    # raise error if cell is not valid float
             self.DCOutput.StopTask()
