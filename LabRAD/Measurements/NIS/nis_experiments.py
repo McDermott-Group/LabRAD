@@ -68,9 +68,9 @@ class NISReadout(ADCExperiment):
 
         ###SET BOARDS PROPERLY##########################################
         self.boards.set_adc_setting('DemodFreq', -self.value('RF SB Frequency'), adc)
-        
+  
         self.boards.set_adc_setting('ADCDelay', (offset +
-                RF_I.end + self.value('ADC Wait Time')['ns']) * units.ns, adc)
+                self.value('ADC Wait Time')['ns']) * units.ns, adc)
         self.boards.set_adc_setting('FilterStartAt', 0 * units.ns, adc)
 
         ###MEMORY COMMAND LISTS#########################################
