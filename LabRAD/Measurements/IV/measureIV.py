@@ -252,7 +252,11 @@ class MeasureIV(tk.Tk):
             print 'Error initializing DC output:\n' + str(e)
         
     def updateData(self, data):
+        try: self.ACAmp.get(), self.ACFreq.get()
+        except ValueError: return
+        
         self.cond.acquire()
+        
         try: newdata = data
         except Exception as e:
             print 'failed to aquire data'
@@ -290,7 +294,7 @@ class MeasureIV(tk.Tk):
             try:
                 currents = currents/self.RACIn.get()/1000
                 voltages = voltages/self.amp.get()
-                #currents, voltages = voltages, currents
+                currents, voltages = voltages, currents
                 self.ax.set_xlabel('$\Phi/L$ [A]')
                 self.ax.set_ylabel('Voltage [V]')
             except ValueError: pass
@@ -351,30 +355,34 @@ class MeasureIV(tk.Tk):
     
     def changeACWaves(self,*args):
         """This should be called (by a listener) every time any of the BNC output port variables change."""
+        try:
+            self.waveOutput.StopTask()
+            self.waveOutput.ClearTask()
+            self.waveInput.StopTask()
+            self.waveInput.ClearTask()
+        except: print 'failed to end wave'
         # if port is changed, we should automatically switch AC and DC ports
         if self.portACIn.get() == self.portDCIn.get():
             self.portDCIn.set((self.portACIn.get()+1)%2)
         try: 
             self.ACAmp.get(), self.ACFreq.get() #raise error if cell is not valid float
-            self.waveOutput.StopTask()
-            self.waveOutput.ClearTask()
-            self.waveInput.StopTask()
-            self.waveInput.ClearTask()
             self.initializeACWaves()
         except ValueError: pass # if cell is not valid float
-        except Exception as e: print 'failed to end wave', str(e)
+        except Exception as e: print 'failed to start wave', str(e)
     
     def changeDCOutput(self,*args):
+        try:
+            self.DCOutput.StopTask()
+            self.DCOutput.ClearTask()
+        except: print 'failed to end DC wave'
         # if port is changed, we should automatically switch AC and DC ports
         if self.portACIn.get() == self.portDCIn.get():
             self.portACIn.set((self.portDCIn.get()+1)%2)
         try: 
             self.DCAmp.get()    # raise error if cell is not valid float
-            self.DCOutput.StopTask()
-            self.DCOutput.ClearTask()
             self.initializeDCWave()
         except ValueError: pass # if cell is not valid float
-        except Exception as e: print 'failed to end output DC wave', str(e)
+        except Exception as e: print 'failed to start DC wave', str(e)
 
     def _quit(self):
         """ called when the window is closed."""
