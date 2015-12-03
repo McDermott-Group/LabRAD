@@ -136,3 +136,59 @@ class ADCTestLogSpiral(ADCExperiment):
         ###LOAD#########################################################
         result = self.boards.load(dac_srams, mems)
         self.acknowledge_requests()
+        
+class ADCTestInfinity(ADCExperiment):
+    """
+    Read out a qubit connected to a resonator.
+    """
+    def load_once(self, adc=None):
+    
+        #RF DRIVE (READOUT) VARIABLES###################################
+        self.set('RF Attenuation')
+        self.set('RF Power')
+        self.set('RF Frequency', self.value('RF Frequency') +
+                self.value('RF SB Frequency'))
+
+        a = self.value('RF Amplitude')
+        b = 2.*np.pi/45. #spiral pitch, 8 degrees
+        
+        t = self.value('Spiral')
+        Qamp = a*np.cos(t)/(1 + np.sin(t)**2)
+        Iamp = a*np.sin(t)*np.cos(t)/(1 + np.sin(t)**2)
+
+        RF_I = wf.Cosine(amplitude = Qamp,
+                         frequency = self.value('RF SB Frequency'),
+                         phase = self.value('RF Phase'),
+                         start = 0,
+                         duration = self.value('RF Time'))
+                         
+        RF_Q = wf.Cosine(amplitude = Iamp,
+                         frequency = self.value('RF SB Frequency'),
+                         phase = self.value('RF Phase'),
+                         start = 0,
+                         duration = self.value('RF Time'))
+        
+        waveforms, offset = wf.wfs_dict(wf.Waveform('RF I', RF_I),
+                                        wf.Waveform('RF Q', RF_Q),
+                      min_length=self.boards.consts['DAC_ZERO_PAD_LEN'])
+
+        dac_srams, sram_length = self.boards.process_waveforms(waveforms)
+
+        # wf.plot_wfs(waveforms, waveforms.keys())
+
+        ###SET BOARDS PROPERLY##########################################
+        self.boards.set_adc_setting('DemodFreq', -self.value('ADC Demod Frequency'), adc)
+        #self.boards.set_adc_setting('FilterLength', self.value('RF Time'), adc) 
+        self.boards.set_adc_setting('FilterStartAt', offset * units.ns, adc)
+        self.boards.set_adc_setting('ADCDelay', 0 * units.ns, adc)
+
+        # self.boards.set_adc_setting('ADCDelay', (offset +
+                 # RO_I.end + self.value('ADC Wait Time')['ns']) * units.ns, adc)
+        # self.boards.set_adc_setting('FilterStartAt', 0 * units.ns, adc)
+
+        mems = [ms.simple_sequence(self.value('Init Time'), sram_length, 0)
+                for dac in self.boards.dacs]
+        
+        ###LOAD#########################################################
+        result = self.boards.load(dac_srams, mems)
+        self.acknowledge_requests()

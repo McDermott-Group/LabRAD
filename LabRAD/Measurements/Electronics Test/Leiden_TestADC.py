@@ -101,11 +101,11 @@ ExptVars = {
             'ADC Demod Frequency': 125 * MHz
            }
 
-with adc_test_experiment.ADCTestDemodulation() as run:
+# with adc_test_experiment.ADCTestDemodulation() as run:
     
-    run.set_experiment(ExptInfo, Resources, ExptVars)
+    # run.set_experiment(ExptInfo, Resources, ExptVars)
     
-    #run.single_shot_iqs(save=True, plot_data=True)
+    # run.single_shot_iqs(save=True, plot_data=True)
     # run.single_shot_osc(save=False, plot_data=['I', 'Q'])
     # run.avg_osc(save=True, plot_data=['I', 'Q'], runs=1000)
    
@@ -113,9 +113,9 @@ with adc_test_experiment.ADCTestDemodulation() as run:
               # print_data=['I','Q'],plot_data=['I','Q'],
               # save=True, runs=1, max_data_dim=2)
     # for i in xrange(100):
-    run.sweep('RF Phase', np.linspace(0, 2*np.pi, 73) * rad, 
-              print_data=['I','Q'],plot_data=['I','Q'],
-              save=True, runs=1, max_data_dim=2)
+    # run.sweep('RF Phase', np.linspace(0, 2*np.pi, 73) * rad, 
+              # print_data=['I','Q'],plot_data=['I','Q'],
+              # save=True, runs=1, max_data_dim=2)
               
     # run.sweep('RF SB Frequency', np.linspace(0, 200, 201) * MHz, 
                 # print_data=['I', 'Q'], plot_data=['I','Q','Amplitdue'],
@@ -128,10 +128,10 @@ with adc_test_experiment.ADCTestDemodulation() as run:
     # run.sweep('RF Attenuation', np.linspace(3, 60, 58) * dB, 
                 # print_data=['I', 'Q'], plot_data=['Amplitude'],
                 # save=True, runs=1, max_data_dim=1)
-# with adc_test_experiment.ADCTestLogSpiral() as run:
+with adc_test_experiment.ADCTestInfinity() as run:
     
-    # run.set_experiment(ExptInfo, Resources, ExptVars)  
+    run.set_experiment(ExptInfo, Resources, ExptVars)  
     
-    # run.sweep('Spiral', np.linspace(0, 20, 101), print_data=['I', 'Q'],
-                # plot_data=['I', 'Q'], save=True, runs = 1,
-                # max_data_dim=2)
+    run.sweep('Spiral', np.linspace(0, 2*np.pi, 101), print_data=['I', 'Q'],
+                plot_data=['I', 'Q'], save=True, runs = 1,
+                max_data_dim=2)
