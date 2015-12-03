@@ -6,7 +6,7 @@ import ttk
 import tkFileDialog
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
 import os, sys
-#import niPCI6221 as ni
+import niPCI6221 as ni
 import threading
 
 # Check out:
