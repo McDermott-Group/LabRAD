@@ -208,7 +208,7 @@ class ADRController(object):#Tkinter.Tk):
         t1checkbox.pack(side=Tkinter.LEFT)
         t2checkbox = Tkinter.Checkbutton(tempSelectFrame, text = '3K Stage', variable=self.t3K, fg='forest green')
         t2checkbox.pack(side=Tkinter.LEFT)
-        t3checkbox = Tkinter.Checkbutton(tempSelectFrame, text = '1K Stage (GGG)', variable=self.tGGG, fg='red', state=Tkinter.DISABLED)
+        t3checkbox = Tkinter.Checkbutton(tempSelectFrame, text = '1K Stage (GGG)', variable=self.tGGG, fg='red')
         t3checkbox.pack(side=Tkinter.LEFT)
         t4checkbox = Tkinter.Checkbutton(tempSelectFrame, text = '50mK Stage (FAA)', variable=self.tFAA, fg='dark turquoise')
         t4checkbox.pack(side=Tkinter.LEFT)
@@ -221,6 +221,10 @@ class ADRController(object):#Tkinter.Tk):
         # refresh instruments button
         refreshInstrButton = Tkinter.Button(root, text='Refresh Instruments', command=self.refreshInstruments)
         refreshInstrButton.pack(side=Tkinter.TOP)
+        # start/stop compressor button
+        self.compressorButton = Tkinter.Button(root, text='Start Compressor', command=self.startCompressor)
+        self.compressorButton.pack(side=Tkinter.TOP)
+        self.compressorButton.configure(state=Tkinter.DISABLED)
         #frame for mag up and regulate controls
         magControlsFrame = Tkinter.Frame(root)
         magControlsFrame.pack(side=Tkinter.TOP)
@@ -234,13 +238,17 @@ class ADRController(object):#Tkinter.Tk):
         #mag up button
         self.magUpButton = Tkinter.Button(master=magControlsFrame, text='Mag Up', command=self.magUp)
         self.magUpButton.pack(side=Tkinter.LEFT)
+        self.magUpButton.configure(state=Tkinter.DISABLED)
         #regulate button and temp field
         self.regulateButton = Tkinter.Button(master=magControlsFrame, text='Regulate', command=self.regulate)
         self.regulateButton.pack(side=Tkinter.LEFT)
+        self.regulateButton.configure(state=Tkinter.DISABLED)
         Tkinter.Label(magControlsFrame, text=" at ").pack(side=Tkinter.LEFT)
-        self.regulateTempField = Tkinter.Entry(magControlsFrame, validate='key', validatecommand=self.changeRegTemp)
+        self.regulationTemp = Tkinter.DoubleVar()
+        self.regulationTemp.set(0.1)
+        self.regulationTemp.trace('w',self.changeRegTemp)
+        self.regulateTempField = Tkinter.Entry(magControlsFrame, textvariable=self.regulationTemp)
         self.regulateTempField.pack(side=Tkinter.LEFT)
-        self.regulateTempField.insert(0, "0.1")
         Tkinter.Label(magControlsFrame, text="K").pack(side=Tkinter.LEFT)
         #shows current values for backEMF, current, voltage
         monitorFrame = Tkinter.Frame(root)
@@ -314,28 +322,30 @@ class ADRController(object):#Tkinter.Tk):
         reg.cd(adrSettingsPath)
         file_path = yield reg.get('Log Path')
         file_length = os.stat(file_path+'\\temperatures'+date_append+'.temps')[6]
-        with open(file_path+'\\temperatures'+date_append+'.temps', 'rb') as f:
-            first = False
-            n = 1
-            while first is False and file_length - n*5*8 > 0:
-                f.seek(file_length - n*5*8)
-                newRow = [struct.unpack('d',f.read(8))[0] for x in ['time','t1','t2','t3','t4']]
-                #timeDisplayOptions = {'10 minutes':10,'1 hour':60,'6 hours':6*60,'24 hours':24*60,'All':0}
-                if len(self.stage60K.get_xdata()) < 1: xMin = mpl.dates.num2date(1)
-                else:
-                    lastDatetime = mpl.dates.num2date(self.stage60K.get_xdata()[-1])
-                    xMin = lastDatetime-datetime.timedelta(minutes=6*60) #timeDisplayOptions[self.wScale.get()])
-                if mpl.dates.date2num(xMin) < newRow[0]:
-                    self.stage60K.set_xdata(numpy.append(newRow[0],self.stage60K.get_xdata()))
-                    self.stage60K.set_ydata(numpy.append(newRow[1],self.stage60K.get_ydata()))
-                    self.stage03K.set_xdata(numpy.append(newRow[0],self.stage03K.get_xdata()))
-                    self.stage03K.set_ydata(numpy.append(newRow[2],self.stage03K.get_ydata()))
-                    self.stageGGG.set_xdata(numpy.append(newRow[0],self.stageGGG.get_xdata()))
-                    self.stageGGG.set_ydata(numpy.append(newRow[3],self.stageGGG.get_ydata()))
-                    self.stageFAA.set_xdata(numpy.append(newRow[0],self.stageFAA.get_xdata()))
-                    self.stageFAA.set_ydata(numpy.append(newRow[4],self.stageFAA.get_ydata()))
-                else: first = True
-                n += 1
+        try:
+            with open(file_path+'\\temperatures'+date_append+'.temps', 'rb') as f:
+                first = False
+                n = 1
+                while first is False and file_length - n*5*8 > 0:
+                    f.seek(file_length - n*5*8)
+                    newRow = [struct.unpack('d',f.read(8))[0] for x in ['time','t1','t2','t3','t4']]
+                    #timeDisplayOptions = {'10 minutes':10,'1 hour':60,'6 hours':6*60,'24 hours':24*60,'All':0}
+                    if len(self.stage60K.get_xdata()) < 1: xMin = mpl.dates.num2date(1)
+                    else:
+                        lastDatetime = mpl.dates.num2date(self.stage60K.get_xdata()[-1])
+                        xMin = lastDatetime-datetime.timedelta(minutes=6*60) #timeDisplayOptions[self.wScale.get()])
+                    if mpl.dates.date2num(xMin) < newRow[0]:
+                        self.stage60K.set_xdata(numpy.append(newRow[0],self.stage60K.get_xdata()))
+                        self.stage60K.set_ydata(numpy.append(newRow[1],self.stage60K.get_ydata()))
+                        self.stage03K.set_xdata(numpy.append(newRow[0],self.stage03K.get_xdata()))
+                        self.stage03K.set_ydata(numpy.append(newRow[2],self.stage03K.get_ydata()))
+                        self.stageGGG.set_xdata(numpy.append(newRow[0],self.stageGGG.get_xdata()))
+                        self.stageGGG.set_ydata(numpy.append(newRow[3],self.stageGGG.get_ydata()))
+                        self.stageFAA.set_xdata(numpy.append(newRow[0],self.stageFAA.get_xdata()))
+                        self.stageFAA.set_ydata(numpy.append(newRow[4],self.stageFAA.get_ydata()))
+                    else: first = True
+                    n += 1
+        except IOError: print 'temp file not created yet?' # file not created yet if first time opened
         self.updatePlot()
         # clear and reload log
         self.log.clear()
@@ -344,6 +354,9 @@ class ADRController(object):#Tkinter.Tk):
             self.updateLog(m,a)
         # update field limits and button statuses
         self.setFieldLimits()
+        self.magUpButton.configure(state=Tkinter.NORMAL)
+        self.regulateButton.configure(state=Tkinter.NORMAL)
+        self.compressorButton.configure(state=Tkinter.DISABLED)
         mUp = yield self.cxn[self.selectedADR].get_state_var('maggingUp')
         reg = yield self.cxn[self.selectedADR].get_state_var('regulating')
         if mUp:
@@ -363,7 +376,15 @@ class ADRController(object):#Tkinter.Tk):
         p.magnetv().pscurrent().psvoltage()
         p.time()
         p.temperatures()
+        p.get_state_var('CompressorStatus')
         state = yield p.send()
+        # change compressor button
+        if state['get_state_var'] == True: 
+            self.compressorButton.configure(text='Stop Compressor', command=self.stopCompressor, state=Tkinter.NORMAL)
+        elif state['get_state_var'] == False: 
+            self.compressorButton.configure(text='Start Compressor', command=self.startCompressor, state=Tkinter.NORMAL)
+        else: self.compressorButton.configure(state=Tkinter.DISABLED)
+        # update current, voltage fields
         temps = {}
         stages = ('T_60K','T_3K','T_GGG','T_FAA')
         for i in range(len(stages)):
@@ -438,6 +459,10 @@ class ADRController(object):#Tkinter.Tk):
             self.cxn[self.selectedADR].add_to_log(text)
             self.addToLogField.delete(1.0, Tkinter.END)
         except Exception as e: pass
+    def startCompressor(self):
+        self.cxn[self.selectedADR].start_compressor()
+    def stopCompressor(self):
+        self.cxn[self.selectedADR].stop_compressor()
     def magUp(self):
         self.cxn[self.selectedADR].mag_up()
     def magUpStarted(self):

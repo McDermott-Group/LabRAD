@@ -41,6 +41,7 @@ from labrad.server import (LabradServer, setting,
 from labrad.devices import DeviceServer
 from labrad import util, units
 from labrad.types import Error as LRError
+from labrad.client import NotFoundError
 import sys
  
 def deltaT(dT):
@@ -99,16 +100,20 @@ class ADRServer(DeviceServer):
                             'dIdt_regulate_limit': 9./(40*60),#limit on the rate at which we allow current to change in amps/s (we want 9A over 40 min)
                             'step_length': 1.0,              #How long is each regulation/mag up cycle in seconds.  **Never set this less than 1.0sec.**  The SRS SIM922 only measures once a second and this would cause runaway voltages/currents.
                             'magnet_max_temp': 5,
+                            'FAA MP Chan': 2,
+                            'GGG MP Chan': 1,
                             'Power Supply':['Agilent 6641A PS','addr'],
-                            'Ruox Temperature Monitor':['SIM921 Server','addr'],
+                            'Ruox Temperature Monitor':['SIM921 Server','addr'], #['ACBridgeWithMultiplexer':[['SIM921 Server','addr'],['SIM925 Server','addr']]]
                             'Diode Temperature Monitor':['SIM922 Server','addr'],
                             'Magnet Voltage Monitor':['SIM922 Server','addr'],
-                            'Heat Switch':['Heat Switch','addr']}
-        self.instruments = {'Power Supply':None,
-                            'Ruox Temperature Monitor':None,
-                            'Diode Temperature Monitor':None,
-                            'Magnet Voltage Monitor':None,
-                            'Heat Switch':None}
+                            'Heat Switch':['Heat Switch','addr'],
+                            'Compressor':['CP2800 Compressor','addr']}
+        self.instruments = {'Power Supply':'None',
+                            'Ruox Temperature Monitor':'None',
+                            'Diode Temperature Monitor':'None',
+                            'Magnet Voltage Monitor':'None',
+                            'Heat Switch':'None',
+                            'Compressor':'None'}
         dt = datetime.datetime.now()
         self.dateAppend = dt.strftime("_%y%m%d_%H%M")
         self.logMessages = []
@@ -116,6 +121,11 @@ class ADRServer(DeviceServer):
     def initServer(self):
         """This method loads default settings from the registry, starts servers and sets up instruments, and sets up listeners for GPIB device connect/disconnect messages."""
         DeviceServer.initServer(self)
+        try:
+            yield self.client.registry.cd(self.ADRSettingsPath)
+            self.file_path = yield self.client.registry.get('Log Path')
+        except Exception as e:
+            self.logMessage( '{Saving log failed.  Check that AFS is working.} ' )
         yield self.loadDefaults()
         yield self.startServers()
         yield util.wakeupCall( 2 ) # on the round ADR, the HP DMM takes forever to initialize.  This prevents it from going on before it is ready.
@@ -169,40 +179,64 @@ class ADRServer(DeviceServer):
             else: self.logMessage(server+' is already running.')
     @inlineCallbacks
     def initializeInstruments(self):
-        """This method simply creates the instances of the power supply, sim922, and ruox temperature monitor."""
+        """This method creates the instances of all the instruments and saves them in self.instruments.
+            It then sends set_adr_settings_path and select_device.  If these both go through (or are not
+            valid methods, instr.connect is set to True.  The power supply is also initialized."""
         for instrName in self.instruments:
             settings = self.ADRSettings[instrName]
+            # save server to instruments dict, leave as None if cannot connect
+            lastInstr = self.instruments[instrName]
             try:
                 instr = self.client[ settings[0] ]
                 self.instruments[instrName] = instr
-                try: yield instr.set_adr_settings_path(self.ADRSettingsPath)
-                except: pass
-                try: yield instr.select_device( settings[1] )
-                except: pass
-                if hasattr(instr,'connected'):
-                    if instr.connected == False:
-                        self.logMessage(instrName+' Connected.')
-                else:
-                    instr.connected = True
+                if lastInstr != self.instruments[instrName]:
+                    self.logMessage('Server running for '+instrName+'.')
+            except: # NotFoundError: 
+                self.instruments[instrName] = None
+                if lastInstr != self.instruments[instrName]:
+                    message = 'Server not found for '+instrName+'.'
+                    self.logMessage(message, alert=True)
+                continue
+                
+            # set adr settings path (if the server has that method)
+            try: yield instr.set_adr_settings_path(self.ADRSettingsPath)
+            except: pass # NotFoundError: pass
+            
+            # select the device using the address in the registry under the instrument name
+            if hasattr(instr,'connected'): lastStatus = instr.connected
+            else: lastStatus = False
+            try: 
+                yield instr.select_device( settings[1] )
+                instr.connected = True
+                if lastStatus != instr.connected:
                     self.logMessage(instrName+' Connected.')
+            #except NotFoundError: instr.connected = True
             except LRError as e:
                 if 'NoDevicesAvailableError' in e.msg:
                     message = 'No devices connected for '+instrName+'.'
-                    self.logMessage(message, alert=True)
-                    instr.connected = False
-                if 'NoSuchDeviceError' in e.msg:
+                elif 'NoSuchDeviceError' in e.msg:
                     message = 'No devices found for '+instrName+' at address '+settings[1]+'.'
-                    self.logMessage(message, alert=True)
-                    instr.connected = False
-            except Exception as e:
-                message = 'Could not connect to '+instrName+'. Check that it is turned on and the server is running.' + str(e)
-                self.logMessage(message, alert=True)
+                else: message = False
                 instr.connected = False
-        try: 
-            yield self.instruments['Power Supply'].initialize_ps()
-            self.logMessage('Power Supply Initialized.')
-        except Exception as e:
-            self.logMessage( 'Power Supply could not be initialized.', alert=True)
+                if message and (lastStatus != instr.connected): self.logMessage(message, alert=True)
+                continue
+            except Exception as e: 
+                instr.connected = False
+                self.logMessage('Could not connect to device: '+str(e), alert=True)
+        
+        # initialize power supply
+        if self.instruments['Power Supply'].connected == True:
+            try: 
+                yield self.instruments['Power Supply'].initialize_ps()
+                self.logMessage('Power Supply Initialized.')
+            except Exception as e:
+                self.logMessage( 'Power Supply could not be initialized.', alert=True)
+        
+        # if ruox therms are being read through multiplexer, set the channels
+        try:
+        	self.instruments['Ruox Temperature Monitor'].add_channel(self.ADR_Settings['FAA MP Chan'])
+        	self.instruments['Ruox Temperature Monitor'].add_channel(self.ADR_Settings['GGG MP Chan'])
+        except: pass # NotFoundError: pass # may not have these methods
         
     @inlineCallbacks
     def _refreshInstruments(self):
@@ -216,18 +250,12 @@ class ADRServer(DeviceServer):
         self.initializeInstruments()
     def gpib_device_disconnect(self, server, channel):
         self.initializeInstruments()
-    @inlineCallbacks
     def logMessage(self, message, alert=False):
         """Applies a time stamp to the message and saves it to a file and an array."""
         dt = datetime.datetime.now()
         messageWithTimeStamp = dt.strftime("[%m/%d/%y %H:%M:%S] ") + message
         self.logMessages.append( (messageWithTimeStamp,alert) )
-        try:
-            yield self.client.registry.cd(self.ADRSettingsPath)
-            file_path = yield self.client.registry.get('Log Path')
-        except Exception as e:
-            message = '{Saving log failed.  Check that AFS is working.} ' + message
-        with open(file_path+'\\log'+self.dateAppend+'.txt', 'a') as f:
+        with open(self.file_path+'\\log'+self.dateAppend+'.txt', 'a') as f:
             f.write( messageWithTimeStamp + '\n' )
         print '[log] '+ message
         self.client.manager.send_named_message('Log Changed', (messageWithTimeStamp,alert))
@@ -237,36 +265,39 @@ class ADRServer(DeviceServer):
         nan = numpy.nan
         while self.alive:
             cycleStartTime = datetime.datetime.now()
-            # update system state
             self.lastState = self.state.copy()
+            # compressor
+            self.state['CompressorStatus'] = None
+            if self.instruments['Compressor'].connected == True:
+				try: self.state['CompressorStatus'] = self.instruments['Compressor'].status()
+				except Exception as e: print 'could not read compressor status',str(e)
+			# diode temps
             try:
                 self.state['T_60K'],self.state['T_3K'] = yield self.instruments['Diode Temperature Monitor'].get_diode_temperatures()
             except Exception as e: 
                 self.state['T_60K'],self.state['T_3K'] = nan*units.K, nan*units.K
                 self.instruments['Diode Temperature Monitor'].connected = False
-            try:
-                ruoxDevSettings = yield self.client.manager.lr_settings(self.ADRSettings['Ruox Temperature Monitor'][0])
-                if 'Get Time Constant' in [n for s,n in ruoxDevSettings]:
-                    timeConst = yield self.instruments['Ruox Temperature Monitor'].get_time_constant()
-                else: timeConst = 0*units.s
-                if deltaT( datetime.datetime.now() - self.state['RuOxChanSetTime'] ) >= 10*timeConst['s']: #only if we have waited 10 x the time constant for the reader to settle
-                    self.state[ 'T_'+self.state['RuOxChan'] ] = yield self.instruments['Ruox Temperature Monitor'].get_ruox_temperature()
-                    #print self.state['T_GGG']['K'], self.state['T_FAA']['K'], self.instruments['Ruox Temperature Monitor'], self.state['RuOxChanSetTime']
-                    if self.state['RuOxChan'] == 'GGG': self.state['T_FAA'] = nan*units.K
-                    if self.state['RuOxChan'] == 'FAA': self.state['T_GGG'] = nan*units.K
-                    if self.state['T_GGG']['K'] == 20.0: self.state['T_GGG'] = nan*units.K
-                    if self.state['T_FAA']['K'] == 45.0: self.state['T_FAA'] = nan*units.K
-                    # &&& enable ability to switch between FAA and GGG, retain last record for other temp instead of making it NaN (see old code)
+            # ruox temps
+            try: 
+            	temps = yield self.instruments['Ruox Temperature Monitor'].get_ruox_temperature()
+            	# if there are two returned temps, maps them to GGG and FAA.  if only one is returned, assumes it is for the FAA
+                try: self.state['T_GGG'],self.state['T_FAA'] = temps
+                except: self.state['T_GGG'],self.state['T_FAA'] = nan*units.K, temps
             except Exception as e: 
                 print 'err:',str(e)
                 self.state['T_GGG'],self.state['T_FAA'] = nan*units.K, nan*units.K
                 self.instruments['Ruox Temperature Monitor'].connected = False
+            if self.state['T_GGG']['K'] == 20.0: self.state['T_GGG'] = nan*units.K
+            if self.state['T_FAA']['K'] == 45.0: self.state['T_FAA'] = nan*units.K
+            # datetime, cycle
             self.state['datetime'] = datetime.datetime.now()
             self.state['cycle'] += 1
+            # voltage across magnet
             try: self.state['magnetV'] = yield self.instruments['Magnet Voltage Monitor'].get_magnet_voltage()
             except Exception as e: 
                 self.state['magnetV'] = nan*units.V
                 self.instruments['Magnet Voltage Monitor'].connected = False
+            # PS current, voltage
             try:
                 self.state['PSCurrent'] = yield self.instruments['Power Supply'].current()
                 self.state['PSVoltage'] = yield self.instruments['Power Supply'].voltage()
@@ -275,11 +306,7 @@ class ADRServer(DeviceServer):
                 self.state['PSVoltage'] = nan*units.V
                 self.instruments['Power Supply'].connected = False
             # update relevant files
-            try:
-                yield self.client.registry.cd(self.ADRSettingsPath)
-                file_path = yield self.client.registry.get('Log Path')
-            except Exception as e: self.logMessage('Logging temperatures failed.',True)
-            with open(file_path+'\\temperatures'+self.dateAppend+'.temps','ab') as f:
+            with open(self.file_path+'\\temperatures'+self.dateAppend+'.temps','ab') as f:
                 newTemps = [self.state[t]['K'] for t in ['T_60K','T_3K','T_GGG','T_FAA']]
                 f.write( struct.pack('d', mpl.dates.date2num(self.state['datetime'])) )
                 [f.write(struct.pack('d', temp)) for temp in newTemps]
@@ -504,6 +531,22 @@ class ADRServer(DeviceServer):
             self.logMessage('Opening heat switch.')
         except Exception as e:
             self.logMessage('Opening heat switch failed.',alert=True)
+    @setting(128, 'Start Compressor')
+    def startCompressor(self,c):
+        """Start Compressor."""
+        try:
+            yield self.client['CP2800 Compressor'].start()
+            self.logMessage('Compressor Started.')
+        except Exception as e:
+            self.logMessage('Starting Compressor failed.',alert=True)
+    @setting(129, 'Stop Compressor')
+    def stopCompressor(self,c):
+        """Stop Compressor."""
+        try:
+            yield self.client['CP2800 Compressor'].stop()
+            self.logMessage('Compressor Stopped.')
+        except Exception as e:
+            self.logMessage('Stopping Compressor failed.',alert=True)
     
     @setting(130, 'Set PID KP')
     def setPIDKP(self,c,k=['v']):
