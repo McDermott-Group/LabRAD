@@ -32,10 +32,10 @@ def parseArguments():
     parser.add_argument('--registry-path', 
             nargs='*',
             default=['Start Lists', os.environ['COMPUTERNAME'].lower()],
-            help='path in the LabRAD Registry to the key containing ' +
+            help='path in the LabRAD registry to the key containing ' +
             'the list of servers to run;' + " root folder name '' " + 
             'must be omitted (default: "Start Lists" "%COMPUTERNAME%")')
-    parser.add_argument('--registry-start-list-key', 
+    parser.add_argument('--registry-start-server-key', 
             default='Start Server List',
             help='Registry key containg the list of servers to run ' +
             '(default: "Start Server List")')
@@ -62,15 +62,15 @@ def startServers(args):
                 args.node_name + "'. " + 
                 "The server does not appear to be running.")
 
-    print('Getting the list of servers from the LabRAD Registry...')
+    print('Getting the list of servers from the LabRAD registry...')
     try:
         yield cxn.registry.cd([''] + args.registry_path)
-        server_list = yield cxn.registry.get(args.registry_start_list_key)
+        server_list = yield cxn.registry.get(args.registry_start_server_key)
     except:
-        raise Exception('Cannot read the LabRAD Registry. Please ' +
-                'check that the Registry path ' + 
+        raise Exception('Cannot read the LabRAD registry. Please ' +
+                'check that the registry path ' + 
                 str([''] + args.registry_path) + ' and the key name ' +
-                args.registry_key + ' are correct.')
+                args.registry_start_server_key + ' are correct.')
     
     # Go through and start all the servers that are not already running.
     print('Starting the servers...')

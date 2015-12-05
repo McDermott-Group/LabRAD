@@ -21,7 +21,8 @@ import subprocess as sp
 
 def main():
     sp.Popen([sys.executable, 'labrad_servers.py',
-        '--registry-start-list-key', 'Start ADR3 Program List'],
+        '--registry-start-program-key', 'Start ADR3 Program List',
+        '--registry-start-server-key', 'Start ADR3 Server List'],
         cwd='.')
 
 # This is the standard boilerplate that calls the main() function.

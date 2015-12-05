@@ -92,14 +92,18 @@ class StartAndBringUp:
         parser.add_argument('--registry-path', 
                 nargs='*',
                 default=['Start Lists', os.environ['COMPUTERNAME'].lower()],
-                help='path in the LabRAD Registry to the key ' +
+                help='path in the LabRAD registry to the key ' +
                 'containing the list of programs to run;' +
                 " root folder name ''" + ' must be omitted ' +
                 '(default: "Start Lists" "%COMPUTERNAME%")')
-        parser.add_argument('--registry-start-list-key', 
+        parser.add_argument('--registry-start-program-key', 
                 default='Start Program List',
                 help='Registry key containing the list of programs ' +
                 'to run (default: "Start Program List")')
+        parser.add_argument('--registry-start-server-key', 
+                default='Start Server List',
+                help='Registry key containg the list of servers to run ' +
+                '(default: "Start Server List")')
         parser.add_argument('--registry-labrad-host-key',
                 default='LabRAD Host',
                 help='Regitry key with the value of %LabRADHost% ' +
@@ -132,11 +136,11 @@ class StartAndBringUp:
     def _changeResitryPath(self):
         self._LabRADConnect()
         try:
-            print('Changing the LabRAD Registry directory...')
+            print('Changing the LabRAD registry directory...')
             self._cxn.registry.cd([''] + self.args.registry_path)
         except:
-            raise Exception('Could not read the LabRAD Registry. ' +
-                    'Please check that the AFS is on and the Registry path ' +
+            raise Exception('Could not read the LabRAD registry. ' +
+                    'Please check that the AFS is on and the registry path ' +
                     str([''] + self.args.registry_path) + ' is correct.')
     
     def _waitTillEnterKeyIsPressed(self):
@@ -169,7 +173,7 @@ class StartAndBringUp:
         try:
             self._cxn = labrad.connect(password=self._password)
         except:
-            print('Starting LabRAD...')
+            print('Starting the LabRAD manager...')
             labrad_filename = os.path.join(LABRAD_PATH, LABRAD_FILENAME)
             if not os.path.isfile(labrad_filename):
                 raise Exception('Could not locate the LabRAD ' +
@@ -177,7 +181,7 @@ class StartAndBringUp:
             try:
                 self.processes['LabRAD'] = sp.Popen(labrad_filename)
             except OSError:
-                raise Exception('Failed to start LabRAD.')
+                raise Exception('Failed to start the LabRAD manager.')
             print('Please press [Run server] button in the LabRAD ' +
                     'window if it has not started automatically.')
             if self._password is None:
@@ -194,16 +198,16 @@ class StartAndBringUp:
 
     def readRegistry(self):
         print('Getting the list of programs and servers to run from' +
-                ' the LabRAD Registry...')
+                ' the LabRAD registry...')
         self._changeResitryPath()
         try:
             print('Getting the list of programs to run...')
             self.program_list = \
-                self._cxn.registry.get(self.args.registry_start_list_key)
+                self._cxn.registry.get(self.args.registry_start_program_key)
         except:
-            raise Exception('Could not read the LabRAD Registry. ' +
-                    'Please check that the Registry key name ' + 
-                    self.args.registry_start_list_key + ' is correct.')
+            raise Exception('Could not read the LabRAD registry. ' +
+                    'Please check that the registry key name ' + 
+                    self.args.registry_start_program_key + ' is correct.')
         try:
             os.environ['LabRADHost'] = \
                 self._cxn.registry.get(self.args.registry_labrad_host_key)
@@ -221,10 +225,10 @@ class StartAndBringUp:
         try:
             os.environ['LabRADNode'] = \
                 self._cxn.registry.get(self.args.registry_labrad_node_key)
-            print("Environment variable %LabRADNode% is set to '" +
-                    os.environ['LabRADNode'] + "'.")
         except:
-            pass
+            os.environ['LabRADNode'] = os.environ['COMPUTERNAME'].lower()
+        print("Environment variable %LabRADNode% is set to '" +
+                os.environ['LabRADNode'] + "'.\n")
    
     def getProgramList(self):
         if hasattr(self, 'program_list'):
@@ -234,12 +238,12 @@ class StartAndBringUp:
 
     def startLabRADNode(self):
         self._LabRADConnect()
-        node_name = 'node ' + os.environ['COMPUTERNAME'].lower()
         running_servers = [name for id, name in self._cxn.manager.servers()]
+        if 'LabRADNode' in os.environ:
+            node_name = 'node ' + os.environ['LabRADNode']
+        else:
+            node_name = 'node ' + os.environ['COMPUTERNAME'].lower()
         if node_name not in running_servers:
-            if 'LabRADNode' in os.environ:
-                print("Removing %LabRADNode% from the environment variables...")
-                os.environ.pop('LabRADNode', None)
             print('Starting the LabRAD node...')
             node_filename = os.path.join(LABRAD_PATH, LABRAD_NODE_PATH,
                     LABRAD_NODE_FILENAME)
@@ -258,12 +262,14 @@ class StartAndBringUp:
                 print('The LabRAD node has been started.\n')
         
     def startLabRADNodeServers(self):
-        print('Starting the servers with the LabRAD node...')
+        print('Starting the required servers with the LabRAD node...')
         node_servers_filename = os.path.join(LABRAD_PATH,
                 LABRAD_NODE_SERVERS_PATH, LABRAD_NODE_SERVERS_FILENAME)
         try:
             self.processes['LabRAD Node Servers'] = sp.Popen([sys.executable,
-                    node_servers_filename, '--password', self._password])
+                    node_servers_filename, '--registry-start-server-key',
+                    self.args.registry_start_server_key,
+                    '--password', self._password])
         except:
             raise Exception('Failed to connect to the LabRAD node.')
         self.processes['LabRAD Node Servers'].wait()
@@ -274,7 +280,7 @@ class StartAndBringUp:
         server_name = os.environ['LabRADNode'] + ' Direct Ethernet'
         running_servers = [name for id, name in self._cxn.manager.servers()]
         if server_name not in running_servers:
-            print('Starting Direct Ethernet server...')
+            print('Starting the Direct Ethernet server...')
             direct_ethernet = os.path.join(LABRAD_PATH,
                     DIRECT_ETHERNET_SERVER_PATH,
                     DIRECT_ETHERNET_SERVER_FILENAME)

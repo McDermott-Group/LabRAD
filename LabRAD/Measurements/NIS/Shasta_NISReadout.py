@@ -12,21 +12,21 @@ comp_name = os.environ['COMPUTERNAME'].lower()
 Resources = [ {
                 'Interface': 'GHz FPGA Boards',
                 'Boards': [
-                            'Shasta Board DAC 9', 
-                            'Shasta Board DAC 10',
-                            'Shasta Board ADC 11'
+                            'mcdermott5125 Board DAC 9', 
+                            'mcdermott5125 Board DAC 10',
+                            'mcdermott5125 Board ADC 11'
                           ],
-                'Shasta Board DAC 9': {
+                'mcdermott5125 Board DAC 9': {
                                         'DAC A': 'RF I',    # DAC A: 0-1V (???)
                                         'DAC B': 'RF Q',    # DAC B: -2.5 to 2.5 V or 0 to 5 V (???)
                                         'FO1 FastBias Firmware Version': '2.1',
                                         'FO2 FastBias Firmware Version': '2.1',
                                       },
-                'Shasta Board DAC 10': {
+                'mcdermott5125 Board DAC 10': {
                                         'DAC A': 'RF I',
                                         'DAC B': 'RF Q',
                                       },
-                'Shasta Board ADC 11': {
+                'mcdermott5125 Board ADC 11': {
                                         'RunMode': 'demodulate', #'average'
                                         'FilterType': 'square',
                                         'FilterStartAt': 4000 * ns,
@@ -88,7 +88,7 @@ ExptInfo = {
             'Device Name': 'NIS1',
             'User': 'Umesh',
             'Base Path': 'Z:\mcdermott-group\Data\NIS Junctions',
-            'Experiment Name': 'RFFreq2D0_3V',
+            'Experiment Name': 'RFFreq2DSweepFine',
             'Comments': '2D sweep BiastoRFdelay Frequency' 
            }
  
@@ -105,7 +105,7 @@ ExptVars = {
             'RF Amplitude': 0.5 * DACUnits, # [-1, 1] * DACUnits, 1 DACUnits ~ 0.1-2.0 V
             
             'NIS Bias Voltage': 0.3 * V, # -2.5 to 2.5 V or 0 to 5 V
-            'NIS Bias Time': 500 * us,
+            'NIS Bias Time': 300 * us,
             
             'Bias to RF Delay': 100 * us,
      
@@ -146,7 +146,7 @@ with nis_experiments.NISReadout() as run:
     for voltage in bias_range:
         run.value('NIS Bias Voltage', voltage)
         run.sweep(['Bias to RF Delay', 'RF Frequency'], 
-                  [np.linspace(0, 100, 11) * us, np.linspace(4.665, 4.675, 250) * GHz],
+                  [np.linspace(0, 50, 21) * us, np.linspace(4.669, 4.675, 150) * GHz],
                   save=True, runs=1)
                   
     # bias_range = np.linspace(0, 1, 11) * V
