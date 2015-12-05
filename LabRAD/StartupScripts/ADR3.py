@@ -20,7 +20,7 @@ import sys
 import subprocess as sp
 
 def main():
-    sp.Popen([sys.executable, 'labrad_servers.py',
+    sp.Popen([sys.executable, 'electronics.py',
         '--registry-start-program-key', 'Start ADR3 Program List',
         '--registry-start-server-key', 'Start ADR3 Server List'],
         cwd='.')
