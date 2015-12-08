@@ -160,7 +160,7 @@ class ADRServer(DeviceServer):
         runningServList = yield self.client.manager.servers()
         running_servers = [name for _,name in runningServList]
         for name in running_servers:
-            if name.find('node ') >= 0: nodeName = name.strip('node ')
+            if name.find('node ') >= 0: nodeName = name.split('node ',1)[-1]
             else:
                 import platform
                 nodeName = platform.node().lower()
@@ -218,7 +218,7 @@ class ADRServer(DeviceServer):
                     message = 'No devices found for '+instrName+' at address '+settings[1]+'.'
                 else: message = False
                 instr.connected = False
-                if message and (lastStatus != instr.connected): self.logMessage(message, alert=True)
+                if message and ((lastStatus != instr.connected) or (lastInstr != self.instruments[instrName])): self.logMessage(message, alert=True)
                 continue
             except Exception as e: 
                 instr.connected = False
@@ -283,8 +283,7 @@ class ADRServer(DeviceServer):
             	# if there are two returned temps, maps them to GGG and FAA.  if only one is returned, assumes it is for the FAA
                 try: self.state['T_GGG'],self.state['T_FAA'] = temps
                 except: self.state['T_GGG'],self.state['T_FAA'] = nan*units.K, temps
-            except Exception as e: 
-                print 'err:',str(e)
+            except Exception as e:
                 self.state['T_GGG'],self.state['T_FAA'] = nan*units.K, nan*units.K
                 self.instruments['Ruox Temperature Monitor'].connected = False
             if self.state['T_GGG']['K'] == 20.0: self.state['T_GGG'] = nan*units.K
