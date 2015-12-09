@@ -98,7 +98,7 @@ class ADRServer(DeviceServer):
                             'dVdT_limit': 0.008,              #Keep dV/dt to under this value [V/s]
                             'dIdt_magup_limit': 9./(30*60),   #limit on the rate at which we allow current to increase in amps/s (we want 9A over 30 min)
                             'dIdt_regulate_limit': 9./(40*60),#limit on the rate at which we allow current to change in amps/s (we want 9A over 40 min)
-                            'step_length': 1.0,              #How long is each regulation/mag up cycle in seconds.  **Never set this less than 1.0sec.**  The SRS SIM922 only measures once a second and this would cause runaway voltages/currents.
+                            'step_length': 1.0,               #How long is each regulation/mag up cycle in seconds.  **Never set this less than 1.0sec.**  The SRS SIM922 only measures once a second and this would cause runaway voltages/currents.
                             'magnet_max_temp': 5,
                             'FAA MP Chan': 2,
                             'GGG MP Chan': 1,
@@ -127,7 +127,7 @@ class ADRServer(DeviceServer):
         except Exception as e:
             self.logMessage( '{Saving log failed.  Check that AFS is working.} ' )
         yield self.loadDefaults()
-        yield self.startServers()
+        #yield self.startServers()
         yield util.wakeupCall( 2 ) # on the round ADR, the HP DMM takes forever to initialize.  This prevents it from going on before it is ready.
         yield self.initializeInstruments()
         # subscribe to messages
@@ -234,8 +234,8 @@ class ADRServer(DeviceServer):
         
         # if ruox therms are being read through multiplexer, set the channels
         try:
-        	self.instruments['Ruox Temperature Monitor'].add_channel(self.ADR_Settings['FAA MP Chan'])
-        	self.instruments['Ruox Temperature Monitor'].add_channel(self.ADR_Settings['GGG MP Chan'])
+            self.instruments['Ruox Temperature Monitor'].add_channel(self.ADR_Settings['FAA MP Chan'])
+            self.instruments['Ruox Temperature Monitor'].add_channel(self.ADR_Settings['GGG MP Chan'])
         except: pass # NotFoundError: pass # may not have these methods
         
     @inlineCallbacks
@@ -269,9 +269,9 @@ class ADRServer(DeviceServer):
             # compressor
             self.state['CompressorStatus'] = None
             if self.instruments['Compressor'].connected == True:
-				try: self.state['CompressorStatus'] = self.instruments['Compressor'].status()
-				except Exception as e: print 'could not read compressor status',str(e)
-			# diode temps
+                try: self.state['CompressorStatus'] = self.instruments['Compressor'].status()
+                except Exception as e: print 'could not read compressor status',str(e)
+            # diode temps
             try:
                 self.state['T_60K'],self.state['T_3K'] = yield self.instruments['Diode Temperature Monitor'].get_diode_temperatures()
             except Exception as e: 
@@ -279,8 +279,8 @@ class ADRServer(DeviceServer):
                 self.instruments['Diode Temperature Monitor'].connected = False
             # ruox temps
             try: 
-            	temps = yield self.instruments['Ruox Temperature Monitor'].get_ruox_temperature()
-            	# if there are two returned temps, maps them to GGG and FAA.  if only one is returned, assumes it is for the FAA
+                temps = yield self.instruments['Ruox Temperature Monitor'].get_ruox_temperature()
+                # if there are two returned temps, maps them to GGG and FAA.  if only one is returned, assumes it is for the FAA
                 try: self.state['T_GGG'],self.state['T_FAA'] = temps
                 except: self.state['T_GGG'],self.state['T_FAA'] = nan*units.K, temps
             except Exception as e:
@@ -463,6 +463,18 @@ class ADRServer(DeviceServer):
     def getStateVar(self,c, var):
         """You can get any arbitrary value stored in the state variable by passing its name to this function."""
         return self.state[var]
+    @setting(105, 'Get Instrument State', instrNames=['*s'], returns=['?'])
+    def getInstrumentState(self,c, instrNames=None):
+        """Get the status of instruments in the form [('instrument name',(server connected?, device selected?))].  If no instruments are passed in, returns an array of all iinstrument statuses"""
+        if instrNames==None: instrNames = self.instruments.keys()
+        states = []
+        for name in instrNames:
+            if bool(self.instruments[name]):
+                state = (True, self.instruments[name].connected)
+            else: state = (False,False)
+            states.append((name,state))
+        return states
+
     @setting(110, 'PSCurrent', returns=['v'])
     def pscurrent(self,c):
         """Get the current of the power supply."""
@@ -565,8 +577,5 @@ class ADRServer(DeviceServer):
 
 
 if __name__ == "__main__":
-    """Define your instruments here.  This allows for easy exchange between different
-    devices to monitor temperature, etc.  For example, the new and old ADR's use two
-    different instruments to measure temperature: The SRS module and the Lakeview 218."""
     __server__ = ADRServer(sys.argv)
     util.runServer(__server__)
