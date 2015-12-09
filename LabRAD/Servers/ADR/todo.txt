@@ -9,7 +9,7 @@ TODO LIST
 - Add open/close HS to mag up/reg buttons
 + ADR is selected from  beginning in client.  what if none are started first?
 + add compressor controls
-- make heat switch buttons disable/enable based on what ADR is selected (can it open switch?) - needs access to instruments dict?
+- make heat switch buttons disable/enable based on what ADR is selected (can it open switch?) - needs access to instruments dict?  or just heat switch server?
 - what happens when close server when client is open?  especially with the menu, buttons
 - had to comment out a bunch of NotFoundErrors in instrument initialization.  figure this out
 - make the startup scripts check what is already open before opening again
