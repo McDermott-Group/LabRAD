@@ -103,7 +103,7 @@ class ADRServer(DeviceServer):
                             'FAA MP Chan': 2,
                             'GGG MP Chan': 1,
                             'Power Supply':['Agilent 6641A PS','addr'],
-                            'Ruox Temperature Monitor':['SIM921 Server','addr'], #['ACBridgeWithMultiplexer':[['SIM921 Server','addr'],['SIM925 Server','addr']]]
+                            'Ruox Temperature Monitor':['SIM921 Server','addr'], #['ACBridgeWithMultiplexer',[['SIM921 Server','addr'],['SIM925 Server','addr']]],
                             'Diode Temperature Monitor':['SIM922 Server','addr'],
                             'Magnet Voltage Monitor':['SIM922 Server','addr'],
                             'Heat Switch':['Heat Switch','addr'],
@@ -278,8 +278,12 @@ class ADRServer(DeviceServer):
                 self.state['T_60K'],self.state['T_3K'] = nan*units.K, nan*units.K
                 self.instruments['Diode Temperature Monitor'].connected = False
             # ruox temps
+            # temps = yield self.instruments['Ruox Temperature Monitor'].get_ruox_temperature()
+            # print temps
+            # self.state['T_GGG'],self.state['T_FAA'] = nan*units.K, nan*units.K
             try: 
             	temps = yield self.instruments['Ruox Temperature Monitor'].get_ruox_temperature()
+                print temps
             	# if there are two returned temps, maps them to GGG and FAA.  if only one is returned, assumes it is for the FAA
                 try: self.state['T_GGG'],self.state['T_FAA'] = temps
                 except: self.state['T_GGG'],self.state['T_FAA'] = nan*units.K, temps

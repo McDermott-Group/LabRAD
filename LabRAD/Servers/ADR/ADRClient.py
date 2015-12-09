@@ -476,7 +476,7 @@ class ADRController(object):#Tkinter.Tk):
     def regulate(self): 
         T_target = float(self.regulateTempField.get())
         self.cxn[self.selectedADR].regulate(T_target)
-    def changeRegTemp(self):
+    def changeRegTemp(self, *args):
         if self.regulating == True:
             T_target = float(self.regulateTempField.get())
             self.cxn[self.selectedADR].regulate(T_target)
