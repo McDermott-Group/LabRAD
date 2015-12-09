@@ -49,6 +49,7 @@ class NRuoxServer(LabradServer):
             # switch channel -> wait time const -> measure temp
             for chan in chans:
                 yield c['MP'].channel(chan)
+                yield c['ACB'].set_curve(chan)
                 t = yield c['ACB'].get_time_constant()
                 timeout = max(MIN_REFRESH_RATE['s'], 2*t['s'])*units.s
                 yield util.wakeupCall( timeout['s'] )
