@@ -6,7 +6,6 @@ TODO LIST
 + ADR is selected from  beginning in client.  what if none are started first?
 - what happens when close server when client is open?  especially with the menu, buttons
 - had to comment out a bunch of NotFoundErrors in instrument initialization.  figure this out
-- instrument status bar?
 
 BUGS
 - sometimes starting regulation doesnt decrease properly (I think due to dT=0)

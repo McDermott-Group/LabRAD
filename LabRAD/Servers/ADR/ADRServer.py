@@ -133,8 +133,8 @@ class ADRServer(DeviceServer):
         # the server ones are not used right now, but at some point they could be
         connect_func = lambda c, (s, payload): self.gpib_device_connect(*payload)
         disconnect_func = lambda c, (s, payload): self.gpib_device_disconnect(*payload)
-        serv_conn_func = lambda c, (s, payload): 1
-        serv_disconn_func = lambda c, (s, payload): 1
+        serv_conn_func = lambda c, (s, payload): self.serversChanged(*payload)
+        serv_disconn_func = lambda c, (s, payload): self.serversChanged(*payload)
         mgr = self.client.manager
         self._cxn.addListener(connect_func, source=mgr.ID, ID=10)
         self._cxn.addListener(disconnect_func, source=mgr.ID, ID=11)
@@ -200,7 +200,7 @@ class ADRServer(DeviceServer):
                 self.logMessage('Could not connect to device: '+str(e), alert=True)
         
         # initialize power supply
-        if self.instruments['Power Supply'].connected == True:
+        if hasattr(self.instruments['Power Supply'],'connected') and self.instruments['Power Supply'].connected == True:
             try: 
                 yield self.instruments['Power Supply'].initialize_ps()
                 self.logMessage('Power Supply Initialized.')
@@ -225,6 +225,8 @@ class ADRServer(DeviceServer):
         self.initializeInstruments()
     def gpib_device_disconnect(self, server, channel):
         self.initializeInstruments()
+    def serversChanged(self,*args):
+        self.initializeInstruments()
     def logMessage(self, message, alert=False):
         """Applies a time stamp to the message and saves it to a file and an array."""
         dt = datetime.datetime.now()
@@ -243,7 +245,7 @@ class ADRServer(DeviceServer):
             self.lastState = self.state.copy()
             # compressor
             self.state['CompressorStatus'] = None
-            if self.instruments['Compressor'].connected == True:
+            if hasattr(self.instruments['Compressor'],'connected') and self.instruments['Compressor'].connected == True:
                 try: self.state['CompressorStatus'] = self.instruments['Compressor'].status()
                 except Exception as e: print 'could not read compressor status',str(e)
             # diode temps
@@ -251,19 +253,18 @@ class ADRServer(DeviceServer):
                 self.state['T_60K'],self.state['T_3K'] = yield self.instruments['Diode Temperature Monitor'].get_diode_temperatures()
             except Exception as e: 
                 self.state['T_60K'],self.state['T_3K'] = nan*units.K, nan*units.K
-                self.instruments['Diode Temperature Monitor'].connected = False
+                try: self.instruments['Diode Temperature Monitor'].connected = False
+                except AttributeError: pass
             # ruox temps
-            # temps = yield self.instruments['Ruox Temperature Monitor'].get_ruox_temperature()
-            # print temps
-            # self.state['T_GGG'],self.state['T_FAA'] = nan*units.K, nan*units.K
-            try: 
+            try:
                 temps = yield self.instruments['Ruox Temperature Monitor'].get_ruox_temperature()
                 # if there are two returned temps, maps them to GGG and FAA.  if only one is returned, assumes it is for the FAA
                 try: self.state['T_GGG'],self.state['T_FAA'] = temps
                 except: self.state['T_GGG'],self.state['T_FAA'] = nan*units.K, temps
             except Exception as e:
                 self.state['T_GGG'],self.state['T_FAA'] = nan*units.K, nan*units.K
-                self.instruments['Ruox Temperature Monitor'].connected = False
+                try: self.instruments['Ruox Temperature Monitor'].connected = False
+                except AttributeError: pass
             if self.state['T_GGG']['K'] == 20.0: self.state['T_GGG'] = nan*units.K
             if self.state['T_FAA']['K'] == 45.0: self.state['T_FAA'] = nan*units.K
             # datetime, cycle
@@ -273,7 +274,8 @@ class ADRServer(DeviceServer):
             try: self.state['magnetV'] = yield self.instruments['Magnet Voltage Monitor'].get_magnet_voltage()
             except Exception as e: 
                 self.state['magnetV'] = nan*units.V
-                self.instruments['Magnet Voltage Monitor'].connected = False
+                try: self.instruments['Magnet Voltage Monitor'].connected = False
+                except AttributeError: pass
             # PS current, voltage
             try:
                 self.state['PSCurrent'] = yield self.instruments['Power Supply'].current()
@@ -281,7 +283,8 @@ class ADRServer(DeviceServer):
             except Exception as e:
                 self.state['PSCurrent'] = nan*units.A
                 self.state['PSVoltage'] = nan*units.V
-                self.instruments['Power Supply'].connected = False
+                try: self.instruments['Power Supply'].connected = False
+                except AttributeError: pass
             # update relevant files
             with open(self.file_path+'\\temperatures'+self.dateAppend+'.temps','ab') as f:
                 newTemps = [self.state[t]['K'] for t in ['T_60K','T_3K','T_GGG','T_FAA']]
