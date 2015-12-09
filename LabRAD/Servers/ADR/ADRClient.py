@@ -233,8 +233,8 @@ class ADRController(object):#Tkinter.Tk):
         self.HSCloseButton.pack(side=Tkinter.LEFT)
         self.HSOpenButton = Tkinter.Button(master=magControlsFrame, text='Open HS', command=self.openHeatSwitch)
         self.HSOpenButton.pack(side=Tkinter.LEFT)
-        #self.HSCloseButton.configure(state=Tkinter.DISABLED)
-        #self.HSOpenButton.configure(state=Tkinter.DISABLED)
+        self.HSCloseButton.configure(state=Tkinter.DISABLED)
+        self.HSOpenButton.configure(state=Tkinter.DISABLED)
         #mag up button
         self.magUpButton = Tkinter.Button(master=magControlsFrame, text='Mag Up', command=self.magUp)
         self.magUpButton.pack(side=Tkinter.LEFT)
@@ -365,6 +365,13 @@ class ADRController(object):#Tkinter.Tk):
         if reg:
             self.regulateButton.configure(text='Stop Regulating', command=self.cancelRegulate)
             self.magUpButton.configure(state=Tkinter.DISABLED)
+        HSAvailable = yield self.cxn[self.selectedADR].get_instrument_state(['Heat Switch'])
+        if HSAvailable[0][1][0]:
+            self.HSCloseButton.configure(state=Tkinter.NORMAL)
+            self.HSOpenButton.configure(state=Tkinter.NORMAL)
+        else:
+            self.HSCloseButton.configure(state=Tkinter.DISABLED)
+            self.HSOpenButton.configure(state=Tkinter.DISABLED)
         # refresh interface
         self.updateInterface()
     def refreshInstruments(self):

@@ -43,11 +43,11 @@ class NRuoxServer(LabradServer):
     
     @inlineCallbacks
     def startTakingTemps(self,c):
-        print 'bla'
         while True:
+            chans = c['chans'].keys()
+            if len(chans) < 1: yield util.wakeupCall( MIN_REFRESH_RATE['s'] ) # to not take up too many resources if no channels are selected
             # switch channel -> wait time const -> measure temp
-            for chan in c['chans']:
-                print 'reading channel',chan
+            for chan in chans:
                 yield c['MP'].channel(chan)
                 t = yield c['ACB'].get_time_constant()
                 timeout = max(MIN_REFRESH_RATE['s'], 2*t['s'])*units.s
@@ -65,7 +65,6 @@ class NRuoxServer(LabradServer):
         yield c['ACB'].select_device(addrs[0][1])
         if 'chans' not in c: c['chans'] = {}
         d = twistedThreads.deferToThread(self.startTakingTemps,c)
-        print 'devices selected:',addrs
 
     @setting(102, 'Add Channel', chan=['i'])
     def add_channel(self, c, chan):

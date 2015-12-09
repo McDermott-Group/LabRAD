@@ -127,7 +127,6 @@ class ADRServer(DeviceServer):
         except Exception as e:
             self.logMessage( '{Saving log failed.  Check that AFS is working.} ' )
         yield self.loadDefaults()
-        #yield self.startServers()
         yield util.wakeupCall( 2 ) # on the round ADR, the HP DMM takes forever to initialize.  This prevents it from going on before it is ready.
         yield self.initializeInstruments()
         # subscribe to messages
@@ -153,30 +152,6 @@ class ADRServer(DeviceServer):
         _,settingsList = yield reg.dir()
         for setting in settingsList:
             self.ADRSettings[setting] = yield reg.get(setting)
-    @inlineCallbacks
-    def startServers(self):
-        """This method just starts any of the necessary servers if they are not running."""
-        #get the labrad node name and the servers that are already running
-        runningServList = yield self.client.manager.servers()
-        running_servers = [name for _,name in runningServList]
-        for name in running_servers:
-            if name.find('node ') >= 0: nodeName = name.split('node ',1)[-1]
-            else:
-                import platform
-                nodeName = platform.node().lower()
-        #which do we need to start?
-        reg = self.client.registry
-        yield reg.cd(self.ADRSettingsPath)
-        servList = yield reg.get('Start Server List')
-        #go through and start all the servers that are not already running
-        for server in servList:
-            if server not in running_servers:
-                try:
-                    yield self.client.servers['node '+nodeName].start(server)
-                    self.logMessage( server+' started.')
-                except Exception as e:
-                    self.logMessage( 'ERROR starting '+server+': '+str(e) ,alert=True)
-            else: self.logMessage(server+' is already running.')
     @inlineCallbacks
     def initializeInstruments(self):
         """This method creates the instances of all the instruments and saves them in self.instruments.
@@ -234,9 +209,9 @@ class ADRServer(DeviceServer):
         
         # if ruox therms are being read through multiplexer, set the channels
         try:
-            self.instruments['Ruox Temperature Monitor'].add_channel(self.ADR_Settings['FAA MP Chan'])
-            self.instruments['Ruox Temperature Monitor'].add_channel(self.ADR_Settings['GGG MP Chan'])
-        except: pass # NotFoundError: pass # may not have these methods
+            self.instruments['Ruox Temperature Monitor'].add_channel(self.ADRSettings['FAA MP Chan'])
+            self.instruments['Ruox Temperature Monitor'].add_channel(self.ADRSettings['GGG MP Chan'])
+        except Exception as e: print str(e) # NotFoundError: pass # may not have these methods
         
     @inlineCallbacks
     def _refreshInstruments(self):
@@ -283,7 +258,6 @@ class ADRServer(DeviceServer):
             # self.state['T_GGG'],self.state['T_FAA'] = nan*units.K, nan*units.K
             try: 
                 temps = yield self.instruments['Ruox Temperature Monitor'].get_ruox_temperature()
-                print temps
                 # if there are two returned temps, maps them to GGG and FAA.  if only one is returned, assumes it is for the FAA
                 try: self.state['T_GGG'],self.state['T_FAA'] = temps
                 except: self.state['T_GGG'],self.state['T_FAA'] = nan*units.K, temps
