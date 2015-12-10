@@ -125,13 +125,14 @@ class ADCRamsey(ADCExperiment):
                                    
         QB2_I, QB2_Q = wf.Harmonic(amplitude = self.value('Qubit Amplitude'),
                                    frequency = self.value('Qubit SB Frequency'),
+                                   ref_phase = QB1_I.start,
                                    start     = QB1_I.after(self.value('Qubit T2 Delay')),
                                    duration  = self.value('Qubit Time'))
         
-        RO_I, RO_Q = wf.Harmonic(amplitude = self.value('Readout Amplitude'),
-                                 frequency = self.value('Readout SB Frequency'),
-                                 start     = QB2_I.after(self.value('Qubit Drive to Readout Delay')),
-                                 duration  = self.value('Readout Time'))
+        RO_I,  RO_Q  = wf.Harmonic(amplitude = self.value('Readout Amplitude'),
+                                   frequency = self.value('Readout SB Frequency'),
+                                   start     = QB2_I.after(self.value('Qubit Drive to Readout')),
+                                   duration  = self.value('Readout Time'))
         
         waveforms, offset = wf.wfs_dict(wf.Waveform('Readout I', RO_I),
                                         wf.Waveform('Readout Q', RO_Q),
@@ -179,23 +180,26 @@ class ADCStarkShift(ADCExperiment):
         self.set('Qubit Flux Bias Voltage')
       
         ###WAVEFORMS####################################################
-        Stark_I, Stark_Q = wf.Harmonic(amplitude = self.value('Stark Amplitude'),
-                                       frequency = self.value('Readout SB Frequency'),
-                                       start     = 0,
-                                       duration  = self.value('Stark Time'))
-        
         QB_I, QB_Q = wf.Harmonic(amplitude = self.value('Qubit Amplitude'),
                                  frequency = self.value('Qubit SB Frequency'),
                                  duration  = self.value('Qubit Time'),
-                                 end       = Stark_I.end)
-
+                                 start     = 0)
+        
         RO_I, RO_Q = wf.Harmonic(amplitude = self.value('Readout Amplitude'),
                                  frequency = self.value('Readout SB Frequency'),
-                                 start     = QB_I.after(self.value('Qubit Drive to Readout Delay')),
+                                 phase     = self.value('Readout Phase'),
+                                 start     = QB_I.after(self.value('Qubit Drive to Readout')),
                                  duration  = self.value('Readout Time'))
+                                 
+        ST_I, ST_Q = wf.Harmonic(amplitude = self.value('Stark Amplitude'),
+                                 frequency = self.value('Readout SB Frequency'),
+                                 phase     = self.value('Readout Phase'),
+                                 phase_ref = RO_I.start,
+                                 end       = QB_I.end,
+                                 duration  = self.value('Stark Time'))
         
-        waveforms, offset = wf.wfs_dict(wf.Waveform('Readout I', Stark_I, RO_I),
-                                        wf.Waveform('Readout Q', Stark_Q, RO_Q),
+        waveforms, offset = wf.wfs_dict(wf.Waveform('Readout I', ST_I, RO_I),
+                                        wf.Waveform('Readout Q', ST_Q, RO_Q),
                                         wf.Waveform('Qubit I', QB_I),
                                         wf.Waveform('Qubit Q', QB_Q),
                       min_length=self.boards.consts['DAC_ZERO_PAD_LEN'])

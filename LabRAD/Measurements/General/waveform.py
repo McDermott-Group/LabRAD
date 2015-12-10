@@ -209,21 +209,29 @@ class Sine(_WavePulse):
     Sine pulse.
 
     Inputs:
-        amplitude: amplitude of the sine pulse.
-        frequency: frequency of the sine pulse.
-        phase: phase of the sine pulse.
+        amplitude: amplitude of the sine pulse (default: 0).
+        frequency: frequency of the sine pulse (default: 0 Hz).
+        phase: phase of the sine pulse (default: 0 rad).
+        offset: constant dc offset of the sine pulse (default: 0).
         start: starting time of the sine pulse.
         duration: length of the sine pulse.
         end: ending time of the sine pulse.
+        phase_ref: point in time that should have the specified
+            phase (default: start pulse time).
     """
     def __init__(self, amplitude=0, frequency=0, phase=0, offset=0,
-            start=None, duration=None, end=None):
+                 start=None, duration=None, end=None, phase_ref=None):
         self._init_times(start, duration, end)
         amplitude = self._amplitude(amplitude)
         frequency, phase = self._harmonic(frequency, phase)
         offset = self._amplitude(offset)
 
-        t = np.linspace(0, self.duration - 1, self.duration)
+        if phase_ref is None:
+            t0 = 0
+        else:
+            t0 = self.start - self._ns(phase_ref)
+
+        t = np.linspace(t0, t0 + self.duration - 1, self.duration)
         self.pulse = (offset + amplitude *
                 np.sin(2 * np.pi * frequency * t + phase))
         self._check_pulse()
@@ -234,21 +242,29 @@ class Cosine(_WavePulse):
     Cosine pulse.
 
     Inputs:
-        amplitude: amplitude of the cosine pulse.
-        frequency: frequency of the cosine pulse.
-        phase: phase of the cosine pulse.
+        amplitude: amplitude of the cosine pulse (default: 0).
+        frequency: frequency of the cosine pulse (default: 0 Hz).
+        phase: phase of the cosine pulse (default: 0 rad).
+        offset: constant dc offset of the cosine pulse (default: 0).
         start: starting time of the cosine pulse.
         duration: length of the cosine pulse.
         end: ending time of the cosine pulse.
+        phase_ref: point in time that should have the specified
+            phase (default: start pulse time).
     """
     def __init__(self, amplitude=0, frequency=0, phase=0, offset=0,
-            start=None, duration=None, end=None):
+                 start=None, duration=None, end=None, phase_ref=None):
         self._init_times(start, duration, end)
         amplitude = self._amplitude(amplitude)
         frequency, phase = self._harmonic(frequency, phase)
         offset = self._amplitude(offset)
 
-        t = np.linspace(0, self.duration - 1, self.duration)
+        if phase_ref is None:
+            t0 = 0
+        else:
+            t0 = self.start - self._ns(phase_ref)
+
+        t = np.linspace(t0, t0 + self.duration - 1, self.duration)
         self.pulse = (offset + amplitude *
                 np.cos(2 * np.pi * frequency * t + phase))
         self._check_pulse()
@@ -282,7 +298,7 @@ class FromArray(_WavePulse):
     
     Inputs:
         pulse_data: numpy array containing the pulse data in 1 ns
-                chunks.
+            chunks.
         start: starting time of the pulse.
         end: ending time of the pulse.
     """
@@ -307,7 +323,7 @@ class Waveform():
     start immediately after another pulse A initialize B.start to
     (A.end + 1), or simply assign A.after() to B.start.
     
-    Input:
+    Inputs:
         label: waveform label string.
         args: arbitrarily long set of _WavePulses to create the waveform
             from. To create a _WavePulse use one of the "public"
@@ -351,7 +367,6 @@ class Waveform():
         self.end = pulses[-1].end
         self.duration = self.end - self.start + 1
 
-
 def ECLDuringPulses(*args, **kwargs):
     """
     Return _WavePulse to make ECL outputs go high during a set of 
@@ -359,8 +374,9 @@ def ECLDuringPulses(*args, **kwargs):
     
     Inputs: 
         args: set (or list) of _WavePulses during which an ECL pulse 
-                should be generated.
+            should be generated.
         pad_length: time before and after the pulses (default: 8 ns).
+    
     Output:
         ECL: list of ECL _WavePulses.
     """
@@ -386,25 +402,32 @@ def ECLDuringPulses(*args, **kwargs):
 
 def Harmonic(amplitude=0, frequency=0, phase=0,
             cosine_offset=0, sine_offset=0,
-            start=None, duration=None, end=None):
+            start=None, duration=None, end=None, phase_ref=None):
     """
     Return cosine and sine pulses.
 
     Inputs:
-        amplitude: amplitude of the pulses.
-        frequency: frequency of the pulses.
-        phase: phase of the pulses.
+        amplitude: amplitude of the pulses  (default: 0).
+        frequency: frequency of the pulses  (default: 0 Hz).
+        phase: phase of the pulses  (default: 0 rad).
+        cosine_offset: constant dc offset of the cosine pulse
+            (default: 0).
+        sine_offset: constant dc offset of the sine pulse
+            (default: 0).
         start: starting time of the pulses.
-        duration: length of the cosine pulse.
-        end: ending time of the cosine pulse.
+        duration: length of the pulses.
+        end: ending time of the pulses.
+        phase_ref: point in time that should have the specified
+            phase (default: start pulse time).
+    
     Outputs:
         sine: Sine pulse object.
         cosine: Cosine pulse object.
     """
-    return (Cosine(amplitude, frequency, phase, cosine_offset,
-            start, duration, end),
-            Sine(amplitude, frequency, phase, sine_offset,
-            start, duration, end))
+    return (Cosine(amplitude, frequency, phase,
+            cosine_offset, start, duration, end, phase_ref),
+              Sine(amplitude, frequency, phase,
+              sine_offset, start, duration, end, phase_ref))
 
 def wfs_dict(*args, **kwargs):
     """
@@ -485,7 +508,7 @@ def check_wfs(waveforms):
     if lengths.count(lengths[0]) != len(lengths):
         raise Exception('The waveform have different lengths.')
 
-def plot_wfs(waveforms, wf_labels, wf_colors=['r', 'g', 'm', 'b', 'k']):
+def plot_wfs(waveforms, wf_labels, wf_colors=['r', 'g', 'm', 'b', 'k', 'c']):
     """
     Plot waveforms.
     
@@ -509,7 +532,8 @@ def plot_wfs(waveforms, wf_labels, wf_colors=['r', 'g', 'm', 'b', 'k']):
     plt.ioff()
     plt.clf()
     for idx, wf in enumerate(wf_labels):
-        plt.plot(time, waveforms[wf], wf_colors[idx], label=wf_labels[idx])
+        plt.plot(time, waveforms[wf], wf_colors[idx % 6],
+                label=wf_labels[idx])
     plt.xlim(time[0], time[-1])
     plt.legend()
     plt.xlabel('Time [ns]')
