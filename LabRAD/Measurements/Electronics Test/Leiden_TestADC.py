@@ -14,15 +14,15 @@ comp_name = os.environ['COMPUTERNAME'].lower()
 Resources = [ {
                 'Interface': 'GHz FPGA Boards',
                 'Boards': [
-                           'Leiden Board DAC 4',
-                           'Leiden Board ADC 7'
+                           'mcd-dr2 Board DAC 4',
+                           'mcd-dr2 Board ADC 7'
                           ],
 
-                'Leiden Board DAC 4': {
+                'mcd-dr2 Board DAC 4': {
                                         'DAC A': 'RF Q',
                                         'DAC B': 'RF I',
                                       },
-                'Leiden Board ADC 7': {
+                'mcd-dr2 Board ADC 7': {
                                         'RunMode': 'demodulate', #'average'
                                         'FilterType': 'square',
                                         'FilterWidth': 4000 * ns,

@@ -13,21 +13,21 @@ comp_name = os.environ['COMPUTERNAME'].lower()
 Resources = [ {
                 'Interface': 'GHz FPGA Boards',
                 'Boards': [
-                            'Leiden Board DAC 3', 
-                            'Leiden Board DAC 4',
-                            'Leiden Board ADC 7'
+                            'mcd-dr2 Board DAC 3', 
+                            'mcd-dr2 Board DAC 4',
+                            'mcd-dr2 Board ADC 7'
                           ],
-                'Leiden Board DAC 3': {
+                'mcd-dr2 Board DAC 3': {
                                         'DAC A': 'None',
                                         'DAC B': 'Qubit I',
                                         'FO1 FastBias Firmware Version': '2.1',
                                         'FO2 FastBias Firmware Version': '2.1',
                                       },
-                'Leiden Board DAC 4': {
+                'mcd-dr2 Board DAC 4': {
                                         'DAC A': 'Readout Q',
                                         'DAC B': 'Readout I',
                                       },
-                'Leiden Board ADC 7': {
+                'mcd-dr2 Board ADC 7': {
                                         'RunMode': 'demodulate', #'average'
                                         'FilterType': 'square',
                                         'FilterWidth': 1000 * ns,

@@ -103,6 +103,7 @@ class GHzFPGABoards(object):
         self.dac_settings = []
         self.adc_settings = []
         self._results = []
+        self._dual_block_warning = True
         
         if not boards:
             return
@@ -449,6 +450,9 @@ class GHzFPGABoards(object):
             # Handle dual block calls here, in a different way than Sank
             # did. This should be compatible.
             if len(sram[k]) > self.consts['SRAM_LEN']:
+                if self._dual_block_warning:
+                    print('DACs are set to the dual block mode.')
+                    self._dual_block_warning = False
                 # Shove last chunk of SRAM into BLOCK1, be sure this can 
                 # contain what you need it to contain.
                 sram1 = sram[k][-self.consts['SRAM_BLOCK1_LEN']:]
@@ -472,6 +476,7 @@ class GHzFPGABoards(object):
                 p.sram_dual_block(sram0, sram1, delay_blocks * 
                         self.consts['SRAM_DELAY_LEN'])
             else:
+                self._dual_block_warning = True
                 p.sram(sram[k])
             self._results.append(p.send(wait=False))
             
