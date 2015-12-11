@@ -17,14 +17,14 @@ Resources = [ {
                             'mcdermott5125 Board ADC 11'
                           ],
                 'mcdermott5125 Board DAC 9': {
-                                        'DAC A': 'RF I',    # DAC A: 0-1V (???)
-                                        'DAC B': 'RF Q',    # DAC B: -2.5 to 2.5 V or 0 to 5 V (???)
+                                        'DAC A': 'RF I',    # DAC A
+                                        'DAC B': 'RF Q',    # DAC B
                                         'FO1 FastBias Firmware Version': '2.1',
                                         'FO2 FastBias Firmware Version': '2.1',
                                       },
                 'mcdermott5125 Board DAC 10': {
-                                        'DAC A': 'RF I',
-                                        'DAC B': 'RF Q',
+                                        'DAC A': 'None',
+                                        'DAC B': 'None',
                                       },
                 'mcdermott5125 Board ADC 11': {
                                         'RunMode': 'demodulate', #'average'
@@ -64,16 +64,10 @@ Resources = [ {
                     # 'Serial Number': 7031,
                     # 'Variables': 'Qubit Attenuation'
                 # },
-                # { # SIM Voltage Source.
-                    # 'Interface': 'SIM928 Voltage Source',
-                    # 'Address': ('SIM900 - ' + comp_name + 
-                                # ' GPIB Bus - GPIB0::26::INSTR::SIM900::3'),
-                    # 'Variables': 'Qubit Flux Bias Voltage'
-                # },
-                # { # ADR3
-                    # 'Interface': 'ADR3',
-                    # 'Variables': {'Temperature': {'Setting':'Temperatures', 'Stage': 'FAA'}}
-                # },
+                { # ADR3
+                    'Interface': 'ADR3',
+                    'Variables': {'Temperature': {'Setting':'Temperatures', 'Stage': 'FAA'}}
+                },
                 { # Readings entered manually, software parameters.
                     'Interface': None,
                     'Variables': ['Reps', 'Runs'],
@@ -122,7 +116,7 @@ with nis_experiments.NISReadout() as run:
     # run.value('NIS Bias Voltage', 0.0 * V)
    
     run.sweep('ADC Wait Time', np.linspace(0, 10000, 251) * ns,
-          print_data=['I', 'Q'], plot_data=['I', 'Q', 'Amplitude'],
+          print_data=['I', 'Q', 'Temperature'], plot_data=['I', 'Q', 'Amplitude'],
           max_data_dim=1, save=False, runs=1)
     
     # run.sweep('RF Amplitude', np.linspace(0, 1, 31) * DACUnits,

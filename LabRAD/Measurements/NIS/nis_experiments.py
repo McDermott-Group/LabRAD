@@ -13,13 +13,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
-#experiment calling order:
-# init_expt()
-# load_once()
-# run_once()
-# exit_expt()
-
 import os
 if __file__ in [f for f in os.listdir('.') if os.path.isfile(f)]:
     # This is executed when the script is loaded by the labradnode.
@@ -39,7 +32,6 @@ import labrad.units as units
 
 import LabRAD.Servers.Instruments.GHzBoards.mem_sequences as ms
 import LabRAD.Measurements.General.waveform as wf
-import LabRAD.Measurements.General.data_processing as dp
 from   LabRAD.Measurements.General.adc_experiment import ADCExperiment
 
 
@@ -61,7 +53,7 @@ class NISReadout(ADCExperiment):
         
         wfs, offset = wf.wfs_dict(wf.Waveform('RF I', RF_I),
                                   wf.Waveform('RF Q', RF_Q),
-                                  min_length=self.boards.consts['DAC_ZERO_PAD_LEN'])
+                min_length=self.boards.consts['DAC_ZERO_PAD_LEN'])
         dac_srams, sram_length = self.boards.process_waveforms(wfs)
 
         # wf.plot_wfs(wfs, wfs.keys())
@@ -79,6 +71,9 @@ class NISReadout(ADCExperiment):
         ###MEMORY COMMAND LISTS#########################################
         mem_seqs = self.boards.init_mem_lists()
 
+        # 'Fine':    0...2.5 V, slew rate ~ 32 us
+        # 'Fast': -2.5...2.5 V, slew rate ~ 4 us
+        # 'Slow': -2.5...2.5 V, slew rate ~ 33 us (or 12 us)
         mem_seqs[0].bias(1, voltage=0, mode='Fast')
         mem_seqs[0].delay(self.value('Init Time'))
         mem_seqs[0].bias(1, voltage=self.value('NIS Bias Voltage'))
