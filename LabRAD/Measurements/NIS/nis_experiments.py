@@ -64,14 +64,17 @@ class NISReadout(ADCExperiment):
                                   min_length=self.boards.consts['DAC_ZERO_PAD_LEN'])
         dac_srams, sram_length = self.boards.process_waveforms(wfs)
 
-        #wf.plot_wfs(wfs, wfs.keys())
+        # wf.plot_wfs(wfs, wfs.keys())
 
         ###SET BOARDS PROPERLY##########################################
-        self.boards.set_adc_setting('DemodFreq', -self.value('RF SB Frequency'), adc)
-  
+        self.boards.set_adc_setting('DemodFreq',
+                -self.value('RF SB Frequency'), adc)
+
         self.boards.set_adc_setting('ADCDelay', (offset +
                 self.value('ADC Wait Time')['ns']) * units.ns, adc)
-        self.boards.set_adc_setting('FilterStartAt', 0 * units.ns, adc)
+        
+        self.boards.set_adc_setting('FilterLength',
+                self.value('ADC Filter Length'), adc)
 
         ###MEMORY COMMAND LISTS#########################################
         mem_seqs = self.boards.init_mem_lists()

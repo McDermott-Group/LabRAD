@@ -488,9 +488,16 @@ class GHzFPGABoards(object):
             p.start_delay(int((self.adc_settings[idx]['ADCDelay']['ns']) / 4) + 
                     self.adc_settings[idx]['CalibDelay'])
             p.adc_run_mode(self.adc_settings[idx]['RunMode'])
+            if 'FilterStretchLen' in self.adc_settings[idx]:
+                stretch_len = int(self.adc_settings[idx]['FilterStretchLen']['ns'])
+            else:
+                stretch_len = 0
+            if 'FilterStretchAt' in self.adc_settings[idx]:
+                stretch_at = int(self.adc_settings[idx]['FilterStretchAt']['ns'])
+            else:
+                stretch_at = 0
             p.adc_filter_func(self.filter_bytes(self.adc_settings[idx]), 
-                    int(self.adc_settings[idx]['FilterStretchLen']['ns']),
-                    int(self.adc_settings[idx]['FilterStretchAt']['ns']))
+                    stretch_len, stretch_at)
             dPhi = int(self.adc_settings[idx]['DemodFreq']['Hz'] / 7629)
             phi0 = int(self.adc_settings[idx]['DemodPhase']['rad'] * (2**16))
             for k in range(self.consts['DEMOD_CHANNELS']):
@@ -506,7 +513,10 @@ class GHzFPGABoards(object):
         filter_func = settings['FilterType'].lower()
         filter_len = int(settings['FilterLength']['ns'])
         window_len = filter_len / 4
-        start_len = int(settings['FilterStartAt']['ns'] / 4)
+        if 'FilterStartAt' in settings:
+            start_len = int(settings['FilterStartAt']['ns'] / 4)
+        else:
+            start_len = 0
         if filter_func == 'square':
             env = np.full(window_len, 128.)
         elif filter_func == 'gaussian':

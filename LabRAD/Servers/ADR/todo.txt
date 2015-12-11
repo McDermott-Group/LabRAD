@@ -3,15 +3,12 @@ TODO LIST
 - figure out fridge settings
 - do we want to have a recording checkbox with a time interval?
 - try running some of this from dif computers
-- when automated startup, add interface to see different windows to ADRClient (so we can check what is working)
-- Add open/close HS to mag up/reg buttons
 + ADR is selected from  beginning in client.  what if none are started first?
 - what happens when close server when client is open?  especially with the menu, buttons
 - had to comment out a bunch of NotFoundErrors in instrument initialization.  figure this out
 - instrument status bar?
 
 BUGS
-+ changing the regulation temp automatically starts regulation
 - sometimes starting regulation doesnt decrease properly (I think due to dT=0)
 - mag up buttons when adr server is not active give error
 - since current lags voltage, often will mag all the way down.  have to press regulate again to go back up
