@@ -80,10 +80,10 @@ class ADCQubitReadout(ADCExperiment):
         ###SET BOARDS PROPERLY##########################################
         self.boards.set_adc_setting('DemodFreq', -self.value('Readout SB Frequency'), adc)
 
-        self.boards.set_adc_setting('FilterStartAt', (offset +
+        self.boards.set_adc_setting('ADCDelay', (offset +
                 RO_I.end + self.value('ADC Wait Time')['ns']) * units.ns, adc)
         # self.boards.set_adc_setting('FilterStartAt', 0*units.ns, adc)
-        self.boards.set_adc_setting('ADCDelay', 0 * units.ns, adc)
+        #self.boards.set_adc_setting('ADCDelay', 0 * units.ns, adc)
 
         # self.boards.set_adc_setting('ADCDelay', (offset +
                  # RO_I.end + self.value('ADC Wait Time')['ns']) * units.ns, adc)

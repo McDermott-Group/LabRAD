@@ -26,19 +26,22 @@ import numpy as np
 import scipy.signal as ss
 
 import matplotlib
-try:
-    matplotlib.use('GTKApp')
-except:
-    pass
 import matplotlib.pyplot as plt
 import matplotlib.cbook
 warnings.filterwarnings("ignore", category=matplotlib.cbook.mplDeprecation)
+
+from win32api import SetConsoleCtrlHandler
 
 import labrad.units as units
 
 def _flatten(iterable):
     """
     De-nest a list of _WavePulses for convenience.
+    
+    Input:
+        iterable: an iterable object.
+    Output:
+        list: de-nested list of _WavePulses.
     """
     remainder = iter(iterable)
     while True:
@@ -57,6 +60,11 @@ class _WavePulse():
         """
         Convert time to nanoseconds. Return an integer without any
         units attached.
+        
+        Input:
+            time: physical or numerical (in ns) time value.
+        Output:
+            time: numerical time value in ns.
         """
         if isinstance(time, units.Value):
             time = time['ns']
@@ -70,7 +78,6 @@ class _WavePulse():
             start: start time of the pulse.
             duration: duration of the pulse.
             end: end time of the pulse.
-            
         Output:
             None.
         """
@@ -115,7 +122,6 @@ class _WavePulse():
         
         Input:
             amplitude: amplitude of the pulse.
-
         Output:
             amplitude: amplitude of the pulse.
         """
@@ -131,7 +137,6 @@ class _WavePulse():
         Inputs:
             frequency: frequency of the harmonic pulse.
             phase: phase of the harmonic pulse.
-
         Outputs:
             frequency: frequency of the harmonic pulse.
             phase: phase of the harmonic pulse.
@@ -154,7 +159,6 @@ class _WavePulse():
         
         Input:
             None.
-
         Output:
             None.
         """
@@ -179,7 +183,6 @@ class _WavePulse():
         
         Input:
             time: time delay before this pulse in ns.
-
         Output:
             time: absolute time.
         """
@@ -376,7 +379,6 @@ def ECLDuringPulses(*args, **kwargs):
         args: set (or list) of _WavePulses during which an ECL pulse 
             should be generated.
         pad_length: time before and after the pulses (default: 8 ns).
-    
     Output:
         ECL: list of ECL _WavePulses.
     """
@@ -451,7 +453,6 @@ def wfs_dict(*args, **kwargs):
                 waveform (default: 4). Actual number of zeros added may
                 be higher if the waveform length does not satisfy
                 the min_length requirement.
-        
     Outputs:
         waveforms: dictionary with the processed waveforms.
         offset: difference between the corresponding index values
@@ -507,6 +508,17 @@ def check_wfs(waveforms):
     lengths = [waveforms[wf].size for wf in waveforms]
     if lengths.count(lengths[0]) != len(lengths):
         raise Exception('The waveform have different lengths.')
+  
+def _close_figure(self, signal=None):
+        """
+        Close the waveform figure.
+        
+        Input:
+            None.
+        Output:
+            None.
+        """
+        plt.close(2)
 
 def plot_wfs(waveforms, wf_labels, wf_colors=['r', 'g', 'm', 'b', 'k', 'c']):
     """
@@ -516,7 +528,6 @@ def plot_wfs(waveforms, wf_labels, wf_colors=['r', 'g', 'm', 'b', 'k', 'c']):
         waveforms: dictionary with the processed waveforms.
         wf_labels: waveform labels to plot.
         wf_colors: colors for waveform colorcoding.
-        
     Output:
         None.
     """
@@ -546,6 +557,9 @@ if __name__ == "__main__":
     """
     Tests and examples. Add your test/example!
     """
+    # Explicitly close the waveform figure when the terminal is closed.
+    SetConsoleCtrlHandler(_close_figure, True)
+    
     # Cosine pulse with amplitude of 1 and frequency of 0.25 GHz
     # starting at t = 2 ns and ending at t = 8 ns.
     pulseA1 = Cosine(amplitude=1, frequency=0.25, start=2, end=8)
@@ -611,7 +625,8 @@ if __name__ == "__main__":
     print('Time offset = %d ns.' %time_offset)
 
     # Create an in-phase and quadrature components of a harmonic pulse.
-    I, Q = Harmonic(amplitude=0.25, frequency=0.05, start=0, duration=150)
+    I, Q = Harmonic(amplitude=0.25, frequency=0.05, start=0,
+                    duration=150)
     wfs, time_offset = wfs_dict(Waveform('I', I), Waveform('Q', Q))
     print(wfs)
     check_wfs(wfs)
@@ -620,9 +635,11 @@ if __name__ == "__main__":
     plot_wfs(wfs, ['I', 'Q'], ['r', 'b'])
     
     # Some animation.
-    for x in range(10):
-        # Create an in-phase and quadrature components of a harmonic pulse.
-        I, Q = Harmonic(amplitude=0.25, frequency=0.01 * x, start=0, duration=150)
+    for x in range(100):
+        # Create an in-phase and quadrature components of a harmonic
+        # pulse.
+        I, Q = Harmonic(amplitude=0.25, frequency=0.03, phase= x / 20,
+                        start=0, duration=150)
         wfs, time_offset = wfs_dict(Waveform('I', I), Waveform('Q', Q))
         # Plot the waveforms for inspection.
         plot_wfs(wfs, ['I', 'Q'], ['r', 'b'])
