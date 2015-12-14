@@ -46,7 +46,9 @@ import sys
  
 def deltaT(dT):
     """.total_seconds() is only supported by >py27 :(, so we use this to subtract two datetime objects."""
-    return dT.days*86400 + dT.seconds + dT.microseconds*pow(10,-6)
+    return dT.total_seconds()
+    #return dT.days*86400 + dT.seconds + dT.microseconds*pow(10,-6)
+
 
 class ADRServer(DeviceServer):
     """Provides a way to control all the instruments that control our ADRs."""
@@ -91,6 +93,7 @@ class ADRServer(DeviceServer):
         self.ADRSettings ={ 'PID_KP':0.75,
                             'PID_KI':0,
                             'PID_KD':15,
+                            'PID_MaxI':1,
                             'magup_dV': 0.003,               #[V/step] How much do we increase the voltage by every second when maggin up? HPD Manual uses 10mV=0.01V, 2.5V/30min=1.4mV/s ==> Let's use a middle rate of 3mV/step. (1 step is about 1s)
                             'magnet_voltage_limit': 0.1,      #Back EMF limit in Volts
                             'current_limit': 9,               #Max Current in Amps
@@ -119,7 +122,9 @@ class ADRServer(DeviceServer):
         self.logMessages = []
     @inlineCallbacks
     def initServer(self):
-        """This method loads default settings from the registry, starts servers and sets up instruments, and sets up listeners for GPIB device connect/disconnect messages."""
+        """This method loads default settings from the registry,
+           sets up instruments, and sets up listeners for GPIB device 
+           connect/disconnect messages."""
         DeviceServer.initServer(self)
         try:
             yield self.client.registry.cd(self.ADRSettingsPath)
@@ -238,7 +243,8 @@ class ADRServer(DeviceServer):
         self.client.manager.send_named_message('Log Changed', (messageWithTimeStamp,alert))
     @inlineCallbacks
     def updateState(self):
-        """ This takes care of the real time reading of the instruments. It starts immediately upon starting the program, and never stops. """
+        """ This takes care of the real time reading of the instruments. 
+           It starts immediately upon starting the program, and never stops. """
         nan = numpy.nan
         while self.alive:
             cycleStartTime = datetime.datetime.now()
@@ -387,8 +393,9 @@ class ADRServer(DeviceServer):
             print 'dt, now, last, ==0 =',dT, self.state['datetime'], self.lastState['datetime'], dT==0
             print 't_target, t_faa_now, t_faa_last = ', T_target, self.state['T_FAA'], self.lastState['T_FAA']
             print 'cum err = ', self.state['PID_cumulativeError']
-            if dT == 0: dT = 0.0000000001 #to prevent divide by zero error
+            if dT == 0: dT = 0.001 #to prevent divide by zero error
             self.state['PID_cumulativeError'] += (T_target-self.state['T_FAA'])
+            self.state['PID_cumulativeError'] = min(self.state['PID_cumulativeError'], self.ADRSettings['PID_MaxI'],key=abs) # so we dont just build this up during the mag down.
             dV = ( self.ADRSettings['PID_KP']*(T_target-self.state['T_FAA']) \
                + self.ADRSettings['PID_KI']*self.state['PID_cumulativeError'] \
                + self.ADRSettings['PID_KD']*(self.lastState['T_FAA']-self.state['T_FAA'])/dT )['K']*units.V
@@ -399,12 +406,12 @@ class ADRServer(DeviceServer):
             if self.state['PSVoltage'] + dV > self.ADRSettings['voltage_limit']*units.V:
                 dV = self.ADRSettings['voltage_limit']*units.V - self.state['PSVoltage']
             # steady state limit
-            if dV < 0*units.V:
+            if dV['V'] < 0:
                 dV = max(dV,self.state['magnetV']-self.ADRSettings['magnet_voltage_limit']*units.V)
-                if dV > 0*units.V: dV = 0*units.V
-            if dV > 0*units.V:
+                if dV['V'] > 0: dV = 0*units.V
+            if dV['V'] > 0:
                 dV = min(dV, self.ADRSettings['magnet_voltage_limit']*units.V-self.state['magnetV'])
-                if dV < 0*units.V: dV = 0*units.V
+                if dV['V'] < 0: dV = 0*units.V
             # limit by hard voltage increase limit
             print str(dV/dT)+'\t',
             if abs(dV/dT) > self.ADRSettings['dVdT_limit']*units.V:
@@ -540,21 +547,26 @@ class ADRServer(DeviceServer):
         except Exception as e:
             self.logMessage('Stopping Compressor failed.',alert=True)
     
-    @setting(130, 'Set PID KP')
-    def setPIDKP(self,c,k=['v']):
+    @setting(130, 'Set PID KP',k=['v'])
+    def setPIDKP(self,c,k):
         """Set PID Proportional Constant."""
         self.ADRSettings['PID_KP'] = k
         self.logMessage('PID_KP has been set to '+str(k))
-    @setting(131, 'Set PID KI')
-    def setPIDKI(self,c,k=['v']):
+    @setting(131, 'Set PID KI',k=['v'])
+    def setPIDKI(self,c,k):
         """Set PID Integral Constant."""
         self.ADRSettings['PID_KI'] = k
         self.logMessage('PID_KI has been set to '+str(k))
-    @setting(132, 'Set PID KD')
-    def setPIDKD(self,c,k=['v']):
+    @setting(132, 'Set PID KD',k=['v'])
+    def setPIDKD(self,c,k):
         """Set PID Derivative Constant."""
         self.ADRSettings['PID_KD'] = k
         self.logMessage('PID_KD has been set to '+str(k))
+    @setting(133, 'Set PID Max I',max=['v'])
+    def setPIDMaxI(self,c,max):
+        """Set PID Max Integral Value."""
+        self.ADRSettings['PID_MaxI'] = max
+        self.logMessage('PID_MaxI has been set to '+str(max))
 
 
 if __name__ == "__main__":

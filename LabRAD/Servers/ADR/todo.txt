@@ -12,10 +12,10 @@ BUGS
 - mag up buttons when adr server is not active give error
 - since current lags voltage, often will mag all the way down.  have to press regulate again to go back up
 - uses lots of memory
-? selecting an ADR from menu when that ADR does not exist causes errors (like if ADR is closed while selected and then we reselect it?)
 - error when start adr client halfway through adr server initialization:
 	Unhandled error in message listener: MessageContext(source=1, ID=(0L,0L), target=102,) ($L, ('message',False)) ((function <lambda> at 0x0482345>, (), {})
-+ client throws error when tries to load temps for first time and file does not exist (if first time starting it)
+- client throws error when tries to load temps for first time and file does not exist (if first time starting it)
+- if ADRserver is ended, reg/mag up buttons dont reset
 
 TODO IN GENERAL
 Data - either write a new datavault server or (hopefully) just use the existing one and change Ivan's code to use it
