@@ -43,11 +43,12 @@ from labrad import util, units
 from labrad.types import Error as LRError
 from labrad.client import NotFoundError
 import sys
+import copy
  
 def deltaT(dT):
     """.total_seconds() is only supported by >py27 :(, so we use this to subtract two datetime objects."""
-    return dT.total_seconds()
-    #return dT.days*86400 + dT.seconds + dT.microseconds*pow(10,-6)
+    try: return dT.total_seconds()
+    except: return dT.days*86400 + dT.seconds + dT.microseconds*pow(10,-6)
 
 
 class ADRServer(DeviceServer):
@@ -89,7 +90,7 @@ class ADRServer(DeviceServer):
                         'regulating':False,
                         'regulationTemp':0.1,
                         'PID_cumulativeError':0*units.K}
-        self.lastState = self.state.copy()
+        self.lastState = copy.deepcopy(self.state)
         self.ADRSettings ={ 'PID_KP':0.75,
                             'PID_KI':0,
                             'PID_KD':15,
@@ -248,7 +249,7 @@ class ADRServer(DeviceServer):
         nan = numpy.nan
         while self.alive:
             cycleStartTime = datetime.datetime.now()
-            self.lastState = self.state.copy()
+            self.lastState = copy.deepcopy(self.state)
             # compressor
             self.state['CompressorStatus'] = None
             if hasattr(self.instruments['Compressor'],'connected') and self.instruments['Compressor'].connected == True:

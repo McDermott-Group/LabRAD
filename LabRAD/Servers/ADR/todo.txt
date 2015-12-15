@@ -8,8 +8,8 @@ TODO LIST
 - had to comment out a bunch of NotFoundErrors in instrument initialization.  figure this out
 
 BUGS
-- sometimes starting regulation doesnt decrease properly (I think due to dT=0)
-- mag up buttons when adr server is not active give error
++ sometimes starting regulation doesnt decrease properly (I think due to dT=0)
+- mag up buttons when adr server is not active don’t change back properly
 - since current lags voltage, often will mag all the way down.  have to press regulate again to go back up
 - uses lots of memory
 - error when start adr client halfway through adr server initialization:
