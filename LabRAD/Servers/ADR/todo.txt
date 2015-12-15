@@ -1,14 +1,13 @@
-TODO LIST
+﻿TODO LIST
 - &&& means todo in code
 - figure out fridge settings
 - do we want to have a recording checkbox with a time interval?
 - try running some of this from dif computers
 + ADR is selected from  beginning in client.  what if none are started first?
-- what happens when close server when client is open?  especially with the menu, buttons
+- what happens when close server when client is open?  especially with the menu, buttons, status
 - had to comment out a bunch of NotFoundErrors in instrument initialization.  figure this out
 
 BUGS
-+ sometimes starting regulation doesnt decrease properly (I think due to dT=0)
 - mag up buttons when adr server is not active don’t change back properly
 - since current lags voltage, often will mag all the way down.  have to press regulate again to go back up
 - uses lots of memory

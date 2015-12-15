@@ -43,7 +43,6 @@ from labrad import util, units
 from labrad.types import Error as LRError
 from labrad.client import NotFoundError
 import sys
-import copy
  
 def deltaT(dT):
     """.total_seconds() is only supported by >py27 :(, so we use this to subtract two datetime objects."""
@@ -90,7 +89,7 @@ class ADRServer(DeviceServer):
                         'regulating':False,
                         'regulationTemp':0.1,
                         'PID_cumulativeError':0*units.K}
-        self.lastState = copy.deepcopy(self.state)
+        self.lastState = self.state.copy()
         self.ADRSettings ={ 'PID_KP':0.75,
                             'PID_KI':0,
                             'PID_KD':15,
@@ -133,7 +132,7 @@ class ADRServer(DeviceServer):
         except Exception as e:
             self.logMessage( '{Saving log failed.  Check that AFS is working.} ' )
         yield self.loadDefaults()
-        yield util.wakeupCall( 2 ) # on the round ADR, the HP DMM takes forever to initialize.  This prevents it from going on before it is ready.
+        yield util.wakeupCall( 3 ) # on the round ADR, the HP DMM takes forever to initialize.  This prevents it from going on before it is ready.
         yield self.initializeInstruments()
         # subscribe to messages
         # the server ones are not used right now, but at some point they could be
@@ -249,7 +248,10 @@ class ADRServer(DeviceServer):
         nan = numpy.nan
         while self.alive:
             cycleStartTime = datetime.datetime.now()
-            self.lastState = copy.deepcopy(self.state)
+            self.lastState = self.state.copy()
+            # datetime, cycle
+            self.state['datetime'] = datetime.datetime.now()
+            self.state['cycle'] += 1
             # compressor
             self.state['CompressorStatus'] = None
             if hasattr(self.instruments['Compressor'],'connected') and self.instruments['Compressor'].connected == True:
@@ -274,9 +276,6 @@ class ADRServer(DeviceServer):
                 except AttributeError: pass
             if self.state['T_GGG']['K'] == 20.0: self.state['T_GGG'] = nan*units.K
             if self.state['T_FAA']['K'] == 45.0: self.state['T_FAA'] = nan*units.K
-            # datetime, cycle
-            self.state['datetime'] = datetime.datetime.now()
-            self.state['cycle'] += 1
             # voltage across magnet
             try: self.state['magnetV'] = yield self.instruments['Magnet Voltage Monitor'].get_magnet_voltage()
             except Exception as e: 
@@ -368,7 +367,7 @@ class ADRServer(DeviceServer):
             return
         if self.state['regulating'] == True:
             self.state['regulationTemp'] = temp
-            self.logMessage('Setting regulation temperature to %d K.'%temp)
+            self.logMessage('Setting regulation temperature to %f K.'%temp)
             return
         deviceNames = ['Power Supply','Diode Temperature Monitor','Ruox Temperature Monitor','Magnet Voltage Monitor']
         deviceStatus = [self.instruments[name].connected for name in deviceNames]
@@ -387,23 +386,23 @@ class ADRServer(DeviceServer):
             if numpy.isnan(self.state['T_FAA']['K']): 
                 self.logMessage( 'FAA temperature is not valid. Regulation cannot continue.' )
                 self._cancelRegulate()
-            print str(self.state['PSVoltage'])+'\t'+str(self.state['magnetV'])+'\t',
-            #propose new voltage
+            # print str(self.state['PSVoltage'])+'\t'+str(self.state['magnetV'])+'\t',
+            # propose new voltage
             T_target = float(self.state['regulationTemp'])*units.K
             dT = deltaT( self.state['datetime'] - self.lastState['datetime'] )
-            print 'dt, now, last, ==0 =',dT, self.state['datetime'], self.lastState['datetime'], dT==0
-            print 't_target, t_faa_now, t_faa_last = ', T_target, self.state['T_FAA'], self.lastState['T_FAA']
-            print 'cum err = ', self.state['PID_cumulativeError']
+            # print '(dt, now, last, ==0) = ',dT, self.state['datetime'], self.lastState['datetime'], dT==0
+            # print 't_target, t_faa_now, t_faa_last = ', T_target, self.state['T_FAA'], self.lastState['T_FAA']
+            # print 'cum err = ', self.state['PID_cumulativeError']
             if dT == 0: dT = 0.001 #to prevent divide by zero error
             self.state['PID_cumulativeError'] += (T_target-self.state['T_FAA'])
             self.state['PID_cumulativeError'] = min(self.state['PID_cumulativeError'], self.ADRSettings['PID_MaxI'],key=abs) # so we dont just build this up during the mag down.
             dV = ( self.ADRSettings['PID_KP']*(T_target-self.state['T_FAA']) \
                + self.ADRSettings['PID_KI']*self.state['PID_cumulativeError'] \
                + self.ADRSettings['PID_KD']*(self.lastState['T_FAA']-self.state['T_FAA'])/dT )['K']*units.V
-            #hard current limit
+            # hard current limit
             if self.state['PSCurrent'] > self.ADRSettings['current_limit']*units.A:
                 if dV>0*units.V: dV=0*units.V
-            #hard voltage limit
+            # hard voltage limit
             if self.state['PSVoltage'] + dV > self.ADRSettings['voltage_limit']*units.V:
                 dV = self.ADRSettings['voltage_limit']*units.V - self.state['PSVoltage']
             # steady state limit
@@ -414,7 +413,7 @@ class ADRServer(DeviceServer):
                 dV = min(dV, self.ADRSettings['magnet_voltage_limit']*units.V-self.state['magnetV'])
                 if dV['V'] < 0: dV = 0*units.V
             # limit by hard voltage increase limit
-            print str(dV/dT)+'\t',
+            # print str(dV/dT)+'\t',
             if abs(dV/dT) > self.ADRSettings['dVdT_limit']*units.V:
                 dV = self.ADRSettings['dVdT_limit']*dT*(dV/abs(dV))*units.V
             # limit by hard current increase limit
@@ -426,7 +425,7 @@ class ADRServer(DeviceServer):
                 self.instruments['Power Supply'].voltage(0*units.V)
                 dV = 0*units.V
                 runCycleAgain = False
-            print str(dV)
+            # print str(dV)
             self.instruments['Power Supply'].voltage(self.state['PSVoltage'] + dV)
             cycleTime = deltaT(datetime.datetime.now() - startTime)
             if runCycleAgain: yield util.wakeupCall( max(0,self.ADRSettings['step_length']-cycleTime) )

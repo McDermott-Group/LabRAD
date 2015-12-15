@@ -500,11 +500,12 @@ class ADRController(object):#Tkinter.Tk):
         self.magUpButton.configure(text='Mag Up', command=self.magUp)
         self.regulateButton.configure(state=Tkinter.NORMAL)
     def regulate(self): 
-        T_target = float(self.regulateTempField.get())
+        T_target = float(self.regulationTemp.get())
         self.cxn[self.selectedADR].regulate(T_target)
     def changeRegTemp(self, *args):
         if self.regulating == True:
-            T_target = float(self.regulateTempField.get())
+            T_target = float(self.regulationTemp.get())
+            print self.regulationTemp.get(),T_target
             self.cxn[self.selectedADR].regulate(T_target)
     def regulationStarted(self):
         self.regulateButton.configure(text='Stop Regulating', command=self.cancelRegulate)
