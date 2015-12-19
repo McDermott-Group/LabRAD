@@ -59,6 +59,6 @@ ExptVars = {
 with nis_network_analyzer.NISNetworkAnalyzer() as run:
     
     run.set_experiment(ExptInfo, Resources, ExptVars) 
-    
-    run.sweep('NA Source Power', np.array([-30]) * dBm, save=True)
-    #run.sweep('Qubit Flux Bias Voltage', np.array([0]) * V, save=True)
+    run.sweep('Bias Voltage', np.linspace(0, 0.1, 5) * V,save=True)          
+    #run.sweep('NA Source Power', np.array([-30]) * dBm, save=True)
+    #run.sweep('Bias Voltage', np.array([0]) * V, save=True)
