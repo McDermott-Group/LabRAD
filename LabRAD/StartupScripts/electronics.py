@@ -187,7 +187,14 @@ class StartAndBringUp:
             if self._password is None:
                 self._waitTillEnterKeyIsPressed()
             else:
-                time.sleep(3)
+                connected = False
+                while not connected:
+                    time.sleep(3)
+                    try:
+                        self._LabRADConnect()
+                        connected = True
+                    except:
+                        pass
 
         try:
             os.environ['LabRADPassword'] = self._password
@@ -258,7 +265,13 @@ class StartAndBringUp:
             if self._password is None or self._password == '':
                 self._waitTillEnterKeyIsPressed()
             else:
-                time.sleep(2)
+                connected = False
+                while not connected:
+                    time.sleep(3)
+                    servers = self._cxn.manager.servers()
+                    servers = (server for id, server in servers)
+                    if node_name in servers:
+                        connected = True
                 print('The LabRAD node has been started.\n')
         
     def startLabRADNodeServers(self):

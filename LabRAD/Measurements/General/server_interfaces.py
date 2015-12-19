@@ -916,11 +916,20 @@ class NetworkAnalyzer(GPIBInterface):
             self._setting = 'Average Points'
         elif self._var.lower().find('trace') != -1:
             self._setting = 'Get Trace'
+        elif self._var.lower().find('trace') != -1:
+            self._setting = 'Get Trace'
+        elif self._var.lower().find('s2p') != -1:
+            self._setting = 'Get S2P'
         else:
             raise ResourceDefinitionError("Setting responsible for " +
                     "variable '" + self._var + "' is not specified " +
                     "in the experiment resource: " + 
                     str(self._res) + ".")
+        if self._setting == 'Get S2P':
+            if 'Ports' in self._res['Variables'][self._var]:
+                self._ports = self._res['Variables'][self._var]['Ports']
+            else:
+                self._ports = (3, 4)
     
     def send_request(self, value=None):
         """Send a setting request to set a setting."""
@@ -928,7 +937,10 @@ class NetworkAnalyzer(GPIBInterface):
         if not self._single_device:
             p.select_device(self.address)
         if self._setting is not None:
-            p[self._setting](value)
+            if self._setting == 'Get S2P':
+                p[self._setting](self._ports)
+            else:
+                p[self._setting](value)
         if self._setting == 'Average Points' and value is not None:
             if value > 1:
                 p['Average Mode'](True)

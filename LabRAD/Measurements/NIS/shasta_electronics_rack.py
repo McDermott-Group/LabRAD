@@ -5,7 +5,7 @@ import numpy as np
 
 from labrad.units import us, ns, mV, V, GHz, MHz, rad, dB, dBm, DACUnits
 
-import nis_experiments
+import nis_electronics_rack
 
 
 comp_name = os.environ['COMPUTERNAME'].lower()
@@ -85,13 +85,13 @@ ExptInfo = {
  
 # Experiment Variables
 ExptVars = {
-            'Reps': 55, # should not exceed ~5,000, use argument "runs" in sweep parameters instead 
+            'Reps': 150, # should not exceed ~5,000, use argument "runs" in sweep parameters instead 
 
             'Init Time': 3000 * us,
 
             'RF Frequency': 4.6736 * GHz,
             'RF Power': 16.5 * dBm, #17.6 * dBm,
-            'RF Time': 5000 * ns,
+            'RF Time': 17000 * ns,
             'RF SB Frequency': 31.5 * MHz,
             'RF Amplitude': 0.5 * DACUnits, # [-1, 1] * DACUnits, 1 DACUnits ~ 0.1-2.0 V
             
@@ -100,30 +100,34 @@ ExptVars = {
             
             'Bias to RF Delay': 100 * us,
      
-            'ADC Wait Time': -4 * ns,
+            'ADC Wait Time': 4000 * ns,
             'ADC Filter Length': 2000 * ns
            }
 
 
-with nis_experiments.NISReadout() as run:
+with nis_electronics_rack.NISReadout() as run:
     
     run.set_experiment(ExptInfo, Resources, ExptVars)
     
     #run.single_shot_iqs(save=False, plot_data=True)
     #run.single_shot_osc(save=False, plot_data=['I', 'Q'])
     # run.avg_osc(save=True, plot_data=['I', 'Q'], runs=1000)
+
+    # run.sweep('ADC Wait Time', np.linspace(0, 10000, 251) * ns,
+          # print_data=['I', 'Q', 'Temperature'], plot_data=['I', 'Q', 'Amplitude'],
+          # max_data_dim=1, save=True, runs=1)
     
-    # run.value('NIS Bias Voltage', 0.0 * V)
-   
-    run.sweep('ADC Wait Time', np.linspace(0, 10000, 251) * ns,
-          print_data=['I', 'Q', 'Temperature'], plot_data=['I', 'Q', 'Amplitude'],
-          max_data_dim=1, save=False, runs=1)
+    # Increase RF Time to ~18 000 ns.
+    # See how the SNR imporoves with longer ADC Filter Length
+    # run.sweep('ADC Filter Length', np.linspace(200, 10200, 251) * ns,
+          # print_data=['I', 'Q', 'Temperature'], plot_data=['I', 'Q', 'Amplitude'],
+          # max_data_dim=1, save=True, runs=1)
     
     # run.sweep('RF Amplitude', np.linspace(0, 1, 31) * DACUnits,
               # print_data=['I', 'Q'], plot_data=['I', 'Q'], max_data_dim=1,
               # save=False, runs=1)
     
-    # run.sweep('RF Frequency', np.linspace(4.672, 4.675,150) * GHz,
+    # run.sweep('RF Frequency', np.linspace(4.6722, 4.6745,350) * GHz,
                # plot_data=['I', 'Q', 'Amplitude'], max_data_dim=1,
                # save=True, runs=1)
     
@@ -137,12 +141,12 @@ with nis_experiments.NISReadout() as run:
          # [np.linspace(0, 100, 11) * us, np.linspace(4.6725, 4.6744, 200) * GHz],
          # save=True, runs=1)
          
-    # bias_range = np.linspace(0.1, 0.2, 2) * V
-    # for voltage in bias_range:
-        # run.value('NIS Bias Voltage', voltage)
-        # run.sweep(['Bias to RF Delay', 'RF Frequency'], 
-                  # [np.linspace(0, 50, 51) * us, np.linspace(4.69600, 4.702, 170) * GHz], print_data=['I', 'Q','Amplitude'],
-                  # save=True, runs=1)     
+    bias_range = np.linspace(0.25, 0.5, 2) * V
+    for voltage in bias_range:
+        run.value('NIS Bias Voltage', voltage)
+        run.sweep(['Bias to RF Delay', 'RF Frequency'], 
+                  [np.linspace(0, 50, 21) * us, np.linspace(4.6722, 4.6745, 350) * GHz], print_data=['I', 'Q','Amplitude'],
+                  save=True, runs=1)     
          
             
     # bias_range = np.linspace(0.25, 0.5, 2) * V
