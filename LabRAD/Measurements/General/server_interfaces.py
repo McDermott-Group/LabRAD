@@ -916,8 +916,6 @@ class NetworkAnalyzer(GPIBInterface):
             self._setting = 'Average Points'
         elif self._var.lower().find('trace') != -1:
             self._setting = 'Get Trace'
-        elif self._var.lower().find('trace') != -1:
-            self._setting = 'Get Trace'
         elif self._var.lower().find('s2p') != -1:
             self._setting = 'Get S2P'
         else:
