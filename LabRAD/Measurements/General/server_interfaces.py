@@ -1097,8 +1097,7 @@ class ADR3(BasicInterface):
             self._connected = True
             return cxn
         except:
-            print("Could not connect to " +
-                "server '" + server_name + "'.")
+            print("Could not connect to server '" + server_name + "'.")
             self._connected = False
     
     def _init_resource(self):
