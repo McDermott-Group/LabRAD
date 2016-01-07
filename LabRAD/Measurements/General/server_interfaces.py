@@ -916,11 +916,18 @@ class NetworkAnalyzer(GPIBInterface):
             self._setting = 'Average Points'
         elif self._var.lower().find('trace') != -1:
             self._setting = 'Get Trace'
+        elif self._var.lower().find('s2p') != -1:
+            self._setting = 'Get S2P'
         else:
             raise ResourceDefinitionError("Setting responsible for " +
                     "variable '" + self._var + "' is not specified " +
                     "in the experiment resource: " + 
                     str(self._res) + ".")
+        if self._setting == 'Get S2P':
+            if 'Ports' in self._res['Variables'][self._var]:
+                self._ports = self._res['Variables'][self._var]['Ports']
+            else:
+                self._ports = (3, 4)
     
     def send_request(self, value=None):
         """Send a setting request to set a setting."""
@@ -928,7 +935,10 @@ class NetworkAnalyzer(GPIBInterface):
         if not self._single_device:
             p.select_device(self.address)
         if self._setting is not None:
-            p[self._setting](value)
+            if self._setting == 'Get S2P':
+                p[self._setting](self._ports)
+            else:
+                p[self._setting](value)
         if self._setting == 'Average Points' and value is not None:
             if value > 1:
                 p['Average Mode'](True)
@@ -1081,43 +1091,60 @@ class ADR3(BasicInterface):
             server_name = self._res['Server']
         else:
             server_name = 'ADR3'
+            
         try:
-            return cxn[server_name]
+            cxn = cxn[server_name]
+            self._connected = True
+            return cxn
         except:
-            raise ResourceDefinitionError("Could not connect to " +
-                "server '" + server_name + "'.")
+            print("Could not connect to server '" + server_name + "'.")
+            self._connected = False
     
     def _init_resource(self):
         """Initialize the temperature variable."""
-        if ('Variables' in self._res and 
-                self._var in self._res['Variables'] and 
-                isinstance(self._res['Variables'], dict)):
-            var_dict = True
-        else:
-            var_dict = False
-        
-        if var_dict and 'Setting' in self._res['Variables'][self._var]:
-            self._setting = self._res['Variables'][self._var]['Setting']
-        else:
-            self._setting = 'Temperatures'
-        if var_dict and 'Stage' in self._res['Variables'][self._var]:
-            if self._res['Variables'][self._var]['Stage'].lower().find('50k') != -1:
-                self._temp_idx = 0
-            elif self._res['Variables'][self._var]['Stage'].lower().find('3k') != -1:
-                self._temp_idx = 1
-            elif self._res['Variables'][self._var]['Stage'].lower().find('ggg') != -1:
-                self._temp_idx = 2
-            elif self._res['Variables'][self._var]['Stage'].lower().find('faa') != -1:
-                self._temp_idx = 3
+        if self._connected:
+            if ('Variables' in self._res and 
+                    self._var in self._res['Variables'] and 
+                    isinstance(self._res['Variables'], dict)):
+                var_dict = True
             else:
-                self._temp_idx = 3
+                var_dict = False
+            
+            if var_dict and 'Setting' in self._res['Variables'][self._var]:
+                self._setting = self._res['Variables'][self._var]['Setting']
+            else:
+                self._setting = 'Temperatures'
+            if var_dict and 'Stage' in self._res['Variables'][self._var]:
+                if self._res['Variables'][self._var]['Stage'].lower().find('50k') != -1:
+                    self._temp_idx = 0
+                elif self._res['Variables'][self._var]['Stage'].lower().find('3k') != -1:
+                    self._temp_idx = 1
+                elif self._res['Variables'][self._var]['Stage'].lower().find('ggg') != -1:
+                    self._temp_idx = 2
+                elif self._res['Variables'][self._var]['Stage'].lower().find('faa') != -1:
+                    self._temp_idx = 3
+                else:
+                    self._temp_idx = 3
+
+    def send_request(self, value=None):
+        """Send a request."""
+        if self._connected:
+            p = self.server.packet()
+            if self._setting is not None:
+                p[self._setting](value)
+            self._result = p.send(wait=False)
+            self._request_sent = True
+        else:
+             self._request_sent = False
 
     def acknowledge_request(self):
         """Wait for the result of a non-blocking request."""
-        if self._request_sent:
+        if self._connected and self._request_sent:
             self._request_sent = False
             temperatures = self._result.wait()[self._setting]
             return temperatures[self._temp_idx]
+        else:
+            return np.nan * units.K
 
 
 class Leiden(BasicInterface):

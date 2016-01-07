@@ -28,15 +28,14 @@ if LABRAD_PATH not in sys.path:
 
 import numpy as np
 
-from labrad.units import V, GHz, MHz, mK, dB, dBm
+import labrad.units as units
 
 import LabRAD.Measurements.General.experiment as expt
 
 
-class QubitNAExperiment(expt.Experiment):
-    """Qubit spectroscopy with a network analyzer."""
+class NISNetworkAnalyzer(expt.Experiment):
     def run_once(self):
-        self.set('Qubit Flux Bias Voltage')
+        self.set('Bias Voltage')
         
         # Network analyzer variables.
         self.set('NA Source Power')
@@ -52,17 +51,57 @@ class QubitNAExperiment(expt.Experiment):
         self.acknowledge_requests()
         
         self.get('Temperature')
-        self.get('Trace')
-        self.get('NA Sweep Points')
+        self.get('S2P')
         
+        data = self.acknowledge_request('S2P')
+        length = len(data)
+        freq = np.empty((length,), dtype=units.Value)
+        S11  = np.empty((length,), dtype=units.Value)
+        ph11 = np.empty((length,), dtype=units.Value)
+        S21  = np.empty((length,), dtype=units.Value)
+        ph21 = np.empty((length,), dtype=units.Value)
+        S12  = np.empty((length,), dtype=units.Value)
+        ph12 = np.empty((length,), dtype=units.Value)
+        S22  = np.empty((length,), dtype=units.Value)
+        ph22 = np.empty((length,), dtype=units.Value)
+        for k in range(length):
+            freq[k] = data[k][0]
+            S11[k]  = data[k][1]
+            ph11[k] = data[k][2]
+            S21[k]  = data[k][3]
+            ph21[k] = data[k][4]
+            S12[k]  = data[k][5]
+            ph12[k] = data[k][6]
+            S22[k]  = data[k][7]
+            ph22[k] = data[k][8]
+            
         data = {
-                'Transmission': {
-                    'Value': self.strip_units(self.acknowledge_request('Trace')) * dB,
+                'S11': {
+                    'Value': S11,
+                    'Dependencies': ['RF Frequency']},
+                'S11 Phase': {
+                    'Value': ph11,
+                    'Dependencies': ['RF Frequency']},
+                'S21': {
+                    'Value': S21,
+                    'Dependencies': ['RF Frequency']},
+                'S21 Phase': {
+                    'Value': ph21,
+                    'Dependencies': ['RF Frequency']},
+                'S12': {
+                    'Value': S12,
+                    'Dependencies': ['RF Frequency']},
+                'S12 Phase': {
+                    'Value': ph12,
+                    'Dependencies': ['RF Frequency']},
+                'S22': {
+                    'Value': S22,
+                    'Dependencies': ['RF Frequency']},
+                'S22 Phase': {
+                    'Value': ph22,
                     'Dependencies': ['RF Frequency']},
                 'RF Frequency': {
-                        'Value': np.linspace(self.value('NA Start Frequency')['GHz'], 
-                                             self.value('NA Stop Frequency')['GHz'],
-                                             self.acknowledge_request('NA Sweep Points')) * GHz,
+                        'Value': freq,
                         'Type': 'Independent'},
                 'Temperature': {'Value': self.acknowledge_request('Temperature')}
                 }
