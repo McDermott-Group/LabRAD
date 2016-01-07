@@ -66,6 +66,29 @@ class CallbackTask(Task):
     def getTrigName(self):
         return self.trigName
 
+class analogInputTask(Task):
+    def __init__(self , analogInputNameStr, sampRate, numSamples):
+        Task.__init__(self)
+        self.buffLen = 0
+        self.callback =None
+        self.trigName=""
+        self.analogInputNameStr = analogInputNameStr
+        self.sampRate = sampRate
+        self.numSamples = numSamples
+        #self.configureCallbackTask()
+        
+    def configureCallbackTask(self):
+        self.read = int32()
+        self.buffLen = self.numSamples
+        self.data = np.zeros(self.buffLen, dtype=numpy.float64)
+        self.CreateAIVoltageChan(self.analogInputNameStr,"",DAQmx_Val_Diff,-10.0,10.0,DAQmx_Val_Volts,None)
+        self.CfgSampClkTiming("",float(self.sampRate),DAQmx_Val_Rising,DAQmx_Val_FiniteSamps,self.numSamples)
+        self.StartTask()
+        self.ReadAnalogF64(self.numSamples,10.0,DAQmx_Val_GroupByChannel,self.data,self.buffLen,byref(self.read),None)
+        self.StopTask()
+        self.ClearTask()
+        return self.data
+
 class acAnalogOutputTask(Task):
     def __init__(self):
         Task.__init__(self)
