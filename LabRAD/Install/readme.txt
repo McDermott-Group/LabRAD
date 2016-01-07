@@ -5,11 +5,11 @@ If you are installing from a directory, sometimes errors are thrown if the path 
 
 Python and the required modules should be installed in this order (on a computer with an Internet access):
 python-2.7.10.msi - make sure to select "add python to path"
+VCForPython27.msi
 numpy-1.10.1-win32-superpack-python2.7.exe
 scipy-0.16.0-win32-superpack-python2.7.exe
 run in the command line: "pip2.7 install ipython"
 run in the command line: "pip2.7 install matplotlib"
-VCForPython27.msi
 run in the command line: "pip2.7 install twisted"
 pywin32-219.win32-py2.7.exe
 run in the command line: "pip2.7 install pyserial"
