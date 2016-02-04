@@ -27,8 +27,16 @@ from twisted.internet import tksupport, reactor
 # from labrad.units import Unit,Value
 from labrad import util
 
-FILEPATH = 'E:\McDermottData\SQUID Pulse\UHV cell Exp\Ti cell\Resistor Calibration 071615\\resCal.txt'
-CYCLE_TIME = 120 # in seconds
+#FILEPATH = 'Z:\physics\mcdermott-group\cwilen\BN JJ (Purdue)\R Data 20151218\\resC2.txt'
+FILEPATH = 'C:\Users\Robert McDermott\Desktop\R Data 20160203\\resDown.txt'
+CYCLE_TIME = 4 # in seconds
+TEMPCHAN = 6
+
+import niPCI6221 as ni
+OUTPUT_V = 0.5
+BN_PORT = 0
+NbSe2_PORT = 1
+AVERAGES = 20
 
 class ResCal(object):
     """Provides a GUI to measure the DC steps on a QPC"""
@@ -41,6 +49,7 @@ class ResCal(object):
         #initialize and start measurement loop
         self.connect()
         self.initializeWindow()
+        self.initializeMeasurement()
     @inlineCallbacks
     def connect(self,cxn=None):
         """Connects to labrad, loads the last 20 log messages, and starts listening for messages from the adr server."""
@@ -49,8 +58,8 @@ class ResCal(object):
             from labrad.wrappers import connectAsync
             self.cxn = yield connectAsync(name = self.name)
         else:self.cxn = cxn
-        self.DMM = self.cxn[ self.periphs['DMM'][0] ]
-        yield self.DMM.select_device( self.periphs['DMM'][1] )
+        #self.DMM = self.cxn[ self.periphs['DMM'][0] ]
+        #yield self.DMM.select_device( self.periphs['DMM'][1] )
         self.diodeMonitor = self.cxn[ self.periphs['Diode Monitor'][0] ]
         yield self.diodeMonitor.select_device( self.periphs['Diode Monitor'][1] )
         
@@ -89,6 +98,17 @@ class ResCal(object):
         
         root.protocol("WM_DELETE_WINDOW", self._quit) #X BUTTON
         
+    def initializeMeasurement(self):
+        try:
+            self.DCOutput_BN = ni.dcAnalogOutputTask()
+            self.DCOutput_BN.configureDcAnalogOutputTask("Dev1/ao"+str(BN_PORT),OUTPUT_V)
+            self.DCOutput_BN.StartTask()
+            self.DCOutput_NbSe2 = ni.dcAnalogOutputTask()
+            self.DCOutput_NbSe2.configureDcAnalogOutputTask("Dev1/ao"+str(NbSe2_PORT),OUTPUT_V)
+            self.DCOutput_NbSe2.StartTask()
+            print "started DC outputs"
+        except Exception as e:
+            print 'Error initializing DC outputs:\n' + str(e)
     def stopTakingData(self):
         self.takingData = False
         self.startStopButton.configure(text='Start', command=self.takeData)
@@ -103,14 +123,24 @@ class ResCal(object):
 			saveText += dt.strftime('\ndata taking started: %m/%d/%y %H:%M:%S\n')
 			f.write(saveText)
         while self.takingData:
-            Ts = yield self.diodeMonitor.get_temperature()
-            T = Ts[3]
-            R = yield self.DMM.get_resistance()
+            #Ts = yield self.diodeMonitor.get_temperature()
+            #T = Ts[TEMPCHAN]
+            T = yield self.cxn.adr2.temperatures()
+            T = T[1]
+            #R = yield self.DMM.get_resistance()
+            #R = yield self.DMM.get_measurement('4-wire ohms','3Mohms')
+            #R = yield self.DMM.get_fw_resistance()
+            t_BN = ni.analogInputTask("Dev1/ai"+str(BN_PORT),AVERAGES,AVERAGES)
+            V_BN = numpy.mean(t_BN.configureCallbackTask())
+            t_NbSe2 = ni.analogInputTask("Dev1/ai"+str(NbSe2_PORT),AVERAGES,AVERAGES)
+            V_NbSe2 = numpy.mean(t_NbSe2.configureCallbackTask())
+            R_BN = OUTPUT_V*10000/(V_BN) - 10000
+            R_NbSe2 = OUTPUT_V*10000/(-V_NbSe2) - 10000
             # print T,R
             with open(FILEPATH,'a') as f:
-                f.write(str(T)+'\t'+str(R)+'\n')
+                f.write(str(T)+'\t'+str(R_BN)+'\t'+str(R_NbSe2)+'\n')
             self.graph.set_xdata(numpy.append(self.graph.get_xdata(),T))
-            self.graph.set_ydata(numpy.append(self.graph.get_ydata(),R))
+            self.graph.set_ydata(numpy.append(self.graph.get_ydata(),R_BN))
             self.ax.relim()
             self.ax.autoscale()
             self.canvas.draw()
@@ -126,7 +156,7 @@ class ResCal(object):
         reactor.stop()
         
 if __name__ == "__main__":
-    peripheralDict = {  'Diode Monitor':['Lakeshore 218','mcd-adr1 GPIB Bus - GPIB0::18::INSTR'],'DMM':['Keithley 2000 DMM','mcd-adr1 GPIB Bus - GPIB0::16::INSTR'] } #{'device',['name','addr']}
+    peripheralDict = {  'Diode Monitor':['Lakeshore 218','mcd-adr1 GPIB Bus - GPIB0::18::INSTR'],'DMM':['Keithley 2000 DMM','mcd-adr1 GPIB Bus - GPIB0::16::INSTR']}#['Keithley 2000 DMM','mcd-adr1 GPIB Bus - GPIB0::16::INSTR'] } #{'device',['name','addr']}
     mstr = Tkinter.Tk()
     tksupport.install(mstr)
     app = ResCal(mstr,peripheralDict)
