@@ -347,6 +347,9 @@ class MeasureIV(tk.Tk):
     
     def chooseSaveDirectory(self):
     	chooseDirOpts = {}
+        currentTab = self.currentTab
+        if currentTab == 0:
+            chooseDirOpts['initialdir'] = 'Z:\\mcdermott-group\\Data\\Suttle Data\\Nb\\'
         #chooseDirOpts['initialdir'] = expInfo['AFS_Directory']
         chooseDirOpts['mustexist'] = True
         chooseDirOpts['title'] = 'Choose base data directory...'
