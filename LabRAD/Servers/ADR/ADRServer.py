@@ -237,8 +237,10 @@ class ADRServer(DeviceServer):
         dt = datetime.datetime.now()
         messageWithTimeStamp = dt.strftime("[%m/%d/%y %H:%M:%S] ") + message
         self.logMessages.append( (messageWithTimeStamp,alert) )
-        with open(self.file_path+'\\log'+self.dateAppend+'.txt', 'a') as f:
-            f.write( messageWithTimeStamp + '\n' )
+        try:
+            with open(self.file_path+'\\log'+self.dateAppend+'.txt', 'a') as f:
+                f.write( messageWithTimeStamp + '\n' )
+        except Exception as e: self.logMessage("Could not write to log file: " + str(e))
         print '[log] '+ message
         self.client.manager.send_named_message('Log Changed', (messageWithTimeStamp,alert))
     @inlineCallbacks
@@ -292,11 +294,13 @@ class ADRServer(DeviceServer):
                 try: self.instruments['Power Supply'].connected = False
                 except AttributeError: pass
             # update relevant files
-            with open(self.file_path+'\\temperatures'+self.dateAppend+'.temps','ab') as f:
-                newTemps = [self.state[t]['K'] for t in ['T_60K','T_3K','T_GGG','T_FAA']]
-                f.write( struct.pack('d', mpl.dates.date2num(self.state['datetime'])) )
-                [f.write(struct.pack('d', temp)) for temp in newTemps]
-                #f.write(str(self.state['datetime']) + '\t' + '\t'.join(map(str,newTemps)))
+            try:
+                with open(self.file_path+'\\temperatures'+self.dateAppend+'.temps','ab') as f:
+                    newTemps = [self.state[t]['K'] for t in ['T_60K','T_3K','T_GGG','T_FAA']]
+                    f.write( struct.pack('d', mpl.dates.date2num(self.state['datetime'])) )
+                    [f.write(struct.pack('d', temp)) for temp in newTemps]
+                    #f.write(str(self.state['datetime']) + '\t' + '\t'.join(map(str,newTemps)))
+            except Exception as e: self.logMessage('Recording Temps Failed: '+str(e))
             cycleLength = deltaT(datetime.datetime.now() - cycleStartTime)
             self.client.manager.send_named_message('State Changed', 'state changed')
             #self.stateChanged('state changed')
