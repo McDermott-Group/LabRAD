@@ -31,7 +31,7 @@ def parseArguments():
             'servers with the LabRAD node.')
     parser.add_argument('--registry-path', 
             nargs='*',
-            default=['Start Lists', os.environ['COMPUTERNAME'].lower()],
+            default=['Local', os.environ['COMPUTERNAME'].lower()],
             help='path in the LabRAD registry to the key containing ' +
             'the list of servers to run;' + " root folder name '' " + 
             'must be omitted (default: "Start Lists" "%COMPUTERNAME%")')
