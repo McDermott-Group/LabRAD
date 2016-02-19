@@ -1,0 +1,7 @@
+TRANSITION TO NEW LABRAD:
+
+gpib.py: added read_raw functionality.  do we need this?  add and pull request? -> a workaround implemented
+units.py: difference was the added DAC and ADC units, no longer need --> use new units file
+types.py: only thing changed was unicode support.  fixed in new one?
+gpib_server.py: bunch of changes, mainly some of the setting ids conflict, and devices->mydevices, need to merge with new version, test it.
+gpib_device_manager.py: 

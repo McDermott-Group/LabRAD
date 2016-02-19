@@ -55,6 +55,12 @@ class KeithleyWrapper(GPIBDeviceWrapper):
         resp = yield self.query('MEAS:RES?')
         self.ohms = float(resp.split(',')[0].strip('ABCDEFGHIJKLMNOPQRSTUVWXYZ'))
         returnValue(self.ohms*units.Ohm)
+        
+    @inlineCallbacks
+    def getFourWireRes(self):
+        resp = yield self.query('MEAS:FRES?')
+        self.ohms = float(resp.split(',')[0].strip('ABCDEFGHIJKLMNOPQRSTUVWXYZ'))
+        returnValue(self.ohms*units.Ohm)
   
 class KeithleyServer(GPIBManagedServer):
     name = 'Keithley 2000 DMM' # Server name
@@ -75,10 +81,17 @@ class KeithleyServer(GPIBManagedServer):
         returnValue(voltage)
   
     @setting(12, 'Get Resistance', returns = 'v')
-    def getdcVolts(self, c):
-        """Aquires new value for DC Voltage and returns it."""
+    def getResistance(self, c):
+        """Aquires resistance and returns it."""
         dev = self.selectedDevice(c)
         res = yield dev.getRes()
+        returnValue(res)
+  
+    @setting(13, 'Get FW Resistance', returns = 'v')
+    def getResistance(self, c):
+        """Aquires resistance using four=wire measurement and returns it."""
+        dev = self.selectedDevice(c)
+        res = yield dev.getFourWireRes()
         returnValue(res)
         
     @setting(20, 'Get Ruox Temperature', returns=['v[K]'])

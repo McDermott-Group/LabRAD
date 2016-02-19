@@ -30,14 +30,30 @@ timeout = 5
 
 from labrad.server import setting, LabradServer
 from twisted.internet.defer import inlineCallbacks, returnValue
+from twisted.internet.reactor import callLater
+from twisted.internet import threads as twistedThreads
 from labrad import units, util
 import numpy as np
 
-MIN_REFRESH_RATE = 1*units.s
+MIN_REFRESH_RATE = 2*units.s
 
 class NRuoxServer(LabradServer):
     """Uses a Multiplexer to scroll through multiple channels and read many ruox temps with the same AC bridge."""
     name = 'ACBridgeWithMultiplexer'
+    
+    @inlineCallbacks
+    def startTakingTemps(self,c):
+        while True:
+            chans = c['chans'].keys()
+            if len(chans) < 1: yield util.wakeupCall( MIN_REFRESH_RATE['s'] ) # to not take up too many resources if no channels are selected
+            # switch channel -> wait time const -> measure temp
+            for chan in chans:
+                yield c['MP'].channel(chan)
+                yield c['ACB'].set_curve(chan)
+                t = yield c['ACB'].get_time_constant()
+                timeout = max(MIN_REFRESH_RATE['s'], 2*t['s'])*units.s
+                yield util.wakeupCall( timeout['s'] )
+                c['chans'][chan] = yield c['ACB'].get_ruox_temperature()
     
     @setting(101, 'Select Device', addrs=['*2s'])
     def select_device(self, c, addrs):
@@ -49,15 +65,7 @@ class NRuoxServer(LabradServer):
         c['ACB'] = self.client[addrs[0][0]]
         yield c['ACB'].select_device(addrs[0][1])
         if 'chans' not in c: c['chans'] = {}
-        while True:
-            # switch channel
-            # wait time const
-            # measure temp
-            for chan in c['chans']:
-                t = yield c['ACB'].get_time_constant()
-                timeout = max(MIN_REFRESH_RATE['s'], t['s'])*units.s
-                yield util.wakeupCall( timeout['s'] )
-                c['chans'][chan] = c['ACB'].get_ruox_temperature()
+        d = twistedThreads.deferToThread(self.startTakingTemps,c)
 
     @setting(102, 'Add Channel', chan=['i'])
     def add_channel(self, c, chan):
@@ -71,10 +79,10 @@ class NRuoxServer(LabradServer):
         try: del c['chans'][chan]
         except KeyError: pass
         
-    @setting(104, 'Get Temperature', chan=['i'], returns='?')
-    def get_temperature(self, c, chan=None):
-        if chan == None: returnValue( c['chans'] )
-        else: returnValue( c['chans'][chan] )
+    @setting(104, 'Get Ruox Temperature', chan=['i'], returns=['?'])
+    def get_ruox_temperature(self, c, chan=None):
+        if chan == None: return [c['chans'][chan] for chan in c['chans']] 
+        else: return c['chans'][chan] 
 
 __server__ = NRuoxServer()
 

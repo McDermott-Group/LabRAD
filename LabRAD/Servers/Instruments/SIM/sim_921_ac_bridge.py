@@ -62,7 +62,7 @@ class SIM921Server(GPIBManagedServer):
     def setCurve(self, c, curve):
         """Get temperature being read by the AC Res Bridge right now."""
         dev = self.selectedDevice(c)
-        yield dev.write("CURV %d" %channel)
+        yield dev.write("CURV %d" %curve)
 
 __server__ = SIM921Server()
 

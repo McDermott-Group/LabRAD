@@ -48,7 +48,6 @@ class SIM925Server(GPIBManagedServer):
         GPIBManagedServer.__init__(self)
         self.channel = 0 #channel 2 is the FAA pill.  GGG pill is chan 1
         self.lastTime = time.time()
-        #self.channel(2) &&& fix this
 
     @setting(101, 'Get Time Since Channel Set', returns=['v[ms]'])
     def getTimeSinceChannelSet(self, c):
@@ -56,7 +55,7 @@ class SIM925Server(GPIBManagedServer):
         return time.time() - self.lastTime
 
     @setting(102, 'Channel', channel=['v'], returns=['v'])
-    def channel(self, c, channel=None):
+    def chan(self, c, channel=None):
         """Get or set the current channel."""
         if channel != None and channel != self.channel:
             self.channel = channel

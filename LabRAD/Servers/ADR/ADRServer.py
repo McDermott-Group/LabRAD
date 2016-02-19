@@ -46,7 +46,9 @@ import sys
  
 def deltaT(dT):
     """.total_seconds() is only supported by >py27 :(, so we use this to subtract two datetime objects."""
-    return dT.days*86400 + dT.seconds + dT.microseconds*pow(10,-6)
+    try: return dT.total_seconds()
+    except: return dT.days*86400 + dT.seconds + dT.microseconds*pow(10,-6)
+
 
 class ADRServer(DeviceServer):
     """Provides a way to control all the instruments that control our ADRs."""
@@ -91,6 +93,7 @@ class ADRServer(DeviceServer):
         self.ADRSettings ={ 'PID_KP':0.75,
                             'PID_KI':0,
                             'PID_KD':15,
+                            'PID_MaxI':1,
                             'magup_dV': 0.003,               #[V/step] How much do we increase the voltage by every second when maggin up? HPD Manual uses 10mV=0.01V, 2.5V/30min=1.4mV/s ==> Let's use a middle rate of 3mV/step. (1 step is about 1s)
                             'magnet_voltage_limit': 0.1,      #Back EMF limit in Volts
                             'current_limit': 9,               #Max Current in Amps
@@ -98,14 +101,14 @@ class ADRServer(DeviceServer):
                             'dVdT_limit': 0.008,              #Keep dV/dt to under this value [V/s]
                             'dIdt_magup_limit': 9./(30*60),   #limit on the rate at which we allow current to increase in amps/s (we want 9A over 30 min)
                             'dIdt_regulate_limit': 9./(40*60),#limit on the rate at which we allow current to change in amps/s (we want 9A over 40 min)
-                            'step_length': 1.0,              #How long is each regulation/mag up cycle in seconds.  **Never set this less than 1.0sec.**  The SRS SIM922 only measures once a second and this would cause runaway voltages/currents.
+                            'step_length': 1.0,               #How long is each regulation/mag up cycle in seconds.  **Never set this less than 1.0sec.**  The SRS SIM922 only measures once a second and this would cause runaway voltages/currents.
                             'magnet_max_temp': 5,
                             'FAA MP Chan': 2,
                             'GGG MP Chan': 1,
                             'Power Supply':['Agilent 6641A PS','addr'],
-                            'Ruox Temperature Monitor':['SIM921 Server','addr'], #['ACBridgeWithMultiplexer':[['SIM921 Server','addr'],['SIM925 Server','addr']]]
-                            'Diode Temperature Monitor':['SIM922 Server','addr'],
-                            'Magnet Voltage Monitor':['SIM922 Server','addr'],
+                            'Ruox Temperature Monitor':['SIM921','addr'], #['ACBridgeWithMultiplexer',[['SIM921 Server','addr'],['SIM925 Server','addr']]],
+                            'Diode Temperature Monitor':['SIM922','addr'],
+                            'Magnet Voltage Monitor':['SIM922','addr'],
                             'Heat Switch':['Heat Switch','addr'],
                             'Compressor':['CP2800 Compressor','addr']}
         self.instruments = {'Power Supply':'None',
@@ -119,7 +122,9 @@ class ADRServer(DeviceServer):
         self.logMessages = []
     @inlineCallbacks
     def initServer(self):
-        """This method loads default settings from the registry, starts servers and sets up instruments, and sets up listeners for GPIB device connect/disconnect messages."""
+        """This method loads default settings from the registry,
+           sets up instruments, and sets up listeners for GPIB device 
+           connect/disconnect messages."""
         DeviceServer.initServer(self)
         try:
             yield self.client.registry.cd(self.ADRSettingsPath)
@@ -127,15 +132,14 @@ class ADRServer(DeviceServer):
         except Exception as e:
             self.logMessage( '{Saving log failed.  Check that AFS is working.} ' )
         yield self.loadDefaults()
-        yield self.startServers()
-        yield util.wakeupCall( 2 ) # on the round ADR, the HP DMM takes forever to initialize.  This prevents it from going on before it is ready.
+        yield util.wakeupCall( 3 ) # on the round ADR, the HP DMM takes forever to initialize.  This prevents it from going on before it is ready.
         yield self.initializeInstruments()
         # subscribe to messages
         # the server ones are not used right now, but at some point they could be
         connect_func = lambda c, (s, payload): self.gpib_device_connect(*payload)
         disconnect_func = lambda c, (s, payload): self.gpib_device_disconnect(*payload)
-        serv_conn_func = lambda c, (s, payload): 1
-        serv_disconn_func = lambda c, (s, payload): 1
+        serv_conn_func = lambda c, (s, payload): self.serversChanged(*payload)
+        serv_disconn_func = lambda c, (s, payload): self.serversChanged(*payload)
         mgr = self.client.manager
         self._cxn.addListener(connect_func, source=mgr.ID, ID=10)
         self._cxn.addListener(disconnect_func, source=mgr.ID, ID=11)
@@ -153,30 +157,6 @@ class ADRServer(DeviceServer):
         _,settingsList = yield reg.dir()
         for setting in settingsList:
             self.ADRSettings[setting] = yield reg.get(setting)
-    @inlineCallbacks
-    def startServers(self):
-        """This method just starts any of the necessary servers if they are not running."""
-        #get the labrad node name and the servers that are already running
-        runningServList = yield self.client.manager.servers()
-        running_servers = [name for _,name in runningServList]
-        for name in running_servers:
-            if name.find('node ') >= 0: nodeName = name.split('node ',1)[-1]
-            else:
-                import platform
-                nodeName = platform.node().lower()
-        #which do we need to start?
-        reg = self.client.registry
-        yield reg.cd(self.ADRSettingsPath)
-        servList = yield reg.get('Start Server List')
-        #go through and start all the servers that are not already running
-        for server in servList:
-            if server not in running_servers:
-                try:
-                    yield self.client.servers['node '+nodeName].start(server)
-                    self.logMessage( server+' started.')
-                except Exception as e:
-                    self.logMessage( 'ERROR starting '+server+': '+str(e) ,alert=True)
-            else: self.logMessage(server+' is already running.')
     @inlineCallbacks
     def initializeInstruments(self):
         """This method creates the instances of all the instruments and saves them in self.instruments.
@@ -225,7 +205,7 @@ class ADRServer(DeviceServer):
                 self.logMessage('Could not connect to device: '+str(e), alert=True)
         
         # initialize power supply
-        if self.instruments['Power Supply'].connected == True:
+        if hasattr(self.instruments['Power Supply'],'connected') and self.instruments['Power Supply'].connected == True:
             try: 
                 yield self.instruments['Power Supply'].initialize_ps()
                 self.logMessage('Power Supply Initialized.')
@@ -234,9 +214,9 @@ class ADRServer(DeviceServer):
         
         # if ruox therms are being read through multiplexer, set the channels
         try:
-        	self.instruments['Ruox Temperature Monitor'].add_channel(self.ADR_Settings['FAA MP Chan'])
-        	self.instruments['Ruox Temperature Monitor'].add_channel(self.ADR_Settings['GGG MP Chan'])
-        except: pass # NotFoundError: pass # may not have these methods
+            self.instruments['Ruox Temperature Monitor'].add_channel(self.ADRSettings['FAA MP Chan'])
+            self.instruments['Ruox Temperature Monitor'].add_channel(self.ADRSettings['GGG MP Chan'])
+        except Exception as e: print str(e) # NotFoundError: pass # may not have these methods
         
     @inlineCallbacks
     def _refreshInstruments(self):
@@ -250,52 +230,60 @@ class ADRServer(DeviceServer):
         self.initializeInstruments()
     def gpib_device_disconnect(self, server, channel):
         self.initializeInstruments()
+    def serversChanged(self,*args):
+        self.initializeInstruments()
     def logMessage(self, message, alert=False):
         """Applies a time stamp to the message and saves it to a file and an array."""
         dt = datetime.datetime.now()
         messageWithTimeStamp = dt.strftime("[%m/%d/%y %H:%M:%S] ") + message
         self.logMessages.append( (messageWithTimeStamp,alert) )
-        with open(self.file_path+'\\log'+self.dateAppend+'.txt', 'a') as f:
-            f.write( messageWithTimeStamp + '\n' )
+        try:
+            with open(self.file_path+'\\log'+self.dateAppend+'.txt', 'a') as f:
+                f.write( messageWithTimeStamp + '\n' )
+        except Exception as e: self.logMessage("Could not write to log file: " + str(e))
         print '[log] '+ message
         self.client.manager.send_named_message('Log Changed', (messageWithTimeStamp,alert))
     @inlineCallbacks
     def updateState(self):
-        """ This takes care of the real time reading of the instruments. It starts immediately upon starting the program, and never stops. """
+        """ This takes care of the real time reading of the instruments. 
+           It starts immediately upon starting the program, and never stops. """
         nan = numpy.nan
         while self.alive:
             cycleStartTime = datetime.datetime.now()
             self.lastState = self.state.copy()
+            # datetime, cycle
+            self.state['datetime'] = datetime.datetime.now()
+            self.state['cycle'] += 1
             # compressor
             self.state['CompressorStatus'] = None
-            if self.instruments['Compressor'].connected == True:
-				try: self.state['CompressorStatus'] = self.instruments['Compressor'].status()
-				except Exception as e: print 'could not read compressor status',str(e)
-			# diode temps
+            if hasattr(self.instruments['Compressor'],'connected') and self.instruments['Compressor'].connected == True:
+                try: self.state['CompressorStatus'] = self.instruments['Compressor'].status()
+                except Exception as e: print 'could not read compressor status',str(e)
+            # diode temps
             try:
                 self.state['T_60K'],self.state['T_3K'] = yield self.instruments['Diode Temperature Monitor'].get_diode_temperatures()
             except Exception as e: 
                 self.state['T_60K'],self.state['T_3K'] = nan*units.K, nan*units.K
-                self.instruments['Diode Temperature Monitor'].connected = False
+                try: self.instruments['Diode Temperature Monitor'].connected = False
+                except AttributeError: pass
             # ruox temps
-            try: 
-            	temps = yield self.instruments['Ruox Temperature Monitor'].get_ruox_temperature()
-            	# if there are two returned temps, maps them to GGG and FAA.  if only one is returned, assumes it is for the FAA
+            try:
+                temps = yield self.instruments['Ruox Temperature Monitor'].get_ruox_temperature()
+                # if there are two returned temps, maps them to GGG and FAA.  if only one is returned, assumes it is for the FAA
                 try: self.state['T_GGG'],self.state['T_FAA'] = temps
                 except: self.state['T_GGG'],self.state['T_FAA'] = nan*units.K, temps
             except Exception as e:
                 self.state['T_GGG'],self.state['T_FAA'] = nan*units.K, nan*units.K
-                self.instruments['Ruox Temperature Monitor'].connected = False
+                try: self.instruments['Ruox Temperature Monitor'].connected = False
+                except AttributeError: pass
             if self.state['T_GGG']['K'] == 20.0: self.state['T_GGG'] = nan*units.K
             if self.state['T_FAA']['K'] == 45.0: self.state['T_FAA'] = nan*units.K
-            # datetime, cycle
-            self.state['datetime'] = datetime.datetime.now()
-            self.state['cycle'] += 1
             # voltage across magnet
             try: self.state['magnetV'] = yield self.instruments['Magnet Voltage Monitor'].get_magnet_voltage()
             except Exception as e: 
                 self.state['magnetV'] = nan*units.V
-                self.instruments['Magnet Voltage Monitor'].connected = False
+                try: self.instruments['Magnet Voltage Monitor'].connected = False
+                except AttributeError: pass
             # PS current, voltage
             try:
                 self.state['PSCurrent'] = yield self.instruments['Power Supply'].current()
@@ -303,13 +291,16 @@ class ADRServer(DeviceServer):
             except Exception as e:
                 self.state['PSCurrent'] = nan*units.A
                 self.state['PSVoltage'] = nan*units.V
-                self.instruments['Power Supply'].connected = False
+                try: self.instruments['Power Supply'].connected = False
+                except AttributeError: pass
             # update relevant files
-            with open(self.file_path+'\\temperatures'+self.dateAppend+'.temps','ab') as f:
-                newTemps = [self.state[t]['K'] for t in ['T_60K','T_3K','T_GGG','T_FAA']]
-                f.write( struct.pack('d', mpl.dates.date2num(self.state['datetime'])) )
-                [f.write(struct.pack('d', temp)) for temp in newTemps]
-                #f.write(str(self.state['datetime']) + '\t' + '\t'.join(map(str,newTemps)))
+            try:
+                with open(self.file_path+'\\temperatures'+self.dateAppend+'.temps','ab') as f:
+                    newTemps = [self.state[t]['K'] for t in ['T_60K','T_3K','T_GGG','T_FAA']]
+                    f.write( struct.pack('d', mpl.dates.date2num(self.state['datetime'])) )
+                    [f.write(struct.pack('d', temp)) for temp in newTemps]
+                    #f.write(str(self.state['datetime']) + '\t' + '\t'.join(map(str,newTemps)))
+            except Exception as e: self.logMessage('Recording Temps Failed: '+str(e))
             cycleLength = deltaT(datetime.datetime.now() - cycleStartTime)
             self.client.manager.send_named_message('State Changed', 'state changed')
             #self.stateChanged('state changed')
@@ -380,7 +371,7 @@ class ADRServer(DeviceServer):
             return
         if self.state['regulating'] == True:
             self.state['regulationTemp'] = temp
-            self.logMessage('Setting regulation temperature to %d K.'%temp)
+            self.logMessage('Setting regulation temperature to %f K.'%temp)
             return
         deviceNames = ['Power Supply','Diode Temperature Monitor','Ruox Temperature Monitor','Magnet Voltage Monitor']
         deviceStatus = [self.instruments[name].connected for name in deviceNames]
@@ -399,33 +390,34 @@ class ADRServer(DeviceServer):
             if numpy.isnan(self.state['T_FAA']['K']): 
                 self.logMessage( 'FAA temperature is not valid. Regulation cannot continue.' )
                 self._cancelRegulate()
-            print str(self.state['PSVoltage'])+'\t'+str(self.state['magnetV'])+'\t',
-            #propose new voltage
+            # print str(self.state['PSVoltage'])+'\t'+str(self.state['magnetV'])+'\t',
+            # propose new voltage
             T_target = float(self.state['regulationTemp'])*units.K
             dT = deltaT( self.state['datetime'] - self.lastState['datetime'] )
-            print 'dt, now, last, ==0 =',dT, self.state['datetime'], self.lastState['datetime'], dT==0
-            print 't_target, t_faa_now, t_faa_last = ', T_target, self.state['T_FAA'], self.lastState['T_FAA']
-            print 'cum err = ', self.state['PID_cumulativeError']
-            if dT == 0: dT = 0.0000000001 #to prevent divide by zero error
+            # print '(dt, now, last, ==0) = ',dT, self.state['datetime'], self.lastState['datetime'], dT==0
+            # print 't_target, t_faa_now, t_faa_last = ', T_target, self.state['T_FAA'], self.lastState['T_FAA']
+            # print 'cum err = ', self.state['PID_cumulativeError']
+            if dT == 0: dT = 0.001 #to prevent divide by zero error
             self.state['PID_cumulativeError'] += (T_target-self.state['T_FAA'])
+            self.state['PID_cumulativeError'] = min(self.state['PID_cumulativeError'], self.ADRSettings['PID_MaxI'],key=abs) # so we dont just build this up during the mag down.
             dV = ( self.ADRSettings['PID_KP']*(T_target-self.state['T_FAA']) \
                + self.ADRSettings['PID_KI']*self.state['PID_cumulativeError'] \
                + self.ADRSettings['PID_KD']*(self.lastState['T_FAA']-self.state['T_FAA'])/dT )['K']*units.V
-            #hard current limit
+            # hard current limit
             if self.state['PSCurrent'] > self.ADRSettings['current_limit']*units.A:
                 if dV>0*units.V: dV=0*units.V
-            #hard voltage limit
+            # hard voltage limit
             if self.state['PSVoltage'] + dV > self.ADRSettings['voltage_limit']*units.V:
                 dV = self.ADRSettings['voltage_limit']*units.V - self.state['PSVoltage']
             # steady state limit
-            if dV < 0*units.V:
+            if dV['V'] < 0:
                 dV = max(dV,self.state['magnetV']-self.ADRSettings['magnet_voltage_limit']*units.V)
-                if dV > 0*units.V: dV = 0*units.V
-            if dV > 0*units.V:
+                if dV['V'] > 0: dV = 0*units.V
+            if dV['V'] > 0:
                 dV = min(dV, self.ADRSettings['magnet_voltage_limit']*units.V-self.state['magnetV'])
-                if dV < 0*units.V: dV = 0*units.V
+                if dV['V'] < 0: dV = 0*units.V
             # limit by hard voltage increase limit
-            print str(dV/dT)+'\t',
+            # print str(dV/dT)+'\t',
             if abs(dV/dT) > self.ADRSettings['dVdT_limit']*units.V:
                 dV = self.ADRSettings['dVdT_limit']*dT*(dV/abs(dV))*units.V
             # limit by hard current increase limit
@@ -437,7 +429,7 @@ class ADRServer(DeviceServer):
                 self.instruments['Power Supply'].voltage(0*units.V)
                 dV = 0*units.V
                 runCycleAgain = False
-            print str(dV)
+            # print str(dV)
             self.instruments['Power Supply'].voltage(self.state['PSVoltage'] + dV)
             cycleTime = deltaT(datetime.datetime.now() - startTime)
             if runCycleAgain: yield util.wakeupCall( max(0,self.ADRSettings['step_length']-cycleTime) )
@@ -463,6 +455,18 @@ class ADRServer(DeviceServer):
     def getStateVar(self,c, var):
         """You can get any arbitrary value stored in the state variable by passing its name to this function."""
         return self.state[var]
+    @setting(105, 'Get Instrument State', instrNames=['*s'], returns=['?'])
+    def getInstrumentState(self,c, instrNames=None):
+        """Get the status of instruments in the form [('instrument name',(server connected?, device selected?))].  If no instruments are passed in, returns an array of all iinstrument statuses"""
+        if instrNames==None: instrNames = self.instruments.keys()
+        states = []
+        for name in instrNames:
+            if bool(self.instruments[name]):
+                state = (True, self.instruments[name].connected)
+            else: state = (False,False)
+            states.append((name,state))
+        return states
+
     @setting(110, 'PSCurrent', returns=['v'])
     def pscurrent(self,c):
         """Get the current of the power supply."""
@@ -547,26 +551,28 @@ class ADRServer(DeviceServer):
         except Exception as e:
             self.logMessage('Stopping Compressor failed.',alert=True)
     
-    @setting(130, 'Set PID KP')
-    def setPIDKP(self,c,k=['v']):
+    @setting(130, 'Set PID KP',k=['v'])
+    def setPIDKP(self,c,k):
         """Set PID Proportional Constant."""
         self.ADRSettings['PID_KP'] = k
         self.logMessage('PID_KP has been set to '+str(k))
-    @setting(131, 'Set PID KI')
-    def setPIDKI(self,c,k=['v']):
+    @setting(131, 'Set PID KI',k=['v'])
+    def setPIDKI(self,c,k):
         """Set PID Integral Constant."""
         self.ADRSettings['PID_KI'] = k
         self.logMessage('PID_KI has been set to '+str(k))
-    @setting(132, 'Set PID KD')
-    def setPIDKD(self,c,k=['v']):
+    @setting(132, 'Set PID KD',k=['v'])
+    def setPIDKD(self,c,k):
         """Set PID Derivative Constant."""
         self.ADRSettings['PID_KD'] = k
         self.logMessage('PID_KD has been set to '+str(k))
+    @setting(133, 'Set PID Max I',max=['v'])
+    def setPIDMaxI(self,c,max):
+        """Set PID Max Integral Value."""
+        self.ADRSettings['PID_MaxI'] = max
+        self.logMessage('PID_MaxI has been set to '+str(max))
 
 
 if __name__ == "__main__":
-    """Define your instruments here.  This allows for easy exchange between different
-    devices to monitor temperature, etc.  For example, the new and old ADR's use two
-    different instruments to measure temperature: The SRS module and the Lakeview 218."""
     __server__ = ADRServer(sys.argv)
     util.runServer(__server__)

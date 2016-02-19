@@ -161,6 +161,9 @@ class ADRController(object):#Tkinter.Tk):
         addToLogButton.pack(side=Tkinter.RIGHT)
         self.addToLogField = Tkinter.Text(addToLogFrame,height=1)
         self.addToLogField.pack(side=Tkinter.RIGHT, fill=Tkinter.X)
+        # instrument statuses
+        self.instrumentStatusFrame = Tkinter.Frame(root)
+        self.instrumentStatusFrame.pack(side=Tkinter.TOP, fill=Tkinter.X)
         # temp plot
         self.fig = pylab.figure()
         self.ax = self.fig.add_subplot(111)
@@ -233,8 +236,8 @@ class ADRController(object):#Tkinter.Tk):
         self.HSCloseButton.pack(side=Tkinter.LEFT)
         self.HSOpenButton = Tkinter.Button(master=magControlsFrame, text='Open HS', command=self.openHeatSwitch)
         self.HSOpenButton.pack(side=Tkinter.LEFT)
-        #self.HSCloseButton.configure(state=Tkinter.DISABLED)
-        #self.HSOpenButton.configure(state=Tkinter.DISABLED)
+        self.HSCloseButton.configure(state=Tkinter.DISABLED)
+        self.HSOpenButton.configure(state=Tkinter.DISABLED)
         #mag up button
         self.magUpButton = Tkinter.Button(master=magControlsFrame, text='Mag Up', command=self.magUp)
         self.magUpButton.pack(side=Tkinter.LEFT)
@@ -352,6 +355,14 @@ class ADRController(object):#Tkinter.Tk):
         logMessages = yield self.cxn[self.selectedADR].get_log(20) #only load last 20 messages
         for (m,a) in logMessages:
             self.updateLog(m,a)
+        # update instrument status stuff: delete old, create new
+        for widget in self.instrumentStatusFrame.winfo_children():
+            widget.destroy()
+        returnStatus = yield self.cxn[self.selectedADR].get_instrument_state()
+        self.instrumentStatuses = {}
+        for name,status in returnStatus:
+            self.instrumentStatuses[name] = Tkinter.Label(self.instrumentStatusFrame,text=name,relief=Tkinter.RIDGE,bg='gray70')
+            self.instrumentStatuses[name].pack(side=Tkinter.LEFT,expand=True,fill=Tkinter.X)
         # update field limits and button statuses
         self.setFieldLimits()
         self.magUpButton.configure(state=Tkinter.NORMAL)
@@ -365,6 +376,13 @@ class ADRController(object):#Tkinter.Tk):
         if reg:
             self.regulateButton.configure(text='Stop Regulating', command=self.cancelRegulate)
             self.magUpButton.configure(state=Tkinter.DISABLED)
+        HSAvailable = yield self.cxn[self.selectedADR].get_instrument_state(['Heat Switch'])
+        if HSAvailable[0][1][0]:
+            self.HSCloseButton.configure(state=Tkinter.NORMAL)
+            self.HSOpenButton.configure(state=Tkinter.NORMAL)
+        else:
+            self.HSCloseButton.configure(state=Tkinter.DISABLED)
+            self.HSOpenButton.configure(state=Tkinter.DISABLED)
         # refresh interface
         self.updateInterface()
     def refreshInstruments(self):
@@ -377,7 +395,15 @@ class ADRController(object):#Tkinter.Tk):
         p.time()
         p.temperatures()
         p.get_state_var('CompressorStatus')
+        p.get_instrument_state()
         state = yield p.send()
+        # change instrument statuses
+        for name,status in state['get_instrument_state']:
+            if status[0] == False: color = 'red3'
+            elif status[1] == False: color = 'orange3'
+            elif status[1] == True: color = 'green3'
+            else: color = 'gray70'
+            self.instrumentStatuses[name].config(bg=color)
         # change compressor button
         if state['get_state_var'] == True: 
             self.compressorButton.configure(text='Stop Compressor', command=self.stopCompressor, state=Tkinter.NORMAL)
@@ -474,11 +500,12 @@ class ADRController(object):#Tkinter.Tk):
         self.magUpButton.configure(text='Mag Up', command=self.magUp)
         self.regulateButton.configure(state=Tkinter.NORMAL)
     def regulate(self): 
-        T_target = float(self.regulateTempField.get())
+        T_target = float(self.regulationTemp.get())
         self.cxn[self.selectedADR].regulate(T_target)
-    def changeRegTemp(self):
+    def changeRegTemp(self, *args):
         if self.regulating == True:
-            T_target = float(self.regulateTempField.get())
+            T_target = float(self.regulationTemp.get())
+            print self.regulationTemp.get(),T_target
             self.cxn[self.selectedADR].regulate(T_target)
     def regulationStarted(self):
         self.regulateButton.configure(text='Stop Regulating', command=self.cancelRegulate)

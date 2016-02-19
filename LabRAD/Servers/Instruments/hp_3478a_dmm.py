@@ -61,9 +61,10 @@ class HP3478AServer(GPIBManagedServer):
         queryString = 'M01Z1N5F%iR%sT%i'%(measurements[measurement],ranges[range],triggers[trigger])
         resp = yield self.HP_query(c,queryString)
         yield self.HP_write(c,'M00') #clear SRQ mode
+        print resp
         if measurement[-5:]=='volts': resp = float(resp)*units.V
-        elif measurement[-4:]=='ohms': resp = float(resp)*units.O
-        elif measurement[-7:]=='current': resp = float(resp)*units.I
+        elif measurement[-4:]=='ohms': resp = float(resp)*units.Ohm
+        elif measurement[-7:]=='current': resp = float(resp)*units.A
         returnValue(resp)
     
     @inlineCallbacks

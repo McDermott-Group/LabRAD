@@ -85,7 +85,7 @@ class Lakeshore218Server(GPIBManagedServer):
         voltages = [magVArray[c-1] for c in channels]
         maxV = max(voltages)
         if voltages[0] < voltages[1]: maxV = -maxV
-        returnValue( abs(maxV)*units.V )
+        returnValue( abs(maxV) )
         
     @setting(15,'Set ADR Settings Path',path=['*s'])
     def set_adr_settings_path(self,c,path):

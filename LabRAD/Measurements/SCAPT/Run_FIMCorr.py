@@ -10,9 +10,9 @@ comp_name = os.environ['COMPUTERNAME'].lower()
 Resources = [   {
                 'Interface': 'GHz FPGA Boards',
                 'Boards': [
-                            'Shasta Board DAC 9',
+                            'mcdermott5125 Board DAC 9',
                           ],
-                'Shasta Board DAC 9':  {
+                'mcdermott5125 Board DAC 9':  {
                                         'DAC A': 'None',
                                         'DAC B': 'None',
                                         'FO1 FastBias Firmware Version': '2.1',
@@ -53,18 +53,18 @@ ExptInfo = {
  
 # Experiment Variables
 ExptVars = {
-            'Reps': 301, # should not exceed ~50,000
+            'Reps': 5, # should not exceed ~50,000
 
             'Init Time': 15000 * us,
             'Bias Time': 10000 * us,
           
-            'Bias Voltage 1': 1000 * mV,
-            'Bias Voltage 2': 1 * mV,
+            'Bias Voltage 1': 70 * mV, #Into Ch1
+            'Bias Voltage 2': 035 * mV,   #Into Ch3
            }
 
 with fim_corr_expt.FIM() as run:
     run.set_experiment(ExptInfo, Resources, ExptVars)
     
-    run.sweep('Bias Voltage 1', np.linspace(2200, 2500, 11) * mV,
-        save=False, print_data=['Temperature'], plot_data=['Temperature'],
-        runs=1, max_data_dim=1)
+    run.sweep('Bias Voltage 2', np.linspace(1032, 1034, 11) * mV,
+        save=False,
+        runs=10000000, max_data_dim=2)
