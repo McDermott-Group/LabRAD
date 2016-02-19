@@ -38,6 +38,7 @@ import datetime, struct
 import Tkinter
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
 import labrad
+from labrad import units
 from labrad.server import (inlineCallbacks, returnValue)
 from twisted.internet import tksupport, reactor
 import os
@@ -416,29 +417,31 @@ class ADRController(object):#Tkinter.Tk):
         for i in range(len(stages)):
             temps[stages[i]] = state['temperatures'][i]
             #if temps[stages[i]] == 'nan': temps[stages[i]] = numpy.nan
-        self.currentBackEMF.set( "{0:.3f}".format(state['magnetv']) )
-        if numpy.isnan(state['pscurrent']): psI = 'PS OFF'
+        if numpy.isnan(state['magnetv']['V']): emf = 'ERR'
+        else: emf = "{0:.3f}".format(state['magnetv'])
+        if numpy.isnan(state['pscurrent']['A']): psI = 'PS OFF'
         else: psI = "{0:.3f}".format(state['pscurrent'])
-        if numpy.isnan(state['psvoltage']): psV = 'PS OFF'
+        if numpy.isnan(state['psvoltage']['V']): psV = 'PS OFF'
         else: psV = "{0:.3f}".format(state['psvoltage'])
+        self.currentBackEMF.set( emf )
         self.currentI.set( psI )
         self.currentV.set( psV )
         # update plot:
         # change data to plot
         self.stage60K.set_xdata(numpy.append(self.stage60K.get_xdata(),mpl.dates.date2num(state['time'])))
-        self.stage60K.set_ydata(numpy.append(self.stage60K.get_ydata(),temps['T_60K']))
+        self.stage60K.set_ydata(numpy.append(self.stage60K.get_ydata(),temps['T_60K']['K']))
         self.stage03K.set_xdata(numpy.append(self.stage03K.get_xdata(),mpl.dates.date2num(state['time'])))
-        self.stage03K.set_ydata(numpy.append(self.stage03K.get_ydata(),temps['T_3K']))
+        self.stage03K.set_ydata(numpy.append(self.stage03K.get_ydata(),temps['T_3K']['K']))
         self.stageGGG.set_xdata(numpy.append(self.stageGGG.get_xdata(),mpl.dates.date2num(state['time'])))
-        self.stageGGG.set_ydata(numpy.append(self.stageGGG.get_ydata(),temps['T_GGG']))
+        self.stageGGG.set_ydata(numpy.append(self.stageGGG.get_ydata(),temps['T_GGG']['K']))
         self.stageFAA.set_xdata(numpy.append(self.stageFAA.get_xdata(),mpl.dates.date2num(state['time'])))
-        self.stageFAA.set_ydata(numpy.append(self.stageFAA.get_ydata(),temps['T_FAA']))
+        self.stageFAA.set_ydata(numpy.append(self.stageFAA.get_ydata(),temps['T_FAA']['K']))
         #update plot
         self.updatePlot()
         # update legend
         labelOrder = ['T_60K','T_3K','T_GGG','T_FAA']
         lines = [self.stage60K,self.stage03K,self.stageGGG,self.stageFAA]
-        labels = [l.strip('T_')+' ['+"{0:.3f}".format(temps[l])+'K]' for l in labelOrder]
+        labels = [l.strip('T_')+' ['+"{0:.3f}".format(temps[l]['K'])+'K]' for l in labelOrder]
         labels = [s.replace('1.#QOK','OoR') for s in labels]
         #self.ax.legend(lines,labels,loc=0)#,bbox_to_anchor=(1.01, 1)) #legend in upper right
         self.ax.legend(lines,labels,bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
