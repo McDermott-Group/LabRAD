@@ -91,7 +91,8 @@ class StartAndBringUp:
                 'LabRAD servers and other programs.')
         parser.add_argument('--registry-path', 
                 nargs='*',
-                default=['Start Lists', os.environ['COMPUTERNAME'].lower()],
+                #default=['Start Lists', os.environ['COMPUTERNAME'].lower()],
+                default=['Local', os.environ['COMPUTERNAME'].lower()],
                 help='path in the LabRAD registry to the key ' +
                 'containing the list of programs to run;' +
                 " root folder name ''" + ' must be omitted ' +
