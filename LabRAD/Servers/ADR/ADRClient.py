@@ -418,11 +418,11 @@ class ADRController(object):#Tkinter.Tk):
             temps[stages[i]] = state['temperatures'][i]
             #if temps[stages[i]] == 'nan': temps[stages[i]] = numpy.nan
         if numpy.isnan(state['magnetv']['V']): emf = 'ERR'
-        else: emf = "{0:.3f}".format(state['magnetv'])
+        else: emf = "{0:.3f}".format(state['magnetv']['V'])
         if numpy.isnan(state['pscurrent']['A']): psI = 'PS OFF'
-        else: psI = "{0:.3f}".format(state['pscurrent'])
+        else: psI = "{0:.3f}".format(state['pscurrent']['A'])
         if numpy.isnan(state['psvoltage']['V']): psV = 'PS OFF'
-        else: psV = "{0:.3f}".format(state['psvoltage'])
+        else: psV = "{0:.3f}".format(state['psvoltage']['V'])
         self.currentBackEMF.set( emf )
         self.currentI.set( psI )
         self.currentV.set( psV )

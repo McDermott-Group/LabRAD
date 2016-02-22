@@ -22,11 +22,9 @@
 name = CP2800 Compressor
 version = 2.2.1
 description = Compressor for the ADR pulse tube cooler.
-
 [startup]
 cmdline = %PYTHON% %FILE%
 timeout = 20
-
 [shutdown]
 message = 987654321
 timeout = 5
@@ -222,7 +220,6 @@ class CompressorServer(DeviceServer):
              returns='*(v[K]{curr}, v[K]{min}, v[K]{max})')
     def temperatures(self, c):
         """Get temperatures.
-
         Returns the current, min and max temperatures for the following
         4 channels: water in, water out, helium, and oil.  The Min and Max
         markers can be reset by calling 'Clear Markers'.
@@ -234,7 +231,6 @@ class CompressorServer(DeviceServer):
              returns='*(v[torr]{curr}, v[torr]{min}, v[torr]{max})')
     def pressures(self, c):
         """Get pressures.
-
         Returns the current, min and max pressures for the following
         2 channels: high side, low side.  The Min and Max
         markers can be reset by calling 'Clear Markers'.
