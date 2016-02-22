@@ -31,6 +31,7 @@ class CallbackTask(Task):
         self.CreateAIVoltageChan(analogInputNameStr,"",DAQmx_Val_Diff,-10.0,10.0,DAQmx_Val_Volts,None)
         self.CfgSampClkTiming("",float(sampRate),DAQmx_Val_Rising,DAQmx_Val_ContSamps,numSamples)
         self.trigName = self.GetTerminalNameWithDevPrefix("ai/StartTrigger")
+        print "self.trigName=", self.trigName
         self.AutoRegisterEveryNSamplesEvent(DAQmx_Val_Acquired_Into_Buffer,1000,0)
         self.AutoRegisterDoneEvent(0)
         
@@ -50,16 +51,15 @@ class CallbackTask(Task):
         self.callback = function
     
     def GetTerminalNameWithDevPrefix(self, terminalName):
-        device = ctypes.create_string_buffer(256)
+        device = str(ctypes.create_string_buffer(256))
         productCategory = int32()
 	numDevices = uInt32()
-	i = 1
         self.GetTaskNumDevices(byref(numDevices))
         for i in range(1, numDevices.value+1):
             self.GetNthTaskDevice(i,device,256)
             DAQmxGetDevProductCategory(device,byref(productCategory))
             if productCategory.value!=DAQmx_Val_CSeriesModule and productCategory.value!=DAQmx_Val_SCXIModule:
-                triggername = "/" + device.value + "/" + terminalName
+                triggername = "/" + str(device).split("\x00")[0] + "/" + terminalName
                 break
         return triggername
     
@@ -91,6 +91,7 @@ class analogInputTask(Task):
 
 class acAnalogOutputTask(Task):
     def __init__(self):
+        print "here"
         Task.__init__(self)
         self.buffLen = 0
         self.trigName=None
@@ -105,21 +106,6 @@ class acAnalogOutputTask(Task):
         sampsPerChanWritten = int32()
         self.WriteAnalogF64(self.buffLen, False, 10.0, DAQmx_Val_GroupByChannel, outWaveForm, byref(sampsPerChanWritten), None)
 
-
-
-    def GetTerminalNameWithDevPrefix(self, terminalName):
-        device = ctypes.create_string_buffer(256)
-        productCategory = int32()
-	numDevices = uInt32()
-	i = 1
-        self.GetTaskNumDevices(byref(numDevices))
-        for i in range(1, numDevices.value+1):
-            self.GetNthTaskDevice(i,device,256)
-            DAQmxGetDevProductCategory(device,byref(productCategory))
-            if productCategory.value!=DAQmx_Val_CSeriesModule and productCategory.value!=DAQmx_Val_SCXIModule:
-                triggername = "/" + device.value + "/" + terminalName
-                break
-        return triggername
 
 class dcAnalogOutputTask(Task):
     def __init__(self):
