@@ -88,7 +88,7 @@ class ADRServer(DeviceServer):
                         'maggingUp':False,
                         'regulating':False,
                         'regulationTemp':0.1,
-                        'PID_cumulativeError':0*units.K}
+                        'PID_cumulativeError':0}
         self.lastState = self.state.copy()
         self.ADRSettings ={ 'PID_KP':0.75,
                             'PID_KI':0,
@@ -398,11 +398,11 @@ class ADRServer(DeviceServer):
             # print 't_target, t_faa_now, t_faa_last = ', T_target, self.state['T_FAA'], self.lastState['T_FAA']
             # print 'cum err = ', self.state['PID_cumulativeError']
             if dT == 0: dT = 0.001 #to prevent divide by zero error
-            self.state['PID_cumulativeError'] += (T_target-self.state['T_FAA'])
+            self.state['PID_cumulativeError'] += (T_target['K']-self.state['T_FAA']['K'])
             self.state['PID_cumulativeError'] = min(self.state['PID_cumulativeError'], self.ADRSettings['PID_MaxI'],key=abs) # so we dont just build this up during the mag down.
-            dV = ( self.ADRSettings['PID_KP']*(T_target-self.state['T_FAA']) \
+            dV = ( self.ADRSettings['PID_KP']*(T_target['K']-self.state['T_FAA']['K']) \
                + self.ADRSettings['PID_KI']*self.state['PID_cumulativeError'] \
-               + self.ADRSettings['PID_KD']*(self.lastState['T_FAA']-self.state['T_FAA'])/dT )['K']*units.V
+               + self.ADRSettings['PID_KD']*(self.lastState['T_FAA']['K']-self.state['T_FAA']['K'])/dT )*units.V
             # hard current limit
             if self.state['PSCurrent'] > self.ADRSettings['current_limit']*units.A:
                 if dV>0*units.V: dV=0*units.V
