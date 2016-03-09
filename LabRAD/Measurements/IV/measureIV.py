@@ -309,10 +309,10 @@ class MeasureIV(tk.Tk):
                 self.cancelAveraging()
         else:
             self.VAverages = voltages
-            self.Iaverages = currents
+            self.IAverages = currents
             
         self.plotPoints.set_xdata(self.VAverages)
-        self.plotPoints.set_ydata(self.Iaverages)     
+        self.plotPoints.set_ydata(self.IAverages)     
         
         self.cond.notify()
         self.cond.release()
