@@ -33,13 +33,21 @@ timeout = 5
 from labrad.server import setting
 from labrad.gpib import GPIBManagedServer, GPIBDeviceWrapper
 from twisted.internet.defer import inlineCallbacks, returnValue
-from labrad import units
+from labrad import units, util
 import math
 import numpy
 
 class HP3478AServer(GPIBManagedServer):
     name = 'HP3478A' # Server name
     deviceName = 'Hewlet Packard 3478A' # *IDN? doesnt work for this one, ugh
+  
+    @inlineCallbacks
+    def initServer(self):
+        """
+        
+        """
+        yield GPIBManagedServer.initServer(self)
+        yield util.wakeupCall( 3 )
   
     @setting(11, 'Get Measurement', measurement='s',range='s', trigger='s',returns = '?')
     def getMeasurement(self, c, measurement='DC volts',range='3V,3A', trigger='internal trigger'):
@@ -61,7 +69,7 @@ class HP3478AServer(GPIBManagedServer):
         queryString = 'M01Z1N5F%iR%sT%i'%(measurements[measurement],ranges[range],triggers[trigger])
         resp = yield self.HP_query(c,queryString)
         yield self.HP_write(c,'M00') #clear SRQ mode
-        print resp
+        #print resp
         if measurement[-5:]=='volts': resp = float(resp)*units.V
         elif measurement[-4:]=='ohms': resp = float(resp)*units.Ohm
         elif measurement[-7:]=='current': resp = float(resp)*units.A
