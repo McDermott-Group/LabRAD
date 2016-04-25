@@ -332,8 +332,34 @@ class MeasureIV(tk.Tk):
         else: btntext = 'Average'
         self.avgButton.config(text=btntext,command=self.averageAndSave)
     
+    def parametersAsText(self):
+        measurement = ['2-wire','3-wire','4-wire','v-phi'][self.currentTab]
+        eqn2 = ''
+        eqn3 = ''
+        eqn4 = ''
+        eqnvphi = ''
+        params = {
+            'Measurement Type': measurement,
+            'AC Resistance In [kOhms]': self.RACIn.get(),
+            'DC Resistance In [kOhms]': self.RDCIn.get(),
+            'Output Resistance [kOhms]': self.ROut.get(),
+            'AC Generator Port': self.portACIn.get(),
+            'DC Generator Port': self.portDCIn.get(),
+            'Signal Read Port': self.portOut.get(),
+            'Apmlification': self.amp.get(),
+            'Generator Frequency [Hz]': self.ACFreq.get(),
+            'AC Generator Amplitude [V]': self.ACAmp.get(),
+            'DC Generator Amplitude [V]': self.DCAmp.get(),
+            'Sampling Rate [Hz]': self.sampRate.get(),
+            'Number of Samples': self.nSamples.get(),
+            'Number of Averages': self.totalAverages.get(),
+            'Equation': [eqn2,eqn3,eqn4,eqnvphi][self.currentTab],
+            'Comments': self.comments.get(1.0, tk.END)
+        }
+        textParams = '\n'.join( [k + ': ' + str(v) for k,v in params.items()] )
+        return textParams+'\n'
+    
     def saveAveragedData(self):
-        # &&& add data about n averages, type of measurement, all the resistors and other params
         if self.savePath.get() != '.':
             i = 1
             while True:
@@ -342,7 +368,7 @@ class MeasureIV(tk.Tk):
                 i += 1
             with open(fullSavePath,'a') as f:
                 dataToSave = np.transpose(np.asarray([self.IAverages,self.VAverages]))
-                f.write(self.comments.get(1.0, tk.END))
+                f.write( self.parametersAsText() )
                 np.savetxt(f,dataToSave)
     
     def chooseSaveDirectory(self):
@@ -350,7 +376,8 @@ class MeasureIV(tk.Tk):
         currentTab = self.currentTab
         if currentTab == 0:
             chooseDirOpts['initialdir'] = 'Z:\\mcdermott-group\\Data\\Suttle Data\\Nb\\'
-        #chooseDirOpts['initialdir'] = expInfo['AFS_Directory']
+        else:
+            chooseDirOpts['initialdir'] = self.savePath.get()
         chooseDirOpts['mustexist'] = True
         chooseDirOpts['title'] = 'Choose base data directory...'
     	self.savePath.set( tkFileDialog.askdirectory(**chooseDirOpts) )
