@@ -42,7 +42,6 @@ class MeasureIV(tk.Tk):
         self.ACAmp = tk.DoubleVar()
         self.DCAmp = tk.DoubleVar()
         self.sampRate = tk.IntVar()
-        self.nSamples = tk.IntVar()
         self.savePath = tk.StringVar()
         self.fileName = tk.StringVar()
         self.RACIn.set(100)
@@ -56,7 +55,6 @@ class MeasureIV(tk.Tk):
         self.ACAmp.set(0.0)
         self.DCAmp.set(0.0)
         self.sampRate.set(10000)
-        self.nSamples.set(10000)
         self.portDCIn.trace('w',self.changeDCOutput)
         self.DCAmp.trace('w',self.changeDCOutput)
         self.portOut.trace('w',self.changeACWaves)
@@ -64,7 +62,6 @@ class MeasureIV(tk.Tk):
         self.ACFreq.trace('w',self.changeACWaves)
         self.ACAmp.trace('w',self.changeACWaves)
         self.sampRate.trace('w',self.changeACWaves)
-        self.nSamples.trace('w',self.changeACWaves)
         self.averages = tk.IntVar()
         self.totalAverages = tk.IntVar()
         self.averages.set(0)
@@ -215,7 +212,7 @@ class MeasureIV(tk.Tk):
         # Sample the wave at sampRate. Use cos such
         #   that the case of freq=0 will return DC amp.
         for n in range(samps):
-            wave[n] = amp * np.cos(2*np.pi*n*freq/samps)
+            wave[n] = amp * np.cos(2*np.pi*n/samps)
         
         # Return the wave to the caller
         return wave
@@ -225,12 +222,17 @@ class MeasureIV(tk.Tk):
             writeBuf = self.genWave(self.ACAmp.get(), self.ACFreq.get())
             
             self.waveInput = ni.CallbackTask()
-            self.waveInput.configureCallbackTask("Dev1/ai"+str(self.portOut.get()), self.sampRate.get(),len(writeBuf))
+            self.waveInput.configureCallbackTask("Dev1/ai"+str(self.portOut.get()),
+                                                self.sampRate.get(),
+                                                len(writeBuf))
             self.waveInput.setCallback(self.updateData)
             triggerName = self.waveInput.getTrigName()
             
             self.waveOutput = ni.acAnalogOutputTask()
-            self.waveOutput.configureAcAnalogOutputTask("Dev1/ao"+str(self.portACIn.get()), self.sampRate.get(),writeBuf,trigName=triggerName)
+            self.waveOutput.configureAcAnalogOutputTask("Dev1/ao"+str(self.portACIn.get()), 
+                                                        self.sampRate.get(),
+                                                        writeBuf,
+                                                        trigName=triggerName)
             
             self.waveOutput.StartTask()
             self.waveInput.StartTask()
@@ -351,7 +353,6 @@ class MeasureIV(tk.Tk):
             'AC Generator Amplitude [V]': self.ACAmp.get(),
             'DC Generator Amplitude [V]': self.DCAmp.get(),
             'Sampling Rate [Hz]': self.sampRate.get(),
-            'Number of Samples': self.nSamples.get(),
             'Number of Averages': self.totalAverages.get(),
             'Equation': [eqn2,eqn3,eqn4,eqnvphi][self.currentTab],
             'Comments': self.comments.get(1.0, tk.END)
@@ -375,7 +376,7 @@ class MeasureIV(tk.Tk):
     	chooseDirOpts = {}
         currentTab = self.currentTab
         if currentTab == 0:
-            chooseDirOpts['initialdir'] = 'Z:\\mcdermott-group\\Data\\Suttle Data\\Nb\\'
+            chooseDirOpts['initialdir'] = 'Z:\\mcdermott-group\\Data\\Suttle Data\\Nb\\Gen5D\\08122016PE600\\IV'
         else:
             chooseDirOpts['initialdir'] = self.savePath.get()
         chooseDirOpts['mustexist'] = True
